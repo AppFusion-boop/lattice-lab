@@ -74,3 +74,13 @@ The DSO-02 simulator includes two ideal signal generators (sine, square, triangl
 Stop retains the last captured signal and settings. Measurements use a full period of that synthetic signal, not a hardware acquisition. The displayed effective sample rate depends on the time window; an undersampling notice appears when a source exceeds Nyquist. Physical bandwidth, ADC quantization, probe loading, filter transients and circuit behavior are not modeled.
 
 Reference: https://www.tek.com/en/documents/primer/evaluating-oscilloscopes
+
+## Experiment builder
+
+The default workspace is a typed React Flow graph with a scene editor and connected results. The initial example routes dry and mist pressure sensors through explicit pressure-to-voltage mappings to a two-channel display. Move sensors in the scene or change their normalized coordinates in the inspector; output samples use bilinear interpolation of the actual acoustic grid. Connect handles by dragging, or choose input sources in the inspector. Run/pause and scrub share one timeline.
+
+Node types: scene, pressure sensor, unit mapping, causal low-pass filter, voltage generator, oscilloscope, educational scientific instrument, and XY spectrum display. The instrument source supports the existing eight models. Incompatible types, occupied inputs and feedback cycles are rejected. This version supports one scene and up to 40 nodes. Connections and semantic parameter edits re-evaluate downstream signals; position-only graph changes do not re-run the physical solver.
+
+Save stores the current graph in this browser. JSON export/import preserves the graph and parameters and validates imported data; CSV exports connected signal or spectrum data. Undo/redo applies to graph structure, parameter changes and node/sensor drags. The flow scope is a shared-timeline viewer; the separate Oscilloscope workspace retains the full generator/trigger controls.
+
+Pressure is normalized p/p0, and the user-selected voltage conversion is an assumed sensitivity, not calibrated hardware. This scene retains the acoustic solver limitations documented above: no methane chemistry, reacting-flow CFD, droplet physics or injury model.
