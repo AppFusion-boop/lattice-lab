@@ -1,0 +1,5 @@
+Tunnel section: corridor-wide.glb, Kenney Modular Cave Kit 1.0
+Author: Kenney
+License: CC0 1.0 Universal
+Source: https://kenney.nl/assets/modular-cave-kit
+Downloaded 2026-10-08. Repeated and supplemented with procedural arches, pipes, lights and floor for this presentation.

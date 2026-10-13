@@ -1,5 +1,12 @@
-import { useContext, createContext } from "react";
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { L, message } from "./core/ka";
+import { memo, useEffect, useContext, createContext } from "react";
+import {
+  Handle,
+  Position,
+  useUpdateNodeInternals,
+  type NodeProps,
+  type Node,
+} from "@xyflow/react";
 import {
   Check,
   AlertCircle,
@@ -22,6 +29,7 @@ import {
   Sun,
   Sigma,
   Waves,
+  CloudRain,
   Spline,
   ChartNoAxesCombined,
   Zap,
@@ -60,7 +68,13 @@ const iconMap = {
   Table2,
   ListOrdered,
 };
-import { getDefinition } from "./core/registry";
+import {
+  getDefinition,
+  nodeDefinition,
+  attachedSensors,
+  attachedEvents,
+} from "./core/registry";
+import { eventDefinition } from "./core/scene-events";
 import { inputPacket, outputTypes } from "./core/runtime";
 import {
   typeColors,
@@ -92,6 +106,9 @@ export function NodeIcon({ name, size = 17 }: { name: string; size?: number }) {
   return <Icon size={size} />;
 }
 export function SceneMini({ node }: { node: LabNode }) {
+  const { project } = useContext(FlowContext);
+  const sensors = attachedSensors(project, node.id);
+  const events = attachedEvents(project, node.id);
   const objects = (node.params.objects || []) as {
     position: { x: number; z: number };
     size: { x: number; z: number };
@@ -103,7 +120,7 @@ export function SceneMini({ node }: { node: LabNode }) {
       viewBox="0 0 240 100"
       className="scene-mini"
       role="img"
-      aria-label="Scene object layout"
+      aria-label="სცენის ობიექტების განლაგება"
     >
       <defs>
         <pattern
@@ -152,11 +169,35 @@ export function SceneMini({ node }: { node: LabNode }) {
           />
         );
       })}
+      {events.map((e) => (
+        <g key={e.id}>
+          <circle
+            cx={10 + (Number(e.params.x) / Number(node.params.width)) * 220}
+            cy={8 + (Number(e.params.z) / Number(node.params.depth)) * 78}
+            r="8"
+            fill="none"
+            stroke={eventDefinition(e.kind)?.color}
+          />
+          <title>{e.label}</title>
+        </g>
+      ))}
+      {sensors.map((s) => (
+        <g key={s.id}>
+          <circle
+            cx={10 + (Number(s.params.x) / Number(node.params.width)) * 220}
+            cy={8 + (Number(s.params.z) / Number(node.params.depth)) * 78}
+            r="4"
+            fill="#2e968d"
+            stroke="white"
+          />
+          <title>{s.label}</title>
+        </g>
+      ))}
       <text x="12" y="98">
-        {node.params.width as number} × {node.params.depth as number} m
+        {node.params.width as number} × {node.params.depth as number} მ
       </text>
       <text x="228" y="98" textAnchor="end">
-        {objects.length} OBJECTS
+        {sensors.length} სენსორი · {events.length} მოვლენა
       </text>
     </svg>
   );
@@ -165,7 +206,13 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
   const { project, run, running, openScene, openResults } =
       useContext(FlowContext),
     n = data.node,
-    d = getDefinition(n.kind, project.tools)!;
+    d = nodeDefinition(n, project)!;
+  const updateInternals = useUpdateNodeInternals();
+  const portIds =
+    d.inputs.map((p) => p.id).join() + d.outputs.map((p) => p.id).join();
+  useEffect(() => {
+    updateInternals(n.id);
+  }, [n.id, portIds, updateInternals]);
   const category = categories.find((c) => c.id === d.category)!;
   const result = run?.results[n.id];
   const outputs = result?.outputs;
@@ -194,14 +241,14 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
         <div>
           <b>{n.label}</b>
           <small>
-            {d.category} · {d.title}
+            {L(d.category)} · {d.title}
           </small>
         </div>
         <span
           className={
             "node-status " + (running ? "running" : result?.status || "idle")
           }
-          title={running ? "Running" : result?.message || "Not run"}
+          title={running ? "მიმდინარეობს" : message(result?.message || "არ გაშვებულა")}
         >
           {result?.status === "ok" ? (
             <Check size={11} />
@@ -216,7 +263,7 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
         <div className="node-body scene-node">
           <SceneMini node={n} />
           <button className="nodrag" onClick={() => openScene(n.id)}>
-            Open scene
+            სცენის გახსნა
             <ArrowUpRight size={12} />
           </button>
         </div>
@@ -225,13 +272,13 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
           <div className="tiny-legend">
             <span>
               <i />
-              CH 1
+              არხი 1
             </span>
             <span>
               <i />
-              CH 2
+              არხი 2
             </span>
-            <b>TIME DOMAIN</b>
+            <b>დროის მიხედვით</b>
           </div>
           <SignalPlot
             signals={[
@@ -241,7 +288,7 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
             small
           />
           <button className="nodrag" onClick={() => openResults(n.id)}>
-            Inspect signals
+            სიგნალების დათვალიერება
             <ArrowUpRight size={11} />
           </button>
         </div>
@@ -250,15 +297,15 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
           <code>{String(n.params.expression)}</code>
           <span>
             {String(n.params.unit)}
-            <small>EXPLICIT OUTPUT UNIT</small>
+            <small>გამომავალი ერთეული</small>
           </span>
         </div>
       ) : d.category === "Sensors" ? (
         <div className="node-body sensor-node">
           <div>
-            <span>POSITION</span>
+            <span>პოზიცია</span>
             <code>
-              {String(n.params.x)}, {String(n.params.y)}, {String(n.params.z)} m
+              {String(n.params.x)}, {String(n.params.y)}, {String(n.params.z)} მ
             </code>
           </div>
           {first?.type === "signal" ? (
@@ -266,14 +313,25 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
           ) : (
             <div className="sensor-idle">
               <Radio size={18} />
-              <span>Ideal sensor model</span>
+              <span>სენსორის იდეალური მოდელი</span>
             </div>
           )}
+        </div>
+      ) : d.category === "Scene events" ? (
+        <div className="node-body">
+          <div className="event-node-summary">
+            <span>
+              {n.params.enabled === "Off" ? "გამორთულია" : "დაგეგმილი ეფექტი"}
+            </span>
+            <code>
+              {String(n.params.start)} წმ + {String(n.params.duration)} წმ
+            </code>
+          </div>
         </div>
       ) : n.kind === "manual" ? (
         <div className="node-body trigger-node">
           <MousePointer2 size={14} />
-          <span>On workflow run</span>
+          <span>ფლოუს გაშვებისას</span>
           <kbd>t = 0</kbd>
         </div>
       ) : inspect ? (
@@ -317,13 +375,15 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
               id={p.id}
               type="target"
               position={Position.Left}
-              aria-label={n.label + " input " + p.id}
+              aria-label={n.label + " შემავალი " + p.label}
             />
             <span>
               {p.label}
-              {p.optional && <sup>optional</sup>}
+              {p.optional && <sup>{p.multiple ? "მრავალი" : "არჩევითი"}</sup>}
             </span>
-            <code>{p.types.length > 3 ? "any" : p.types.join(" | ")}</code>
+            <code>
+              {p.types.length > 3 ? "ყველა" : p.types.map(L).join(" | ")}
+            </code>
           </div>
         ))}
         {d.outputs.map((p) => {
@@ -338,13 +398,13 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
                 } as React.CSSProperties
               }
             >
-              <code>{types.join(" | ")}</code>
+              <code>{types.map(L).join(" | ")}</code>
               <span>{p.label}</span>
               <Handle
                 id={p.id}
                 type="source"
                 position={Position.Right}
-                aria-label={n.label + " output " + p.id}
+                aria-label={n.label + " გამომავალი " + p.label}
               />
             </div>
           );
@@ -353,4 +413,4 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
     </div>
   );
 }
-export const nodeTypes = { lab: LabNodeCard };
+export const nodeTypes = { lab: memo(LabNodeCard) };

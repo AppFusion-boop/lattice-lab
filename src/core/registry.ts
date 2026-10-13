@@ -1,3 +1,12 @@
+import { L } from "./ka.ts";
+import {
+  sceneEvents,
+  spatialFields,
+  scheduleFields,
+  eventConfig,
+} from "./scene-events.ts";
+import { sampleSensor, sensorUnits } from "./sensor-model.ts";
+import type { Project, LabNode, SceneData } from "./types.ts";
 import {
   sceneDefaults,
   type NodeDefinition,
@@ -121,6 +130,8 @@ const all: DataType[] = [
   "signal",
   "table",
   "scene",
+  "sensor",
+  "sceneEvent",
 ];
 const formulaEval = (c: EvalContext) => {
   const fn = compileExpression(s(c, "expression"));
@@ -158,6 +169,30 @@ const formulaEval = (c: EvalContext) => {
   };
 };
 export const definitions: NodeDefinition[] = [
+  ...sceneEvents.map((event): NodeDefinition => ({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    category: "Scene events",
+    icon: event.icon,
+    inputs: [port("trigger", "Schedule", ["event"], true)],
+    outputs: [port("effect", "Scene event", ["sceneEvent"])],
+    fields: [...scheduleFields, ...spatialFields, ...event.fields],
+    help:
+      event.help +
+      " შეაერთეთ სცენის მოვლენების პორტთან. ტრიგერის ყოველი ნიშნული გეგმავს ახალ ამოქმედებას მითითებული წანაცვლებით.",
+    evaluate: (c) => {
+      const trigger =
+        c.inputs.trigger?.type === "event" ? c.inputs.trigger.value : undefined;
+      const config = eventConfig(c.node, trigger);
+      if (config.starts.length > 256)
+        throw Error(
+          "Scene events support up to 256 trigger timestamps per run",
+        );
+      event.validate?.(c.params, c.sampleRate);
+      return { effect: { type: "sceneEvent", value: config } };
+    },
+  })),
   {
     id: "manual",
     title: "Manual trigger",
@@ -209,9 +244,14 @@ export const definitions: NodeDefinition[] = [
         : "Build a scene or import an OBJ model",
     category: "Scenes",
     icon: d === 2 ? "LayoutTemplate" : "Box",
-    inputs: [],
+    inputs: [
+      { ...port("sensors", "Sensors", ["sensor"], true), multiple: true },
+      { ...port("events", "Events", ["sceneEvent"], true), multiple: true },
+      port("trigger", "Start", ["event"], true),
+    ],
     outputs: [port("scene", "Environment", ["scene"])],
     fields: [
+      sel("environment", "გარემო", "Open space", ["Open space", "Tunnel"]),
       num("width", "Width", 20, 2, 100, "m"),
       num("depth", "Depth", 12, 2, 100, "m"),
       num("height", "Height", 8, 2, 50, "m"),
@@ -221,12 +261,41 @@ export const definitions: NodeDefinition[] = [
       num("frequency", "Source frequency", 8, 0.1, 500, "Hz"),
     ],
     help: "Scene geometry and analytical sensor fields are separate. Meshes are visual geometry; no collision, fluid, combustion or heat solver is implied.",
-    evaluate: (c: EvalContext) => ({
-      scene: {
-        type: "scene",
-        value: { ...sceneDefaults(d as 2 | 3), ...c.params, dimension: d },
-      } as Packet,
-    }),
+    evaluate: (c: EvalContext) => {
+      const env = {
+        ...sceneDefaults(d as 2 | 3),
+        ...c.params,
+        dimension: d,
+        events: (c.inputLists.events || []).flatMap((p) =>
+          p.type === "sceneEvent" ? [p.value] : [],
+        ),
+      } as SceneData;
+      const out: Record<string, Packet> = {
+        scene: { type: "scene", value: env },
+      };
+      for (const packet of c.inputLists.sensors || []) {
+        if (packet.type !== "sensor") continue;
+        const config = packet.value;
+        out[sensorOutputId(config.id)] = sampleSensor({
+          ...c,
+          params: config.params,
+          node: {
+            ...c.node,
+            id: config.id,
+            label: config.label,
+            kind: config.kind,
+          },
+          inputs: {
+            scene: { type: "scene", value: env },
+            position: { type: "vector3", value: config.position, unit: "m" },
+            trigger: config.events
+              ? { type: "event", value: config.events }
+              : c.inputs.trigger,
+          },
+        });
+      }
+      return out;
+    },
   })),
   {
     id: "constant",
@@ -448,11 +517,10 @@ export const definitions: NodeDefinition[] = [
     category: "Sensors",
     icon: spec.icon,
     inputs: [
-      port("scene", "Scene", ["scene"]),
       port("position", "Position", ["vector3"], true),
       port("trigger", "Start", ["event"], true),
     ],
-    outputs: [port("signal", "Reading", ["signal"])],
+    outputs: [port("sensor", "Attach to scene", ["sensor"])],
     fields: [
       num("x", "Position X", 12, 0, 100, "m"),
       num("y", "Position Y", 1, 0, 50, "m"),
@@ -467,85 +535,30 @@ export const definitions: NodeDefinition[] = [
           ]
         : []),
     ],
-    help: "Ideal synthetic sensor, not a hardware driver. Position samples an analytical field. Sensitivity, bias and first-order response are applied. Visual obstacles do not alter this field.",
+    help: "Connect this sensor output to a scene. It appears in the scene and creates a dedicated signal output there. Sensitivity, bias and response configure an ideal analytical model.",
     evaluate: (c: EvalContext) => {
-      const p = c.inputs.scene;
-      if (p?.type !== "scene") throw Error("Connect a scene");
-      const env = p.value;
-      const vec = c.inputs.position;
-      if (vec?.type === "vector3" && vec.unit !== "m")
+      const vector = c.inputs.position;
+      if (vector?.type === "vector3" && vector.unit !== "m")
         throw Error("Position vector must use meters");
-      const pos =
-        vec?.type === "vector3"
-          ? vec.value
-          : { x: n(c, "x"), y: n(c, "y"), z: n(c, "z") };
-      if (
-        pos.x < 0 ||
-        pos.x > env.width ||
-        pos.z < 0 ||
-        pos.z > env.depth ||
-        pos.y < 0 ||
-        pos.y > env.height
-      )
-        throw Error("Sensor position is outside the scene");
-      const start =
-        c.inputs.trigger?.type === "event"
-          ? (c.inputs.trigger.value[0] ?? Infinity)
-          : 0;
-      const sources = env.objects.filter((o) => o.shape === "source");
-      if (
-        ["pressure", "microphone", "accelerometer"].includes(spec.id) &&
-        Math.max(
-          env.frequency,
-          spec.id === "accelerometer" ? n(c, "frequency") : 0,
-        ) >=
-          c.sampleRate / 2
-      )
-        throw Error("Source frequency exceeds the sample-rate limit");
-      let previous: number | undefined;
-      const values = c.times.map((t, i) => {
-        let value = 0;
-        if (t >= start) {
-          const tt = t - start;
-          if (spec.id === "temperature")
-            value =
-              env.temperature +
-              0.05 * pos.x +
-              0.5 * Math.sin(2 * Math.PI * 0.2 * tt);
-          else if (spec.id === "light")
-            value = env.light / (1 + 0.03 * pos.x * pos.x);
-          else if (spec.id === "accelerometer")
-            value =
-              n(c, "amplitude") *
-              Math.exp(-tt) *
-              Math.sin(2 * Math.PI * n(c, "frequency") * tt);
-          else
-            for (const source of sources) {
-              const distance = Math.hypot(
-                pos.x - source.position.x,
-                env.dimension === 3 ? pos.y - source.position.y : 0,
-                pos.z - source.position.z,
-              );
-              const delay = tt - distance / 343;
-              if (delay >= 0)
-                value +=
-                  (env.amplitude / (1 + distance)) *
-                  (spec.id === "microphone"
-                    ? Math.sin(2 * Math.PI * env.frequency * delay)
-                    : Math.exp(-Math.pow((delay - 0.05) / 0.015, 2)) -
-                      0.2 * Math.exp(-Math.pow((delay - 0.1) / 0.035, 2)));
-            }
-        }
-        value = value * n(c, "sensitivity") + n(c, "bias");
-        const alpha =
-          n(c, "tau") <= 0 ? 1 : 1 - Math.exp(-1 / c.sampleRate / n(c, "tau"));
-        previous =
-          previous === undefined
-            ? value
-            : previous + alpha * (value - previous);
-        return previous;
-      });
-      return { signal: signal(values, c.times, spec.unit, c.node.label) };
+      return {
+        sensor: {
+          type: "sensor",
+          value: {
+            id: c.node.id,
+            label: c.node.label,
+            kind: spec.id,
+            unit: spec.unit,
+            params: c.params,
+            position:
+              vector?.type === "vector3"
+                ? vector.value
+                : { x: n(c, "x"), y: n(c, "y"), z: n(c, "z") },
+            ...(c.inputs.trigger?.type === "event"
+              ? { events: c.inputs.trigger.value }
+              : {}),
+          },
+        } as Packet,
+      };
     },
   })),
   {
@@ -862,6 +875,16 @@ export const definitions: NodeDefinition[] = [
     evaluate: () => ({}),
   },
 ];
+for (const d of definitions) {
+  d.title = L(d.title);
+  d.description = L(d.description);
+  d.help = L(d.help);
+  for (const f of d.fields) {
+    f.label = L(f.label);
+    if (f.help) f.help = L(f.help);
+  }
+  for (const p of [...d.inputs, ...d.outputs]) p.label = L(p.label);
+}
 export const registry: Record<string, NodeDefinition> = Object.fromEntries(
   definitions.map((d) => [d.id, d]),
 );
@@ -876,7 +899,7 @@ export function getDefinition(
         ...registry.formula,
         id: custom.id,
         title: custom.label,
-        description: "Reusable formula · " + custom.expression,
+        description: "მრავალჯერადი ფორმულა · " + custom.expression,
         fields: registry.formula.fields.map((f) => ({
           ...f,
           default:
@@ -896,4 +919,63 @@ export function defaultParams(kind: string, tools: CustomTool[] = []) {
   return kind.startsWith("scene")
     ? { ...sceneDefaults(kind === "scene3d" ? 3 : 2), ...p }
     : p;
+}
+
+export const sensorOutputId = (id: string) => "sensor:" + id;
+export function attachedSensors(project: Project, sceneId: string): LabNode[] {
+  return project.edges
+    .filter((e) => e.target === sceneId && e.targetHandle === "sensors")
+    .map((e) => project.nodes.find((n) => n.id === e.source))
+    .filter(
+      (n): n is LabNode =>
+        !!n && getDefinition(n.kind, project.tools)?.category === "Sensors",
+    );
+}
+export function nodeDefinition(
+  node: LabNode,
+  project: Project,
+): NodeDefinition | undefined {
+  const base = getDefinition(node.kind, project.tools);
+  if (!base || base.category !== "Scenes") return base;
+  return {
+    ...base,
+    outputs: [
+      ...base.outputs,
+      ...attachedSensors(project, node.id).map((sensor) => ({
+        id: sensorOutputId(sensor.id),
+        label: sensor.label + " · " + sensorUnits[sensor.kind],
+        types: ["signal"] as DataType[],
+      })),
+    ],
+  };
+}
+export function pruneSceneConnections(project: Project): Project {
+  const edges = project.edges.filter((e) => {
+    const source = project.nodes.find((n) => n.id === e.source),
+      target = project.nodes.find((n) => n.id === e.target);
+    return (
+      source &&
+      target &&
+      nodeDefinition(source, project)?.outputs.some(
+        (p) => p.id === e.sourceHandle,
+      ) &&
+      nodeDefinition(target, project)?.inputs.some(
+        (p) => p.id === e.targetHandle,
+      )
+    );
+  });
+  return edges.length === project.edges.length
+    ? project
+    : { ...project, edges };
+}
+
+export function attachedEvents(project: Project, sceneId: string): LabNode[] {
+  return project.edges
+    .filter((e) => e.target === sceneId && e.targetHandle === "events")
+    .map((e) => project.nodes.find((n) => n.id === e.source))
+    .filter(
+      (n): n is LabNode =>
+        !!n &&
+        getDefinition(n.kind, project.tools)?.category === "Scene events",
+    );
 }

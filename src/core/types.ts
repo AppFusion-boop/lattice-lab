@@ -6,7 +6,9 @@ export type DataType =
   | "vector3"
   | "signal"
   | "table"
-  | "scene";
+  | "scene"
+  | "sensor"
+  | "sceneEvent";
 export type Vec3 = { x: number; y: number; z: number };
 export type Object3D = {
   id: string;
@@ -20,6 +22,7 @@ export type Object3D = {
 };
 export type SceneData = {
   dimension: 2 | 3;
+  environment?: string;
   width: number;
   depth: number;
   height: number;
@@ -28,6 +31,7 @@ export type SceneData = {
   amplitude: number;
   frequency: number;
   objects: Object3D[];
+  events?: SceneEventConfig[];
 };
 export type Signal = {
   times: number[];
@@ -36,6 +40,22 @@ export type Signal = {
   name: string;
 };
 export type Table = { columns: string[]; rows: (number | string)[][] };
+export type SensorConfig = {
+  id: string;
+  label: string;
+  kind: string;
+  unit: string;
+  params: Config;
+  position: Vec3;
+  events?: number[];
+};
+export type SceneEventConfig = {
+  id: string;
+  label: string;
+  kind: string;
+  params: Config;
+  starts: number[];
+};
 export type Packet =
   | { type: "event"; value: number[] }
   | { type: "number"; value: number; unit: string }
@@ -44,12 +64,15 @@ export type Packet =
   | { type: "vector3"; value: Vec3; unit: string }
   | { type: "signal"; value: Signal }
   | { type: "table"; value: Table }
-  | { type: "scene"; value: SceneData };
+  | { type: "scene"; value: SceneData }
+  | { type: "sensor"; value: SensorConfig }
+  | { type: "sceneEvent"; value: SceneEventConfig };
 export type Port = {
   id: string;
   label: string;
   types: DataType[];
   optional?: boolean;
+  multiple?: boolean;
 };
 export type Field = {
   key: string;
@@ -85,7 +108,7 @@ export type CustomTool = {
   unit: string;
 };
 export type Project = {
-  version: 2;
+  version: 3;
   name: string;
   duration: number;
   sampleRate: number;
@@ -112,6 +135,7 @@ export type EvalContext = {
   times: number[];
   params: Config;
   inputs: Record<string, Packet | undefined>;
+  inputLists: Record<string, Packet[]>;
   node: LabNode;
 };
 export type NodeDefinition = {
@@ -135,8 +159,11 @@ export const typeColors: Record<DataType, string> = {
   signal: "#2b968d",
   table: "#619066",
   scene: "#5e89c6",
+  sensor: "#489c91",
+  sceneEvent: "#cf8860",
 };
 export const categories = [
+  { id: "Scene events", ka: "სცენის მოვლენები", color: "#cf8860" },
   { id: "Triggers", ka: "ტრიგერები", color: "#c38e41" },
   { id: "Scenes", ka: "სცენები", color: "#6c88b8" },
   { id: "Data", ka: "მონაცემები", color: "#77966c" },
@@ -154,8 +181,8 @@ export const signature = (p: Project) =>
     tools: p.tools,
   });
 export const blankProject = (): Project => ({
-  version: 2,
-  name: "Untitled workflow",
+  version: 3,
+  name: "უსახელო ფლოუ",
   duration: 2,
   sampleRate: 200,
   nodes: [],
@@ -174,7 +201,7 @@ export const sceneDefaults = (dimension: 2 | 3): SceneData => ({
   objects: [
     {
       id: "source",
-      name: "Wave source",
+      name: "ტალღის წყარო",
       shape: "source",
       position: { x: 3, y: 1, z: 6 },
       size: { x: 0.5, y: 0.5, z: 0.5 },
@@ -183,7 +210,7 @@ export const sceneDefaults = (dimension: 2 | 3): SceneData => ({
     },
     {
       id: "box",
-      name: "Test object",
+      name: "სატესტო ობიექტი",
       shape: "box",
       position: { x: 10, y: 1, z: 3 },
       size: { x: 3, y: 2, z: 2 },

@@ -1,4 +1,9 @@
-import { useId } from "react";
+import { L, message } from "./core/ka";
+import { useId, useContext, createContext } from "react";
+export const PlotClock = createContext<{
+  time: number;
+  duration: number;
+} | null>(null);
 import type { Packet, Signal } from "./core/types";
 export function SignalPlot({
   signals,
@@ -9,21 +14,25 @@ export function SignalPlot({
   small?: boolean;
   cursor?: number;
 }) {
+  const clock = useContext(PlotClock);
   const id = useId(),
     w = small ? 240 : 720,
     h = small ? 95 : 245,
     pad = small ? 8 : 45,
-    valid = signals.filter(Boolean) as Signal[];
+    valid = signals.filter((s) => s && s.times.length > 0) as Signal[];
   if (!valid.length)
     return (
       <div className="plot-empty">
         {small
-          ? "Connect a signal · run to preview"
-          : "Connect a signal and run the workflow to see data."}
+          ? "შეაერთეთ სიგნალი და გაუშვით"
+          : "მონაცემების სანახავად შეაერთეთ სიგნალი და გაუშვით ფლოუ."}
       </div>
     );
-  const t0 = Math.min(...valid.map((s) => s.times[0])),
-    t1 = Math.max(...valid.map((s) => s.times.at(-1)!));
+  const t0 = clock ? 0 : Math.min(...valid.map((s) => s.times[0])),
+    t1 = clock
+      ? clock.duration
+      : Math.max(...valid.map((s) => s.times.at(-1)!));
+  const position = clock ? clock.time / clock.duration : cursor;
   const units = [...new Set(valid.map((s) => s.unit))];
   if (units.length > 1)
     return (
@@ -46,7 +55,7 @@ export function SignalPlot({
       className={"signal-plot " + (small ? "mini" : "")}
       viewBox={"0 0 " + w + " " + h}
       role="img"
-      aria-label="Computed signal plot"
+      aria-label="გამოთვლილი სიგნალის გრაფიკი"
     >
       <defs>
         <clipPath id={id}>
@@ -81,12 +90,12 @@ export function SignalPlot({
             y={h - 15}
             textAnchor="middle"
           >
-            {(t0 + r * (t1 - t0)).toFixed(2)} s
+            {(t0 + r * (t1 - t0)).toFixed(2)} წმ
           </text>
         ))}
       <g clipPath={"url(#" + id + ")"}>
         {signals.map((s, j) => {
-          if (!s) return null;
+          if (!s || !s.times.length) return null;
           const path = s.times
             .map(
               (t, i) =>
@@ -113,8 +122,8 @@ export function SignalPlot({
           );
         })}
         <line
-          x1={pad + cursor * (w - pad - 12)}
-          x2={pad + cursor * (w - pad - 12)}
+          x1={pad + position * (w - pad - 12)}
+          x2={pad + position * (w - pad - 12)}
           y1="10"
           y2={h - pad}
           stroke="#648aaa"
@@ -136,7 +145,7 @@ export function PacketView({
   packet?: Packet;
   compact?: boolean;
 }) {
-  if (!packet) return <span className="no-data">No data yet</span>;
+  if (!packet) return <span className="no-data">მონაცემები ჯერ არ არის</span>;
   if (packet.type === "signal")
     return <SignalPlot small={compact} signals={[packet.value]} />;
   if (packet.type === "number")
@@ -166,26 +175,46 @@ export function PacketView({
         <small>{packet.unit}</small>
       </div>
     );
+  if (packet.type === "sceneEvent")
+    return (
+      <div className="packet-value">
+        <strong>{packet.value.label}</strong>
+        <p>
+          {packet.value.starts.length} დაგეგმილი ამოქმედება · დააკავშირეთ
+          სცენასთან
+        </p>
+      </div>
+    );
+  if (packet.type === "sensor")
+    return (
+      <div className="packet-caption">
+        {packet.value.label} · {packet.value.unit}
+        <br />
+        სიგნალის მისაღებად დააკავშირეთ სცენასთან
+      </div>
+    );
   if (packet.type === "scene")
     return (
       <div className="packet-caption">
-        {packet.value.dimension}D · {packet.value.objects.length} objects ·{" "}
-        {packet.value.width} × {packet.value.depth} m
+        {packet.value.dimension}D · {packet.value.objects.length} ობიექტი ·{" "}
+        {packet.value.width} × {packet.value.depth} მ
       </div>
     );
   if (packet.type === "event")
     return (
       <div className="events-value">
-        <b>{packet.value.length} events</b>
+        <b>{packet.value.length} მოვლენა</b>
         <div>
           {packet.value.slice(0, compact ? 3 : 100).map((t, i) => (
             <span key={i}>
               #{i + 1}
-              <code>{t.toFixed(4)} s</code>
+              <code>{t.toFixed(4)} წმ</code>
             </span>
           ))}
         </div>
-        {!packet.value.length && <small>No matching events in this run</small>}
+        {!packet.value.length && (
+          <small>ამ დრომდე შესაბამისი მოვლენა არ არის</small>
+        )}
       </div>
     );
   if (packet.type === "table")
@@ -210,7 +239,9 @@ export function PacketView({
           </tbody>
         </table>
         {!compact && (
-          <small>{packet.value.rows.length} rows · first 100 shown</small>
+          <small>
+            {packet.value.rows.length} სტრიქონი · ნაჩვენებია პირველი 100
+          </small>
         )}
       </div>
     );

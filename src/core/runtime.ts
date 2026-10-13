@@ -1,4 +1,10 @@
-import { getDefinition, defaultParams } from "./registry.ts";
+import { L } from "./ka.ts";
+import {
+  getDefinition,
+  defaultParams,
+  nodeDefinition,
+  sensorOutputId,
+} from "./registry.ts";
 import { compileExpression } from "./expression.ts";
 import {
   signature,
@@ -32,7 +38,7 @@ export function outputTypes(
   seen = new Set<string>(),
 ): DataType[] {
   const node = p.nodes.find((n) => n.id === id),
-    def = node && getDefinition(node.kind, p.tools);
+    def = node && nodeDefinition(node, p);
   if (!node || !def) return [];
   if (
     (node.kind === "formula" || p.tools.some((t) => t.id === node.kind)) &&
@@ -60,10 +66,10 @@ export function connectionError(
     target = p.nodes.find((n) => n.id === w.target);
   if (!source || !target) return "Missing node";
   if (source.id === target.id) return "A node cannot connect to itself";
-  const src = getDefinition(source.kind, p.tools)!.outputs.find(
+  const src = nodeDefinition(source, p)!.outputs.find(
       (x) => x.id === w.sourceHandle,
     ),
-    dest = getDefinition(target.kind, p.tools)!.inputs.find(
+    dest = nodeDefinition(target, p)!.inputs.find(
       (x) => x.id === w.targetHandle,
     );
   if (!src || !dest) return "Unknown port";
@@ -73,6 +79,17 @@ export function connectionError(
       "Type mismatch: " + actual.join(" | ") + " → " + dest.types.join(" | ")
     );
   if (
+    p.edges.some(
+      (e) =>
+        e.source === w.source &&
+        e.sourceHandle === w.sourceHandle &&
+        e.target === w.target &&
+        e.targetHandle === w.targetHandle,
+    )
+  )
+    return "This output is already connected";
+  if (
+    !dest.multiple &&
     p.edges.some(
       (e) => e.target === w.target && e.targetHandle === w.targetHandle,
     )
@@ -113,19 +130,29 @@ export function execute(p: Project): Run {
     if (visiting.has(id)) throw Error("Cycle in graph");
     visiting.add(id);
     const node = p.nodes.find((n) => n.id === id)!;
-    const d = getDefinition(node.kind, p.tools);
+    const d = nodeDefinition(node, p);
     const start = performance.now();
     let status: NodeResult["status"] = "ok",
       message = "Complete";
     const inputs: Record<string, Packet | undefined> = Object.create(null);
+    const inputLists: Record<string, Packet[]> = Object.create(null);
     let outputs: Record<string, Packet> = {};
     try {
       if (!d) throw Error("Unknown node definition");
       for (const port of d.inputs) {
-        const edge = p.edges.find(
+        const wires = p.edges.filter(
           (e) => e.target === id && e.targetHandle === port.id,
         );
-        if (edge) {
+        if (!wires.length && !port.optional) {
+          status = "waiting";
+          throw Error("Connect " + port.label);
+        }
+        if (wires.length > 1 && !port.multiple)
+          throw Error(
+            "Multiple connections are not supported on " + port.label,
+          );
+        inputLists[port.id] = [];
+        for (const edge of wires) {
           const previous = evaluate(edge.source);
           if (previous.status !== "ok") {
             status = "waiting";
@@ -138,11 +165,9 @@ export function execute(p: Project): Run {
             throw Error(
               "Input " + port.label + " expects " + port.types.join(" | "),
             );
-          inputs[port.id] = packet;
-        } else if (!port.optional) {
-          status = "waiting";
-          throw Error("Connect " + port.label);
+          inputLists[port.id].push(packet);
         }
+        inputs[port.id] = inputLists[port.id][0];
       }
       outputs = d.evaluate({
         duration: p.duration,
@@ -150,6 +175,7 @@ export function execute(p: Project): Run {
         times,
         params: node.params,
         inputs,
+        inputLists,
         node,
       });
       for (const [key, value] of Object.entries(outputs)) {
@@ -213,18 +239,44 @@ export function exampleProject(template = "sensor"): Project {
   if (template === "sensor") {
     p.name = "Acoustic sensor · signal chain";
     add("start", "manual", 0, 0);
-    add("scene", "scene3d", 0, 190);
-    add("sensor", "pressure", 325, 120);
+    add("scene", "scene3d", 325, 90);
+    add("sensor", "pressure", 0, 190);
     add("formula", "formula", 655, 110, { expression: "a * 0.01", unit: "V" });
     add("scope", "scope", 990, 110);
     add("threshold", "threshold", 650, 395, { level: 0.2 });
     add("monitor", "eventlog", 990, 420);
-    link("start", "event", "sensor", "trigger");
-    link("scene", "scene", "sensor", "scene");
-    link("sensor", "signal", "formula", "a");
+    link("start", "event", "scene", "trigger");
+    link("sensor", "sensor", "scene", "sensors");
+    link("scene", sensorOutputId("sensor"), "formula", "a");
     link("formula", "result", "scope", "ch1");
     link("formula", "result", "threshold", "signal");
     link("threshold", "event", "monitor", "event");
+  } else if (template === "scene-events") {
+    p.name = "Scene events · controlled comparison";
+    add("pulse", "wavePulse", 0, -160, { x: 5, y: 1, z: 6, radius: 25 });
+    add("zone", "dampingZone", 0, 130, {
+      x: 12,
+      y: 1,
+      z: 6,
+      start: 0,
+      duration: 2,
+      radius: 8,
+      falloff: "Uniform",
+      reduction: 60,
+    });
+    add("sensor", "pressure", 0, 420, { x: 12, y: 1, z: 6 });
+    const a = add("scene", "scene2d", 350, -100, { objects: [] });
+    a.label = "A · Reference";
+    const b = add("treated", "scene2d", 350, 400, { objects: [] });
+    b.label = "B · Damping zone";
+    add("scope", "scope", 730, 170);
+    link("pulse", "effect", "scene", "events");
+    link("pulse", "effect", "treated", "events");
+    link("zone", "effect", "treated", "events");
+    link("sensor", "sensor", "scene", "sensors");
+    link("sensor", "sensor", "treated", "sensors");
+    link("scene", sensorOutputId("sensor"), "scope", "ch1");
+    link("treated", sensorOutputId("sensor"), "scope", "ch2");
   } else if (template === "data") {
     p.name = "CSV · formula · analysis";
     add("csv", "csv", 0, 120);
@@ -251,15 +303,19 @@ export function exampleProject(template = "sensor"): Project {
     link("gate", "signal", "scope", "ch1");
     link("gen", "signal", "scope", "ch2");
   }
+  p.name = L(p.name);
+  p.nodes = p.nodes.map((n) => ({ ...n, label: L(n.label) }));
   return p;
 }
 const reserved = new Set(["__proto__", "constructor", "prototype"]);
 export function parseProject(raw: string): Project {
   if (raw.length > 5e6) throw Error("Project limit is 5 MB");
-  const p = JSON.parse(raw);
+  let p = JSON.parse(raw);
+  if (p?.version === 2 && Array.isArray(p.nodes) && Array.isArray(p.edges))
+    p = migrateV2(p);
   if (
     !p ||
-    p.version !== 2 ||
+    p.version !== 3 ||
     typeof p.name !== "string" ||
     p.name.length > 100 ||
     !Array.isArray(p.nodes) ||
@@ -310,9 +366,11 @@ export function parseProject(raw: string): Project {
     )
       throw Error("Invalid node");
     ids.add(node.id);
-    const def = getDefinition(node.kind, p.tools);
+    const def = nodeDefinition(node, p);
     if (!def || !node.params || typeof node.params !== "object")
       throw Error("Unknown node type");
+    if (def.category === "Scenes" && node.params.environment === undefined)
+      node.params.environment = "Open space";
     for (const f of def.fields) {
       const v = node.params[f.key];
       if (f.kind === "number") {
@@ -393,5 +451,47 @@ export function parseProject(raw: string): Project {
     checked.edges.push(edge);
     edgeIds.add(edge.id);
   }
-  return checked;
+  return {
+    ...checked,
+    name: L(checked.name),
+    nodes: checked.nodes.map((n) => ({ ...n, label: L(n.label) })),
+  };
+}
+
+function migrateV2(old: Project & { version: unknown }): Project {
+  const isSensor = (id: string) => {
+    const n = old.nodes.find((n) => n?.id === id);
+    return n && getDefinition(n.kind, old.tools || [])?.category === "Sensors";
+  };
+  const bindings = new Map<string, string>();
+  for (const e of old.edges) {
+    if (e?.targetHandle === "scene" && isSensor(e.target))
+      bindings.set(e.target, e.source);
+  }
+  const edges: Wire[] = [];
+  for (const e of old.edges) {
+    if (!e) continue;
+    if (e.targetHandle === "scene" && isSensor(e.target)) {
+      edges.push({
+        ...e,
+        source: e.target,
+        sourceHandle: "sensor",
+        target: e.source,
+        targetHandle: "sensors",
+      });
+      continue;
+    }
+    if (e.sourceHandle === "signal" && isSensor(e.source)) {
+      const scene = bindings.get(e.source);
+      if (scene)
+        edges.push({
+          ...e,
+          source: scene,
+          sourceHandle: sensorOutputId(e.source),
+        });
+      continue;
+    }
+    edges.push(e);
+  }
+  return { ...old, version: 3, edges };
 }

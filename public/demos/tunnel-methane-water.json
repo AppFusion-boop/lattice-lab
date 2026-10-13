@@ -1,0 +1,181 @@
+{
+  "version": 3,
+  "name": "გვირაბი · მეთანი და წყლის ნისლი",
+  "duration": 5,
+  "sampleRate": 1000,
+  "nodes": [
+    {
+      "id": "methane",
+      "kind": "methaneExplosion",
+      "label": "მეთანის აფეთქება",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "params": {
+        "enabled": "On",
+        "start": 1.5,
+        "duration": 0.7,
+        "x": 16,
+        "y": 1.5,
+        "z": 3,
+        "radius": 80,
+        "falloff": "Linear",
+        "amplitude": 18000,
+        "speed": 343,
+        "width": 0.035,
+        "fireSize": 2.5,
+        "smoke": 0.7
+      }
+    },
+    {
+      "id": "water",
+      "kind": "waterMist",
+      "label": "წყლის გაფრქვევა",
+      "position": {
+        "x": 0,
+        "y": 300
+      },
+      "params": {
+        "enabled": "On",
+        "start": 1.25,
+        "duration": 3.5,
+        "x": 27,
+        "y": 4.5,
+        "z": 3,
+        "radius": 13,
+        "falloff": "Uniform",
+        "mode": "Mist",
+        "flow": 18,
+        "droplet": 80,
+        "nozzles": 8,
+        "angle": 65,
+        "fallSpeed": 3,
+        "reduction": 45,
+        "rise": 0.25,
+        "cooling": 4
+      }
+    },
+    {
+      "id": "probe",
+      "kind": "pressure",
+      "label": "წნევის სენსორი",
+      "position": {
+        "x": 0,
+        "y": 690
+      },
+      "params": {
+        "x": 28,
+        "y": 1.5,
+        "z": 3,
+        "sensitivity": 1,
+        "bias": 0,
+        "tau": 0.004
+      }
+    },
+    {
+      "id": "reference",
+      "kind": "scene3d",
+      "label": "ა · წყლის გარეშე",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "params": {
+        "dimension": 3,
+        "width": 40,
+        "depth": 6,
+        "height": 5,
+        "temperature": 22,
+        "light": 500,
+        "amplitude": 1000,
+        "frequency": 8,
+        "objects": [],
+        "environment": "Tunnel"
+      }
+    },
+    {
+      "id": "mist",
+      "kind": "scene3d",
+      "label": "ბ · წყლის ნისლით",
+      "position": {
+        "x": 380,
+        "y": 600
+      },
+      "params": {
+        "dimension": 3,
+        "width": 40,
+        "depth": 6,
+        "height": 5,
+        "temperature": 22,
+        "light": 500,
+        "amplitude": 1000,
+        "frequency": 8,
+        "objects": [],
+        "environment": "Tunnel"
+      }
+    },
+    {
+      "id": "scope",
+      "kind": "scope",
+      "label": "წნევის შედარება",
+      "position": {
+        "x": 800,
+        "y": 300
+      },
+      "params": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "methane-effect-reference-events",
+      "source": "methane",
+      "sourceHandle": "effect",
+      "target": "reference",
+      "targetHandle": "events"
+    },
+    {
+      "id": "probe-sensor-reference-sensors",
+      "source": "probe",
+      "sourceHandle": "sensor",
+      "target": "reference",
+      "targetHandle": "sensors"
+    },
+    {
+      "id": "methane-effect-mist-events",
+      "source": "methane",
+      "sourceHandle": "effect",
+      "target": "mist",
+      "targetHandle": "events"
+    },
+    {
+      "id": "probe-sensor-mist-sensors",
+      "source": "probe",
+      "sourceHandle": "sensor",
+      "target": "mist",
+      "targetHandle": "sensors"
+    },
+    {
+      "id": "water-effect-mist-events",
+      "source": "water",
+      "sourceHandle": "effect",
+      "target": "mist",
+      "targetHandle": "events"
+    },
+    {
+      "id": "reference-sensor:probe-scope-ch1",
+      "source": "reference",
+      "sourceHandle": "sensor:probe",
+      "target": "scope",
+      "targetHandle": "ch1"
+    },
+    {
+      "id": "mist-sensor:probe-scope-ch2",
+      "source": "mist",
+      "sourceHandle": "sensor:probe",
+      "target": "scope",
+      "targetHandle": "ch2"
+    }
+  ],
+  "tools": []
+}

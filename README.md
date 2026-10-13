@@ -1,54 +1,69 @@
-# Lattice Studio 2.0
+# Lattice სტუდია 2.2
 
-A focused, browser-local visual workflow builder. The former instrument dashboard, missions, XP, and laboratory pages have been removed from the application and source.
+ქართულენოვანი ვიზუალური ფლოუს რედაქტორი: 35 ნოუდი, ტიპიზებული პორტები, ფორმულები, სენსორები და კონფიგურირებადი სცენის მოვლენები.
 
-## Run
+## ლოკალური გაშვება
 
 ```sh
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1
+```
+
+მისამართი: http://127.0.0.1:5173/
+
+Windows-ზე ასევე შეგიძლიათ გაუშვათ Start-Local.ps1.
+
+## საერთო დრო და მონიტორინგი
+
+დაკვრა მუშაობს ნებისმიერ ფლოუზე, სცენის გარეშეც. კანვასის ქვედა ზოლი მართავს ხანგრძლივობას, პაუზას, გაგრძელებას, განულებას, გადახვევას და სიჩქარეს. 1× ნიშნავს ერთ სიმულაციის წამს ერთ რეალურ წამში. გამოთვლა ამზადებს მონაცემებს; დასრულების სტატუსი ჩანს მხოლოდ დროის ბოლომდე მისვლისას. დამალულ ჩანართში დაკვრა პაუზდება, ხოლო ხანგრძლივი კადრის შეფერხება დროს ბოლომდე არ გადაახტუნებს.
+
+კანვასის ნოუდები, ოსცილოგრაფი, მოვლენების ჟურნალი, სცენის რედაქტორი და მონიტორინგი იყენებს ერთ საათს. სიგნალები და ტრიგერები ჩანს მხოლოდ მიმდინარე დრომდე. მთლიანი სიგნალის სტატისტიკა და მასზე დამოკიდებული შედეგები ჩნდება მონაცემების შეგროვების ბოლოს.
+
+კანვასის ქვემოთ **სცენების ცოცხალი ხედები** აჩვენებს პროექტის სცენებს. შესაძლებელია ხედების დამატება/მოხსნა, 2D/3D გადართვა და რედაქტორში გახსნა. ეს პანელი და კანვასი ერთდროულად ჩანს.
+
+**მონიტორინგი → ნოუდების არჩევა** აჩვენებს არჩეული ნოუდების რეალურ პორტებს ტიპის მიხედვით. შესაძლებელია ნებისმიერი რაოდენობის სცენის, სიგნალის, რიცხვის, ცხრილის ან სხვა გამომავალის დაკვირვება. ახალი ნოუდები ამავე რეესტრიდან ამოიცნობა; მაგალითის კონკრეტული ID-ები ან ტიპები საჭირო არ არის. სივრცითი რუკის საზომები სცენის მოვლენების არხებიდან მიიღება; შედარებისთვის შეიძლება საერთო ფიქსირებული მასშტაბის არჩევა.
+
+## მაგალითის ფლოუ
+
+ფლოუს მენიუდან აირჩიეთ **გვირაბი · მაგალითის ფლოუ**. ეს არის ექვსი ჩვეულებრივი ნოუდი: მეთანის აფეთქება, წყლის გაფრქვევა, სენსორი, ორი სცენა და ოსცილოგრაფი. წყალი იწყება 1.25 წმ-ზე, აფეთქება — 1.50 წმ-ზე. ახალი სამუშაო სივრცე ცარიელია; ყველა მაგალითი არჩევითია. ფლოუს ცვლილებები აუქმებს ძველ გამოთვლას და დროს აბრუნებს ნულზე.
+
+მზა ფლოუს ფაილი: public/demos/tunnel-methane-water.json. მისი ხელახალი გენერაცია: node --experimental-strip-types scripts/prepare-demo.mjs.
+
+## მოვლენები და სენსორები
+
+მოვლენის ტიპებია: მეთანის აფეთქება, წყლის გაფრქვევა, ტალღური იმპულსი, ტემპერატურის ცვლილება, სინათლის იმპულსი, ვიბრაცია და ჩახშობის ზონა.
+
+ყველას აქვს ჩართვა/გამორთვა, დაწყების დრო ან ტრიგერის წანაცვლება, ხანგრძლივობა, სივრცითი მდებარეობა, რადიუსი და მანძილთან შესუსტება. თითოეულ ტიპს დამატებით აქვს საკუთარი პარამეტრები. წყალს აქვს რეჟიმი, ხარჯი, წვეთის დიამეტრი, საქშენების რაოდენობა, კუთხე, ვარდნის სიჩქარე, შევსების დრო და ეფექტის დაშვებები.
+
+სცენის რედაქტორში მოვლენები ემატება კატალოგიდან, ინიშნება იერარქიაში და გადაადგილდება 2D გეგმაზე. დროის ხაზზე ბლოკის გადათრევა ცვლის დაწყების დროს. ტრიგერის ყოველი დროის ნიშნული გეგმავს ცალკე ამოქმედებას, მაქსიმუმ 256-ს ერთ გაშვებაზე.
+
+სენსორის კონფიგურაცია ერთდება სცენის შემავალ პორტში. ყოველი დაკავშირებული სენსორი ქმნის საკუთარ სიგნალის გამომავალს სცენაზე. იგივე სენსორი შეიძლება ორ სცენაში გამოიყენოთ. მოხსნა აუქმებს გაქრობილი პორტის კავშირებს.
+
+## ფიზიკის საზღვრები
+
+ეს არის საილუსტრაციო ანალიტიკური გარემო. მეთანის აფეთქების წნევა განსაზღვრული იმპულსია; მეთანის კონცენტრაცია, წვა, რეაქტიული CFD, კედლებიდან არეკვლა და ადამიანის დაზიანება არ ითვლება.
+
+წყლის ნაწილაკები და ნისლი ვიზუალური ეფექტებია. წნევის ჩახშობის პროცენტი და გაგრილება მომხმარებლის დაშვებებია. წყლის ხარჯისა და წვეთის ზომისგან ეფექტურობა ფიზიკურად არ გამოითვლება. ჩახშობა მოქმედებს სენსორის მდებარეობაში, არა გავრცელების მთელ გზაზე.
+
+მოვლენების დამატებითი ეფექტები ჯამდება; შემდეგ გამოიყენება ჩახშობის კოეფიციენტები კავშირების რიგისგან დამოუკიდებლად. ტემპერატურა და განათება ინარჩუნებს ფონურ მნიშვნელობას. დაკავშირებული მოვლენები ცვლის ძველ სინთეზურ წყაროებს. იმპორტირებული გეომეტრია ვიზუალურია.
+
+## მოდელი და ტექნოლოგია
+
+გვირაბის კედლები აწყობილია [Kenney Modular Cave Kit](https://kenney.nl/assets/modular-cave-kit)-ის corridor-wide მოდულით (CC0). ჩამოტვირთული GLB და ტექსტურა ინახება public/models-ში; რკალები, მილები, განათება და სენსორის ნიშნული დამატებულია კოდით. ლიცენზია და წყარო თან ახლავს მოდელს. ინტერნეტი საჭირო არ არის მოდელის ჩასატვირთად.
+
+React 19, TypeScript, React Flow, Vite და Three.js. ფლოუ გამოითვლება Web Worker-ში. ფორმულებს აქვს შეზღუდული მათემატიკური პარსერი; JavaScript-ის თვითნებური შესრულება არ ხდება.
+
+ნოუდების რეესტრი: src/core/registry.ts. მოვლენების გაფართოების რეესტრი: src/core/scene-events.ts. [ახალი ტიპების დამატება](docs/EXTENDING.md).
+
+## შენახვა და შემოწმება
+
+შენახვა იყენებს ამ ბრაუზერის lattice-studio-v3 საცავს. v2 პროექტები ავტომატურად მიგრირდება; ძველი საცავი რჩება. JSON ინარჩუნებს ნოუდებს, პორტების კავშირებს, პარამეტრებს, ფორმულებს და სცენის გეომეტრიას.
+
+ლიმიტები: 100 ნოუდი, 300 კავშირი, 30 მრავალჯერადი ფორმულა, 40 ობიექტი სცენაში, 5 MB პროექტი, 500 KB CSV, 10 001 ათვლა ერთ გაშვებაზე. რეალური აპარატურის დრაივერები და უკუკავშირის ციკლები მხარდაჭერილი არ არის.
+
+```sh
 npm test
 npm run build
 ```
 
-React 19, TypeScript, React Flow, Vite, and a lazily loaded Three.js scene editor. Execution runs in a Web Worker; formulas use a restricted arithmetic parser, never JavaScript evaluation.
-
-## Workflow model
-
-The catalog is a shared schema registry. Each definition declares category, label, icon, typed ports, parameter fields, help text, and evaluator. The catalog, inspector, port rendering, connection checking and worker use that definition. See [extension guide](docs/EXTENDING.md).
-
-28 built-in nodes:
-
-- Triggers: manual and interval (finite simulation-time events).
-- Scenes: independent 2D and 3D environments.
-- Data: number, boolean, text, vector3, CSV, table-to-signal, waveform generator.
-- Sensors: ideal pressure, temperature, accelerometer, microphone, illuminance models.
-- Processing: formula, low-pass filter, resample, statistics.
-- Logic/events: threshold crossings, event delay, compare, gate.
-- Outputs: two-channel scope, value display, data table, event monitor.
-
-Types: event, number, boolean, text, vector3, signal, table, scene. Inputs may declare unions. Formula result type follows connected scalar/signal inputs. Every concrete packet is rechecked at execution. Units are explicit metadata, not a dimensional-analysis engine. Formulas declare their output unit; vector positions require meters. Combining two signals requires the same time grid; Resample aligns imported data.
-
-The scheduler evaluates a finite directed acyclic graph, caches each node result for the run, isolates node errors, and marks downstream nodes as waiting. Feedback loops, persistent state, real hardware drivers, network integrations, background jobs and multi-user editing are not implemented. Adding these requires explicit runtime capabilities, not just a new UI card.
-
-## Scenes
-
-Build boxes, spheres and wave sources. Place sensors with 2D dragging or numeric coordinates; orbit, zoom and select in 3D. Import local OBJ triangle meshes up to 2 MB / 10,000 triangles. Imported geometry is centered, normalized and embedded as vertices in the workflow JSON. Materials, textures, animations and remote assets are not imported. Sensor positions supplied by vector nodes are read-only in the scene and edited at their source.
-
-Scene geometry is a visual environment. Sensor values use simple ideal analytical fields: free-field acoustic delay/attenuation, a synthetic temperature gradient/oscillation, damped acceleration, and distance-varying illuminance. Sensitivity, bias and first-order response are applied. Obstacles do not affect the analytical fields. No methane chemistry, reacting CFD, droplet model, collision or heat solver is present, and no injury model is included.
-
-## Formulas
-
-Inputs a and b each accept numbers or sampled signals; missing inputs use configurable scalar fallbacks. Scalar values broadcast over a signal. t is the sample time, or zero for a scalar-only expression. Constants pi/e, arithmetic, comparisons, logical operators, trigonometry, logarithms, min/max, pow, clamp and lazy if are supported. Invalid syntax is editable and saveable; runtime errors appear per node. Saving a formula as a reusable node adds it to the workflow's catalog and its portable JSON.
-
-## Storage and limits
-
-Save explicitly stores the current project in this browser under lattice-studio-v2. JSON export/import preserves nodes, connections, parameters, custom formulas and embedded geometry. Run JSON exports the graph with typed results; signal/table outputs export CSV. JSON is validated on import, save and run; executable code is never imported.
-
-Limits: 100 nodes, 300 wires, 30 reusable formulas, 40 objects per scene, 5 MB project text, 500 KB CSV / 10,000 rows / 20 columns, and 10,001 samples per run. Browser storage quotas may be smaller than project limits; keep exports of important projects. The old v1 storage keys are not consumed or deleted.
-
-## Verification
-
-17 tests cover expression syntax and domains, node-order-independent execution, all starter templates, signal mapping, sensor positions, type errors, feedback detection, event timing, data parsing, resampling contracts, custom formula persistence, malformed imports, OBJ normalization and draft-error isolation.
-
-Browser checks cover desktop/mobile layouts, scene rendering and primitives, spatial parameter edits, CSV analysis, reusable formula creation, save/reload, and execution error recovery. Scene and instrument output remains a demonstration, not scientific validation.
+38 ტესტი ამოწმებს ფორმულებს, ტიპებს, შესრულების რიგს, დინამიკურ პორტებს, სენსორის გადაადგილებას, მიგრაციას, კავშირებს, მოვლენების დროს, ჩახშობას, წყლის დაგვიანებას, დემოს პორტატულობას და მომავალი ათვლების დამალვას.
