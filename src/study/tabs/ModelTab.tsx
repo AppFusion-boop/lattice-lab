@@ -19,6 +19,7 @@ import type { Study, ModelVersion } from "../api/types";
 import { tr } from "../../i18n";
 import { BindingDialog } from "../components/BindingDialog";
 import { tunnelProject } from "../../core/tunnel-demo";
+import { molecularProject } from "../../core/molecule-demo";
 import type { Project } from "../../core/types";
 
 interface ModelTabProps {
@@ -45,13 +46,23 @@ export function ModelTab({ study }: ModelTabProps) {
 
   const latestModel = models && models.length > 0 ? models[0] : null;
 
-  // Resolve active project: saved project from latest model, or tunnel demo for physics/tunnel studies
+  // Resolve active project: saved project from latest model, or demo for physics / chemistry studies
   const activeProject = useMemo<Project | undefined>(() => {
     if (latestModel?.project && typeof latestModel.project === "object") {
       return latestModel.project as Project;
     }
     if (study.domain === "physics" || study.name.toLowerCase().includes("tunnel")) {
       return tunnelProject();
+    }
+    if (
+      study.domain === "pharmacology" ||
+      study.domain === "chemistry" ||
+      study.name.toLowerCase().includes("molecule") ||
+      study.name.toLowerCase().includes("drug") ||
+      study.name.toLowerCase().includes("lead") ||
+      study.name.toLowerCase().includes("oral")
+    ) {
+      return molecularProject();
     }
     return undefined;
   }, [latestModel, study]);

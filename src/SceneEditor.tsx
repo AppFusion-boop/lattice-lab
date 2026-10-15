@@ -75,7 +75,11 @@ function View3D({
     renderer.localClippingEnabled = true;
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setClearColor(
-      scene.environment === "Tunnel" ? "#14252b" : "#f1f4f2",
+      scene.environment === "Tunnel"
+        ? "#14252b"
+        : scene.environment === "Molecular"
+        ? "#090d16"
+        : "#f1f4f2",
     );
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.5;
@@ -106,7 +110,18 @@ function View3D({
       0xd8e1dc,
     );
     grid.position.set(scene.width / 2, -0.02, scene.depth / 2);
-    if (scene.environment !== "Tunnel") world.add(grid);
+    if (scene.environment !== "Tunnel" && scene.environment !== "Molecular") {
+      world.add(grid);
+    } else if (scene.environment === "Molecular") {
+      const molGrid = new THREE.GridHelper(
+        Math.max(scene.width, scene.depth),
+        24,
+        0x1e293b,
+        0x0f172a,
+      );
+      molGrid.position.set(scene.width / 2, -0.02, scene.depth / 2);
+      world.add(molGrid);
+    }
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(scene.width, scene.depth),
       new THREE.MeshStandardMaterial({
@@ -118,7 +133,9 @@ function View3D({
     );
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(scene.width / 2, -0.03, scene.depth / 2);
-    if (scene.environment !== "Tunnel") world.add(floor);
+    if (scene.environment !== "Tunnel" && scene.environment !== "Molecular") {
+      world.add(floor);
+    }
     const pickable: THREE.Object3D[] = [];
     for (const o of scene.objects) {
       let geometry: THREE.BufferGeometry;
@@ -129,22 +146,32 @@ function View3D({
           new THREE.Float32BufferAttribute(o.vertices, 3),
         );
         geometry.computeVertexNormals();
-      } else
-        geometry =
-          o.shape === "sphere" || o.shape === "source"
-            ? new THREE.SphereGeometry(0.5, 24, 18)
-            : new THREE.BoxGeometry(1, 1, 1);
+      } else if (o.shape === "sphere" || o.shape === "source") {
+        geometry = new THREE.SphereGeometry(0.5, 24, 18);
+      } else if (o.shape === "cylinder") {
+        geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+      } else {
+        geometry = new THREE.BoxGeometry(1, 1, 1);
+      }
       const material = new THREE.MeshStandardMaterial({
         color: o.id === selected ? "#71b8a2" : o.color,
-        roughness: 0.6,
-        metalness: 0.08,
+        roughness: 0.5,
+        metalness: 0.12,
         transparent: o.shape === "source",
         opacity: o.shape === "source" ? 0.85 : 1,
       });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(o.position.x, o.position.y, o.position.z);
       mesh.scale.set(o.size.x, o.size.y, o.size.z);
-      mesh.rotation.y = (o.rotation * Math.PI) / 180;
+      if (o.rotationVec) {
+        mesh.rotation.set(
+          (o.rotationVec.x * Math.PI) / 180,
+          (o.rotationVec.y * Math.PI) / 180,
+          (o.rotationVec.z * Math.PI) / 180,
+        );
+      } else {
+        mesh.rotation.y = (o.rotation * Math.PI) / 180;
+      }
       mesh.userData.id = o.id;
       world.add(mesh);
       pickable.push(mesh);
@@ -517,7 +544,7 @@ function View2D({
             [18, 28, 38].map((r) => (
               <circle key={r} r={r} fill="none" stroke="#d7af7840" />
             ))}
-          {o.shape === "box" || o.shape === "mesh" ? (
+          {o.shape === "box" || o.shape === "mesh" || o.shape === "cylinder" ? (
             <rect
               x={(-o.sx * scale) / 2}
               y={(-o.sz * scale) / 2}

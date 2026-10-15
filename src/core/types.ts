@@ -13,10 +13,11 @@ export type Vec3 = { x: number; y: number; z: number };
 export type Object3D = {
   id: string;
   name: string;
-  shape: "box" | "sphere" | "source" | "mesh";
+  shape: "box" | "sphere" | "source" | "mesh" | "cylinder";
   position: Vec3;
   size: Vec3;
   rotation: number;
+  rotationVec?: Vec3;
   color: string;
   vertices?: number[];
 };
