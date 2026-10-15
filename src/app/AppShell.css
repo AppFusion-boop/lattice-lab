@@ -9,70 +9,171 @@
 }
 
 .app-shell-topbar {
-  height: 32px;
-  background: #f0f3ef;
+  height: 38px;
+  background: #ffffff;
   border-bottom: 1px solid var(--line, #e3e8e2);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  font-size: 11px;
+  font-size: 12px;
   flex-shrink: 0;
   z-index: 20;
 }
 
-.app-shell-nav {
+.app-shell-left {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
+  min-width: 0;
 }
 
-.app-shell-tab {
-  display: inline-flex;
+.app-shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 6px;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+}
+
+.app-shell-brand:hover {
+  background: #f1f5f9;
+}
+
+.app-shell-brand-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: #247861;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-shell-brand-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a2c26;
+  letter-spacing: -0.2px;
+}
+
+.app-shell-breadcrumb-sep {
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.app-shell-breadcrumbs {
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
-  border-radius: 4px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #61736a;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell-crumb-btn {
+  background: none;
+  border: none;
+  padding: 3px 6px;
+  font-size: 12px;
   font-weight: 500;
+  color: #64748b;
   cursor: pointer;
+  border-radius: 4px;
   transition: all 0.15s ease;
-  font-size: 11px;
 }
 
-.app-shell-tab:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: #283e37;
+.app-shell-crumb-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
-.app-shell-tab.active {
-  background: #fff;
-  border-color: var(--line, #e3e8e2);
+.app-shell-crumb-btn.active {
   color: #247861;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.app-shell-crumb-arrow {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.app-shell-crumb-current {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell-crumb-tab {
+  font-size: 11px;
+  font-weight: 500;
+  color: #247861;
+  background: #ecfdf5;
+  padding: 2px 7px;
+  border-radius: 10px;
 }
 
 .app-shell-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.app-shell-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.app-shell-secondary-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.app-shell-secondary-btn.active {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.app-shell-divider-v {
+  width: 1px;
+  height: 16px;
+  background: #e2e8f0;
 }
 
 .app-shell-lang-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 4px;
   border: 1px solid var(--line, #e3e8e2);
   background: #fff;
   color: #4a5c53;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .app-shell-lang-btn:hover {

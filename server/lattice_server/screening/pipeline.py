@@ -17,6 +17,7 @@ from lattice_server.expr.evaluate import CompiledExpression, compile_expression
 from lattice_server.ids import compute_values_hash, new_id
 from lattice_server.repo import candidates as candidates_repo
 from lattice_server.repo import constraints as constraints_repo
+from lattice_server.repo import models as models_repo
 from lattice_server.repo import outcomes as outcomes_repo
 from lattice_server.repo import overrides as overrides_repo
 from lattice_server.repo import parameters as parameters_repo
@@ -24,6 +25,7 @@ from lattice_server.repo import screening as screening_repo
 from lattice_server.repo import studies as studies_repo
 from lattice_server.schemas import (
     ConstraintResponse,
+    ModelVersionResponse,
     OutcomeCriterion,
     OutcomeResponse,
     OverrideResponse,
@@ -32,6 +34,7 @@ from lattice_server.schemas import (
     ScreeningRunResponse,
     ScreeningSummary,
 )
+from lattice_server.stats.montecarlo import run_monte_carlo_screening
 
 
 def compute_evidence_fingerprint(conn: sqlite3.Connection, study_id: str) -> str:
@@ -158,6 +161,12 @@ class ScreeningContext:
     evidence_by_hash: dict[str, list[dict[str, Any]]]
     hard_constraints: list[tuple[ConstraintResponse, CompiledExpression]]
     soft_constraints: list[tuple[ConstraintResponse, CompiledExpression]]
+    active_model: ModelVersionResponse | None = None
+    uncertain_params: list[ParameterResponse] = field(default_factory=list)
+    rng_seed: int = 42
+    exclusion_threshold: float = 0.05
+    confidence: float = 0.95
+    mc_draws: int = 10
 
 
 FilterFn = Callable[[ScreeningContext, CandidateBatch, list[FilterVerdict | None]], None]
@@ -366,12 +375,63 @@ def fallback_open_filter(
             )
 
 
+def model_simulation_filter(
+    ctx: ScreeningContext,
+    batch: CandidateBatch,
+    verdicts: list[FilterVerdict | None],
+) -> None:
+    """Step 5: Active Flow Model simulation screening (§4.5 step 5)."""
+    if not ctx.active_model:
+        return
+
+    unresolved_cands = []
+    unresolved_indices = []
+    for i in range(len(batch.ids)):
+        if verdicts[i] is None:
+            unresolved_cands.append(
+                {
+                    "id": batch.ids[i],
+                    "idx": batch.indices[i],
+                    "values": batch.raw_values[i],
+                }
+            )
+            unresolved_indices.append(i)
+
+    if not unresolved_cands:
+        return
+
+    sim_results = run_monte_carlo_screening(
+        model=ctx.active_model,
+        candidates=unresolved_cands,
+        uncertain_params=ctx.uncertain_params,
+        outcomes=ctx.outcomes,
+        rng_seed=ctx.rng_seed,
+        exclusion_threshold=ctx.exclusion_threshold,
+        confidence=ctx.confidence,
+        mc_draws=ctx.mc_draws,
+    )
+
+    for i in unresolved_indices:
+        cand_id = batch.ids[i]
+        res = sim_results.get(cand_id)
+        if res:
+            verdicts[i] = FilterVerdict(
+                status=res.status,
+                filter="model",
+                p_hat=res.p_hat,
+                p_upper=res.p_upper,
+                reason=res.reason,
+                details=res.details,
+            )
+
+
 # Ordered list of screening filters matching §4.5
 PIPELINE_FILTERS: list[FilterFn] = [
-    override_filter,       # Step 1: Override
-    evidence_filter,       # Step 2: Tested evidence match
-    constraint_filter,     # Steps 3 & 4: Hard/soft constraints + errors
-    fallback_open_filter,  # Step 8: Open fallback
+    override_filter,          # Step 1: Override
+    evidence_filter,          # Step 2: Tested evidence match
+    constraint_filter,        # Steps 3 & 4: Hard/soft constraints + errors
+    model_simulation_filter,  # Step 5: Active Flow Model simulation
+    fallback_open_filter,     # Step 8: Open fallback
 ]
 
 
@@ -460,6 +520,16 @@ def run_screening_pipeline(
             evidence_by_cand_id.setdefault(er["candidate_id"], []).append(rec)
         evidence_by_hash.setdefault(val_hash, []).append(rec)
 
+    active_model = models_repo.get_latest_model_version(conn, study_id)
+    uncertain_params = [p for p in params if p.role == "uncertain"]
+    has_valid_model = bool(
+        active_model
+        and active_model.project
+        and active_model.parameter_bindings
+        and active_model.outcome_bindings
+        and settings.get("simulate_model", True)
+    )
+
     ctx = ScreeningContext(
         study_id=study_id,
         active_overrides=overrides_map,
@@ -470,6 +540,12 @@ def run_screening_pipeline(
         evidence_by_hash=evidence_by_hash,
         hard_constraints=hard_compiled,
         soft_constraints=soft_compiled,
+        active_model=active_model if has_valid_model else None,
+        uncertain_params=uncertain_params,
+        rng_seed=study.rng_seed,
+        exclusion_threshold=study.exclusion_threshold,
+        confidence=study.confidence,
+        mc_draws=int(settings.get("mc_draws", 5)),
     )
 
     total_candidates = cset.count
@@ -555,8 +631,7 @@ def run_screening_pipeline(
     after_constraints = max(0, total_candidates - excluded_by_constraints)
     excluded_statistical = (
         status_counts.get("tested_fail", 0)
-        + filter_counts.get("model", 0)
-        + filter_counts.get("evidence", 0)
+        + sum(1 for d in decision_rows if d[2] == "excluded" and d[3] in ("model", "evidence"))
     )
     after_statistical = max(0, after_constraints - excluded_statistical)
     deprioritised = status_counts.get("deprioritised", 0)
@@ -585,7 +660,7 @@ def run_screening_pipeline(
         run_id=run_id,
         study_id=study_id,
         candidate_set_id=cset.id,
-        model_version_id=None,
+        model_version_id=ctx.active_model.id if ctx.active_model else None,
         evidence_fingerprint=fingerprint,
         settings=settings,
         summary=summary,

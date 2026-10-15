@@ -15,6 +15,7 @@ export interface ParameterBinding {
   parameterKey: string;
   nodeId: string;
   paramKey: string;
+  notInModel?: boolean;
 }
 
 export interface OutcomeBinding {

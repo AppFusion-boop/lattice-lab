@@ -92,6 +92,12 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
           {tr("პარამეტრები (Parameters)", "Parameters")}
         </button>
         <button
+          className={`study-tab-btn ${currentTab === "flow" || currentTab === "models" || currentTab === "model" ? "active" : ""}`}
+          onClick={() => navigate(`studies/${id}/flow`)}
+        >
+          {tr("3D ფლოუ & სიმულაცია", "3D Flow & Simulation")}
+        </button>
+        <button
           className={`study-tab-btn ${currentTab === "outcomes" ? "active" : ""}`}
           onClick={() => navigate(`studies/${id}/outcomes`)}
         >
@@ -110,12 +116,6 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
           {tr("კანდიდატები (Candidates)", "Candidates")}
         </button>
         <button
-          className={`study-tab-btn ${currentTab === "models" || currentTab === "model" ? "active" : ""}`}
-          onClick={() => navigate(`studies/${id}/models`)}
-        >
-          {tr("მოდელი (Model / Flow)", "Model / Flow")}
-        </button>
-        <button
           className={`study-tab-btn ${currentTab === "evidence" ? "active" : ""}`}
           onClick={() => navigate(`studies/${id}/evidence`)}
         >
@@ -130,13 +130,21 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
       </nav>
 
       {/* Tab Content */}
-      <main className="study-content">
+      <main
+        className={`study-content ${
+          currentTab === "flow" || currentTab === "models" || currentTab === "model"
+            ? "study-content-flow"
+            : ""
+        }`}
+      >
         {currentTab === "overview" && <OverviewTab study={study} onRefreshStudy={refresh} />}
         {currentTab === "parameters" && <ParametersTab study={study} />}
+        {(currentTab === "flow" || currentTab === "models" || currentTab === "model") && (
+          <ModelTab study={study} />
+        )}
         {currentTab === "outcomes" && <OutcomesTab study={study} />}
         {currentTab === "constraints" && <ConstraintsTab study={study} />}
         {currentTab === "candidates" && <CandidatesTab study={study} onCandidatesChanged={refresh} />}
-        {(currentTab === "models" || currentTab === "model") && <ModelTab study={study} />}
         {currentTab === "evidence" && <EvidenceTab study={study} />}
         {currentTab === "audit" && <AuditTab study={study} />}
       </main>

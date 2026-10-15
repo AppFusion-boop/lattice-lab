@@ -218,10 +218,28 @@ def evaluate(
         return []
 
     cmd = resolve_engine_command()
+    norm_pb = []
+    for pb in param_bindings:
+        norm_pb.append({
+            "parameterKey": pb.get("parameterKey") or pb.get("parameter_key"),
+            "nodeId": pb.get("nodeId") or pb.get("node_id"),
+            "paramKey": pb.get("paramKey") or pb.get("param_key"),
+            "notInModel": bool(pb.get("notInModel", pb.get("not_in_model", False))),
+        })
+    norm_ob = []
+    for ob in outcome_bindings:
+        norm_ob.append({
+            "outcomeKey": ob.get("outcomeKey") or ob.get("outcome_key"),
+            "nodeId": ob.get("nodeId") or ob.get("node_id"),
+            "port": ob.get("port"),
+            "reducer": ob.get("reducer"),
+            "threshold": ob.get("threshold", 0.0),
+        })
+
     header_dict = {
         "project": project,
-        "parameterBindings": param_bindings,
-        "outcomeBindings": outcome_bindings,
+        "parameterBindings": norm_pb,
+        "outcomeBindings": norm_ob,
     }
 
     # Split rows into chunks

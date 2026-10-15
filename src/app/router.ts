@@ -8,31 +8,39 @@ export interface Route {
   params: {
     id?: string;
     tab?: string;
+    query?: Record<string, string>;
   };
 }
 
 function parseHash(hash: string): Route {
   const clean = hash.replace(/^#\/?/, "");
-  const parts = clean.split("/").filter(Boolean);
-
-  if (parts.length === 0 || parts[0] === "flow") {
-    return { name: "flow", path: "#/flow", params: {} };
+  const [pathOnly, searchStr] = clean.split("?");
+  const parts = pathOnly.split("/").filter(Boolean);
+  const query: Record<string, string> = {};
+  if (searchStr) {
+    new URLSearchParams(searchStr).forEach((val, key) => {
+      query[key] = val;
+    });
   }
 
-  if (parts[0] === "studies") {
-    if (parts.length === 1) {
-      return { name: "studies", path: "#/studies", params: {} };
+  if (parts.length === 0 || parts[0] === "studies") {
+    if (parts.length <= 1) {
+      return { name: "studies", path: "#/studies", params: { query } };
     }
     const id = parts[1];
     const tab = parts[2] || "overview";
     return {
       name: "study",
-      path: `#/studies/${id}/${tab}`,
-      params: { id, tab },
+      path: `#/studies/${id}/${tab}${searchStr ? "?" + searchStr : ""}`,
+      params: { id, tab, query },
     };
   }
 
-  return { name: "flow", path: "#/flow", params: {} };
+  if (parts[0] === "flow") {
+    return { name: "flow", path: "#/flow", params: { query } };
+  }
+
+  return { name: "studies", path: "#/studies", params: { query } };
 }
 
 let currentRoute: Route = parseHash(typeof window !== "undefined" ? window.location.hash : "");
@@ -60,6 +68,6 @@ export function useRoute(): Route {
       return () => listeners.delete(callback);
     },
     () => currentRoute,
-    () => ({ name: "flow", path: "#/flow", params: {} }),
+    () => ({ name: "studies", path: "#/studies", params: {} }),
   );
 }

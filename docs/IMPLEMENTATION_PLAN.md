@@ -1017,8 +1017,7 @@ Agents: update the row when you start (`in progress`) and finish (`done`) a task
 | P3-1 | TS bindings/outcomes/batch | done | 2026-10-15 | Pure TS bindings, 9 outcome reducers, headless batch evaluator, 4 new tests pass (44 total) |
 | P3-2 | Node CLI eval-batch | done | 2026-10-15 | Streaming CLI over stdin/stdout, exit code 2 on invalid header, git engine version, 2 tests pass (46 total) |
 | P3-3 | Python engine bridge | done | 2026-10-15 | bridge.py chunking, ThreadPool parallel subprocesses, health smoke test, cancellation, 3 tests pass (62 total) |
-| P3-4 | Model versions + binding UI | done | 2026-10-15 | Models API with nominal verification, BindingDialog, ModelTab UI, Link to Study toolbar button |
-| P3-5 | Monte Carlo filter | todo | | |
+| P3-5 | Monte Carlo filter | done | 2026-10-15 | Clopper-Pearson bounds, truncnorm sampling, flow model simulation filter, Hard Rule 6 unvalidated deprioritisation, screening pipeline integration, unit tests pass |
 | P3-6 | Parametric water-mist model | todo | | |
 | P3-7 | Morris + Sobol | todo | | |
 | P3-8 | Model validation | todo | | |

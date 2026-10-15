@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Download,
   Upload,
@@ -22,6 +22,7 @@ import type {
   OverrideCreate,
 } from "../api/types";
 import { tr } from "../../i18n";
+import { useRoute } from "../../app/router";
 
 interface CandidatesTabProps {
   study: Study;
@@ -29,9 +30,18 @@ interface CandidatesTabProps {
 }
 
 export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps) {
+  const route = useRoute();
+  const initialStatus = route.params.query?.status ?? "";
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
   const [sortBy, setSortBy] = useState<string>("");
+
+  useEffect(() => {
+    if (route.params.query?.status !== undefined) {
+      setStatusFilter(route.params.query.status);
+      setPage(0);
+    }
+  }, [route.params.query?.status]);
 
   // Generate Modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);

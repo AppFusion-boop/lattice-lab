@@ -40,61 +40,70 @@ export function validateBindings(header: BatchHeader): void {
 
   // Validate parameter bindings
   for (const pb of parameterBindings) {
-    if (!pb.parameterKey || typeof pb.parameterKey !== "string") {
+    const parameterKey = pb.parameterKey ?? (pb as any).parameter_key;
+    const notInModel = Boolean(pb.notInModel ?? (pb as any).not_in_model);
+    if (!parameterKey || typeof parameterKey !== "string") {
       throw new HeaderError("Parameter binding missing 'parameterKey'");
     }
-    const node = project.nodes.find((n) => n.id === pb.nodeId);
+    if (notInModel) {
+      continue;
+    }
+    const nodeId = pb.nodeId ?? (pb as any).node_id;
+    const paramKey = pb.paramKey ?? (pb as any).param_key;
+    const node = project.nodes.find((n) => n.id === nodeId);
     if (!node) {
       throw new HeaderError(
-        `Parameter binding '${pb.parameterKey}' references missing node '${pb.nodeId}'`,
+        `Parameter binding '${parameterKey}' references missing node '${nodeId}'`,
       );
     }
     const def = nodeDefinition(node, project);
     if (!def) {
       throw new HeaderError(
-        `Node definition for node '${pb.nodeId}' (${node.kind}) not found`,
+        `Node definition for node '${nodeId}' (${node.kind}) not found`,
       );
     }
-    const field = def.fields.find((f) => f.key === pb.paramKey);
+    const field = def.fields.find((f) => f.key === paramKey);
     if (!field) {
       throw new HeaderError(
-        `Field '${pb.paramKey}' not found on node '${pb.nodeId}' (${node.kind})`,
+        `Field '${paramKey}' not found on node '${nodeId}' (${node.kind})`,
       );
     }
   }
 
   // Validate outcome bindings
   for (const ob of outcomeBindings) {
-    if (!ob.outcomeKey || typeof ob.outcomeKey !== "string") {
+    const outcomeKey = ob.outcomeKey ?? (ob as any).outcome_key;
+    const nodeId = ob.nodeId ?? (ob as any).node_id;
+    if (!outcomeKey || typeof outcomeKey !== "string") {
       throw new HeaderError("Outcome binding missing 'outcomeKey'");
     }
     if (!VALID_REDUCERS.has(ob.reducer)) {
       throw new HeaderError(
-        `Outcome binding '${ob.outcomeKey}' has unsupported reducer '${ob.reducer}'`,
+        `Outcome binding '${outcomeKey}' has unsupported reducer '${ob.reducer}'`,
       );
     }
-    const node = project.nodes.find((n) => n.id === ob.nodeId);
+    const node = project.nodes.find((n) => n.id === nodeId);
     if (!node) {
       throw new HeaderError(
-        `Outcome binding '${ob.outcomeKey}' references missing node '${ob.nodeId}'`,
+        `Outcome binding '${outcomeKey}' references missing node '${nodeId}'`,
       );
     }
     const def = nodeDefinition(node, project);
     if (!def) {
       throw new HeaderError(
-        `Node definition for node '${ob.nodeId}' (${node.kind}) not found`,
+        `Node definition for node '${nodeId}' (${node.kind}) not found`,
       );
     }
     const port = def.outputs.find((p) => p.id === ob.port);
     if (!port) {
       throw new HeaderError(
-        `Output port '${ob.port}' not found on node '${ob.nodeId}' (${node.kind})`,
+        `Output port '${ob.port}' not found on node '${nodeId}' (${node.kind})`,
       );
     }
     if (ob.reducer === "crossed" || ob.reducer === "timeAbove") {
       if (ob.threshold !== undefined && !Number.isFinite(ob.threshold)) {
         throw new HeaderError(
-          `Outcome binding '${ob.outcomeKey}' threshold must be finite, got ${ob.threshold}`,
+          `Outcome binding '${outcomeKey}' threshold must be finite, got ${ob.threshold}`,
         );
       }
     }
@@ -111,20 +120,28 @@ export function applyRowBindings(
   values: Record<string, unknown>,
 ): void {
   for (const pb of bindings) {
-    const raw = values[pb.parameterKey];
+    const parameterKey = pb.parameterKey ?? (pb as any).parameter_key;
+    const notInModel = Boolean(pb.notInModel ?? (pb as any).not_in_model);
+    if (notInModel) {
+      continue;
+    }
+    const nodeId = pb.nodeId ?? (pb as any).node_id;
+    const paramKey = pb.paramKey ?? (pb as any).param_key;
+
+    const raw = values[parameterKey];
     if (raw === undefined || raw === null) {
-      throw new RowError(`Missing value for parameter '${pb.parameterKey}'`);
+      throw new RowError(`Missing value for parameter '${parameterKey}'`);
     }
 
-    const node = project.nodes.find((n) => n.id === pb.nodeId);
+    const node = project.nodes.find((n) => n.id === nodeId);
     if (!node) {
-      throw new RowError(`Node '${pb.nodeId}' missing during binding`);
+      throw new RowError(`Node '${nodeId}' missing during binding`);
     }
     const def = nodeDefinition(node, project);
-    const field = def?.fields.find((f) => f.key === pb.paramKey);
+    const field = def?.fields.find((f) => f.key === paramKey);
     if (!field) {
       throw new RowError(
-        `Field '${pb.paramKey}' not found on node '${pb.nodeId}'`,
+        `Field '${paramKey}' not found on node '${nodeId}'`,
       );
     }
 

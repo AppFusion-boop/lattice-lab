@@ -159,9 +159,19 @@ function exportPacket(packet: Packet, name: string) {
     );
   } else download(name + ".json", JSON.stringify(packet, null, 2));
 }
-export default function Workspace() {
+export interface WorkspaceProps {
+  initialProject?: Project;
+  studyId?: string;
+  hideHeaderBrand?: boolean;
+}
+
+export default function Workspace({
+  initialProject,
+  studyId,
+  hideHeaderBrand = false,
+}: WorkspaceProps = {}) {
   const ka = useLang() === "ka";
-  const [project, setProject] = useState<Project>(getSaved),
+  const [project, setProject] = useState<Project>(() => initialProject || getSaved()),
     [selected, setSelected] = useState("sensor"),
     [search, setSearch] = useState(""),
     [category, setCategory] = useState("All"),
@@ -193,14 +203,22 @@ export default function Workspace() {
     [cursor, setCursor] = useState(1),
     [outputId, setOutputId] = useState("scope"),
     [showStudyBinding, setShowStudyBinding] = useState(false);
+
+  useEffect(() => {
+    if (initialProject) {
+      setProject(initialProject);
+    }
+  }, [initialProject]);
+
   const activeStudyId =
-    typeof window !== "undefined"
+    studyId ||
+    (typeof window !== "undefined"
       ? new URLSearchParams(window.location.hash.split("?")[1] || "").get(
           "studyId",
         ) || undefined
-      : undefined;
+      : undefined);
   const [canvasNodes, setCanvasNodes] = useState<FlowNode[]>(() =>
-    reconcileCanvasNodes([], project.nodes, selected),
+    reconcileCanvasNodes([], (initialProject || getSaved()).nodes, selected),
   );
   useEffect(() => {
     setCanvasNodes((previous) =>
@@ -758,29 +776,13 @@ export default function Workspace() {
     >
       <FlowContext.Provider value={nodeRuntime}>
         <div className="studio">
-          <header className="studio-header">
-            <a
-              className="brand"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                flow.current?.fitView({ duration: 300, padding: 0.2 });
-              }}
-            >
-              <span>
-                <Hexagon size={25} />
-                <i />
-              </span>
-              lattice<small>სტუდია</small>
-            </a>
-            <div className="header-divider" />
-            <div className="project-heading">
-              <span className="project-path">
-                {t("ჩემი სამუშაო სივრცე", "Personal workspace")}
-                <ChevronRight size={11} />
-                <span>ფლოუები</span>
-              </span>
-              <div>
+          {hideHeaderBrand ? (
+            <header className="studio-header" style={{ height: 42, padding: "0 14px", background: "#f8fafc" }}>
+              <div className="project-heading" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="project-path" style={{ color: "#2563eb", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <FlaskConical size={14} color="#2563eb" />
+                  <span>{t("კვლევის 3D ფლოუ მოდელი", "Study 3D Flow Simulation")}</span>
+                </span>
                 <input
                   aria-label="ფლოუს სახელი"
                   value={project.name}
@@ -792,66 +794,147 @@ export default function Workspace() {
                       name: e.target.value.slice(0, 100),
                     })
                   }
+                  style={{ height: 26, fontSize: 12, width: 220 }}
                 />
-                <button
-                  aria-label="ფლოუს მენიუ"
-                  className="icon-button"
-                  onClick={() => setMenu(!menu)}
-                >
-                  <ChevronDown size={15} />
-                </button>
-                <span className={"saved-state " + (dirty ? "dirty" : "")}>
-                  <i />
-                  {dirty ? t("შეუნახავი", "Unsaved") : t("შენახული", "Saved")}
-                </span>
               </div>
-            </div>
-            <div className="header-actions">
-              <button
-                className="icon-button undo-header"
-                aria-label="უკან დაბრუნება"
-                disabled={!history.length}
-                onClick={undo}
+              <div className="header-actions">
+                <button
+                  className="icon-button undo-header"
+                  aria-label="უკან დაბრუნება"
+                  disabled={!history.length}
+                  onClick={undo}
+                >
+                  <Undo2 size={15} />
+                </button>
+                <button
+                  className="icon-button undo-header"
+                  aria-label="გამეორება"
+                  disabled={!future.length}
+                  onClick={redo}
+                >
+                  <Redo2 size={15} />
+                </button>
+                <button
+                  className="save-button"
+                  style={{ background: "#2563eb", height: 28, fontSize: 11, padding: "0 12px" }}
+                  onClick={() => setShowStudyBinding(true)}
+                  title={t("მოდელის ვერსიის შენახვა", "Save Model Version")}
+                >
+                  <Save size={13} />
+                  <span>{t("მოდელის ვერსიის შენახვა", "Save Model Version")}</span>
+                </button>
+                <button
+                  className={
+                    "run-button " + (running || playback.playing ? "stop" : "")
+                  }
+                  style={{ height: 28, fontSize: 11, padding: "0 12px" }}
+                  onClick={runFlow}
+                >
+                  {running || playback.playing ? (
+                    <Square size={13} fill="currentColor" />
+                  ) : (
+                    <Play size={13} fill="currentColor" />
+                  )}
+                  {running ? "მზადდება…" : playback.playing ? "პაუზა" : t("3D სიმულაციის გაშვება", "Run 3D Sim")}
+                </button>
+              </div>
+            </header>
+          ) : (
+            <header className="studio-header">
+              <a
+                className="brand"
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  flow.current?.fitView({ duration: 300, padding: 0.2 });
+                }}
               >
-                <Undo2 size={17} />
-              </button>
-              <button
-                className="icon-button undo-header"
-                aria-label="გამეორება"
-                disabled={!future.length}
-                onClick={redo}
-              >
-                <Redo2 size={17} />
-              </button>
-              <button
-                className="save-button"
-                aria-label={t("შენახვა", "Save")}
-                onClick={save}
-              >
-                <Save size={15} />
-                <span>{t("შენახვა", "Save")}</span>
-              </button>
-              <button
-                className={
-                  "run-button " + (running || playback.playing ? "stop" : "")
-                }
-                aria-label={
-                  running || playback.playing
-                    ? "სიმულაციის შეჩერება"
-                    : "სიმულაციის დაკვრა"
-                }
-                onClick={runFlow}
-              >
-                {running || playback.playing ? (
-                  <Square size={14} fill="currentColor" />
-                ) : (
-                  <Play size={14} fill="currentColor" />
-                )}
-                {running ? "მზადდება…" : playback.playing ? "პაუზა" : "დაკვრა"}
-                <kbd>⌘ ↵</kbd>
-              </button>
-            </div>
-          </header>
+                <span>
+                  <Hexagon size={25} />
+                  <i />
+                </span>
+                lattice<small>სტუდია</small>
+              </a>
+              <div className="header-divider" />
+              <div className="project-heading">
+                <span className="project-path">
+                  {t("ჩემი სამუშაო სივრცე", "Personal workspace")}
+                  <ChevronRight size={11} />
+                  <span>ფლოუები</span>
+                </span>
+                <div>
+                  <input
+                    aria-label="ფლოუს სახელი"
+                    value={project.name}
+                    onFocus={startEdit}
+                    onBlur={endEdit}
+                    onChange={(e) =>
+                      setProject({
+                        ...project,
+                        name: e.target.value.slice(0, 100),
+                      })
+                    }
+                  />
+                  <button
+                    aria-label="ფლოუს მენიუ"
+                    className="icon-button"
+                    onClick={() => setMenu(!menu)}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                  <span className={"saved-state " + (dirty ? "dirty" : "")}>
+                    <i />
+                    {dirty ? t("შეუნახავი", "Unsaved") : t("შენახული", "Saved")}
+                  </span>
+                </div>
+              </div>
+              <div className="header-actions">
+                <button
+                  className="icon-button undo-header"
+                  aria-label="უკან დაბრუნება"
+                  disabled={!history.length}
+                  onClick={undo}
+                >
+                  <Undo2 size={17} />
+                </button>
+                <button
+                  className="icon-button undo-header"
+                  aria-label="გამეორება"
+                  disabled={!future.length}
+                  onClick={redo}
+                >
+                  <Redo2 size={17} />
+                </button>
+                <button
+                  className="save-button"
+                  aria-label={t("შენახვა", "Save")}
+                  onClick={save}
+                >
+                  <Save size={15} />
+                  <span>{t("შენახვა", "Save")}</span>
+                </button>
+                <button
+                  className={
+                    "run-button " + (running || playback.playing ? "stop" : "")
+                  }
+                  aria-label={
+                    running || playback.playing
+                      ? "სიმულაციის შეჩერება"
+                      : "სიმულაციის დაკვრა"
+                  }
+                  onClick={runFlow}
+                >
+                  {running || playback.playing ? (
+                    <Square size={14} fill="currentColor" />
+                  ) : (
+                    <Play size={14} fill="currentColor" />
+                  )}
+                  {running ? "მზადდება…" : playback.playing ? "პაუზა" : "დაკვრა"}
+                  <kbd>⌘ ↵</kbd>
+                </button>
+              </div>
+            </header>
+          )}
           {menu && (
             <>
               <div className="menu-backdrop" onClick={() => setMenu(false)} />
