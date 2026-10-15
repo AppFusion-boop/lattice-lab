@@ -1,0 +1,99 @@
+{
+  "name": "Tunnel Blast Mitigation (Example)",
+  "description": "Explosion mitigation screening in tunnel geometries. Example values — replace with your own.",
+  "domain": "physics",
+  "exclusion_threshold": 0.05,
+  "confidence": 0.95,
+  "max_engine_evaluations": 50000,
+  "parameters": [
+    {
+      "key": "droplet",
+      "label": "Droplet SMD",
+      "unit": "µm",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 10,
+        "max": 1000,
+        "scale": "log",
+        "levels": 12
+      }
+    },
+    {
+      "key": "flow",
+      "label": "Water Flow Rate",
+      "unit": "L/min",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 1,
+        "max": 150,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "nozzles",
+      "label": "Active Nozzles",
+      "unit": "",
+      "kind": "integer",
+      "role": "controlled",
+      "spec": {
+        "min": 1,
+        "max": 24,
+        "step": 1
+      }
+    },
+    {
+      "key": "mist_lead",
+      "label": "Mist Lead Time",
+      "unit": "s",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0,
+        "max": 1,
+        "scale": "linear",
+        "levels": 5
+      }
+    },
+    {
+      "key": "amplitude",
+      "label": "Blast Shock Amplitude",
+      "unit": "Pa",
+      "kind": "continuous",
+      "role": "uncertain",
+      "spec": {
+        "min": 9000,
+        "max": 27000,
+        "scale": "linear",
+        "distribution": {
+          "type": "normal",
+          "mean": 18000,
+          "sd": 3600
+        }
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "key": "peak_pressure",
+      "label": "Peak Overpressure",
+      "unit": "Pa",
+      "kind": "continuous",
+      "direction": "minimize",
+      "criterion": {
+        "op": "<",
+        "value": 8000
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "label": "Pump Capacity Limit",
+      "expression": "flow * nozzles <= 600",
+      "kind": "hard",
+      "rationale": "Example pump capacity — replace with real value"
+    }
+  ]
+}

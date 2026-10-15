@@ -3,10 +3,17 @@
   "version": "2.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "server": "uv run --directory server uvicorn lattice_server.main:app --host 127.0.0.1 --port 8765 --reload",
+    "dev:all": "concurrently -n web,api \"npm:dev\" \"npm:server\"",
     "build": "tsc --noEmit && vite build",
-    "test": "node --experimental-strip-types --test src/core/engine.test.ts"
+    "test": "tsx --test src/core/engine.test.ts src/core/expression.conformance.test.ts src/core/study/batch.test.ts src/core/study/eval-batch.test.ts",
+    "test:server": "uv run --directory server pytest",
+    "gen:api": "uv run --directory server python -c \"import json; from lattice_server.main import app; print(json.dumps(app.openapi()))\" > openapi.tmp.json && openapi-typescript openapi.tmp.json -o src/api/schema.d.ts && rm openapi.tmp.json"
   },
   "dependencies": {
     "@xyflow/react": "^12.12.0",
@@ -19,7 +26,10 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.186.0",
+    "concurrently": "^9.2.5",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.0",
     "vite": "^7.0.0"
   }

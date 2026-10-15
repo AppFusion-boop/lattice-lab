@@ -5,3 +5,7 @@ dist/
 .npm-cache/
 
 artifacts/
+data/
+server/.venv/
+__pycache__/
+*.sqlite*

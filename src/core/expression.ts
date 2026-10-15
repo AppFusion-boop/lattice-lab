@@ -18,11 +18,59 @@ const fns: Record<string, { arity: number; fn: (...v: number[]) => number }> = {
   if: { arity: 3, fn: (c, a, b) => (c ? a : b) },
 };
 export const formulaFunctions = Object.keys(fns);
+
+export interface CompileOptions {
+  variables?: readonly string[];
+  strict?: boolean;
+}
+
+export function expressionVariables(source: string): string[] {
+  if (!source || typeof source !== "string") return [];
+  const re =
+    /\s*(?:(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([a-zA-Z_][\w]*)|(>=|<=|==|!=|&&|\|\||[+*/^(),<>!%-]))/gy;
+  let end = 0;
+  const tokens: string[] = [];
+  while (end < source.length) {
+    re.lastIndex = end;
+    const m = re.exec(source);
+    if (!m) break;
+    tokens.push(m[1] || m[2] || m[3]);
+    end = re.lastIndex;
+  }
+  const vars = new Set<string>();
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (/^[a-zA-Z_]/.test(tok)) {
+      if (tokens[i + 1] === "(") {
+        // function call
+      } else if (tok !== "pi" && tok !== "e") {
+        vars.add(tok);
+      }
+    }
+  }
+  return Array.from(vars).sort();
+}
+
 export function compileExpression(
   source: string,
+  options?: CompileOptions,
 ): (vars: Record<string, number>) => number {
   if (!source.trim() || source.length > 500)
     throw Error("Enter an expression (maximum 500 characters).");
+
+  const hasCustomVars = options?.variables !== undefined;
+  if (hasCustomVars) {
+    for (const v of options!.variables!) {
+      if (Object.hasOwn(fns, v)) {
+        throw Error("Variable name collides with function: " + v);
+      }
+    }
+  }
+  const allowedVars = hasCustomVars
+    ? new Set([...options!.variables!, "pi", "e"])
+    : null;
+  const strict = options?.strict ?? (hasCustomVars ? true : false);
+
   const tokens: string[] = [];
   const re =
     /\s*(?:(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([a-zA-Z_][\w]*)|(>=|<=|==|!=|&&|\|\||[+*/^(),<>!%-]))/gy;
@@ -83,8 +131,14 @@ export function compileExpression(
           throw Error(tok + " expects " + fns[tok].arity + " arguments");
         tree = { op: "call", value: tok, args };
       } else {
-        if (!["a", "b", "t", "pi", "e"].includes(tok))
-          throw Error("Unknown variable: " + tok + ". Use a, b or t.");
+        if (allowedVars) {
+          if (!allowedVars.has(tok)) {
+            throw Error("Unknown variable: " + tok);
+          }
+        } else {
+          if (!["a", "b", "t", "pi", "e"].includes(tok))
+            throw Error("Unknown variable: " + tok + ". Use a, b or t.");
+        }
         tree = { op: "variable", value: tok, args: [] };
       }
     } else throw Error("Unexpected token: " + tok);
@@ -103,12 +157,17 @@ export function compileExpression(
   if (at !== tokens.length) throw Error("Unexpected token: " + tokens[at]);
   const calc = (n: Tree, v: Record<string, number>): number => {
     if (n.op === "number") return Number(n.value);
-    if (n.op === "variable")
-      return n.value === "pi"
-        ? Math.PI
-        : n.value === "e"
-          ? Math.E
-          : (v[n.value!] ?? 0);
+    if (n.op === "variable") {
+      if (n.value === "pi") return Math.PI;
+      if (n.value === "e") return Math.E;
+      if (strict) {
+        if (!Object.hasOwn(v, n.value!) || v[n.value!] === undefined || v[n.value!] === null || !Number.isFinite(v[n.value!])) {
+          throw Error("Missing variable: " + n.value);
+        }
+        return v[n.value!];
+      }
+      return v[n.value!] ?? 0;
+    }
     if (n.op === "call") {
       if (n.value === "if")
         return calc(n.args[0], v) ? calc(n.args[1], v) : calc(n.args[2], v);

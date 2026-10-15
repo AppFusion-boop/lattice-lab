@@ -115,7 +115,7 @@ button.secondary,
   color: #8b9b92;
 }
 .studio {
-  height: 100dvh;
+  height: 100%;
   min-height: 500px;
   display: flex;
   flex-direction: column;

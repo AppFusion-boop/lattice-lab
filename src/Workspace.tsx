@@ -4,6 +4,7 @@ import "./flow-monitor.css";
 import { usePlayback } from "./usePlayback";
 import { playbackLabel } from "./core/playback-clock";
 import { L, message } from "./core/ka";
+import { useLang } from "./i18n";
 import {
   lazy,
   Suspense,
@@ -67,7 +68,9 @@ import {
   SlidersHorizontal,
   Link2,
   Code2,
+  FlaskConical,
 } from "lucide-react";
+import { BindingDialog } from "./study/components/BindingDialog";
 import {
   categories,
   typeColors,
@@ -157,7 +160,7 @@ function exportPacket(packet: Packet, name: string) {
   } else download(name + ".json", JSON.stringify(packet, null, 2));
 }
 export default function Workspace() {
-  const ka = true;
+  const ka = useLang() === "ka";
   const [project, setProject] = useState<Project>(getSaved),
     [selected, setSelected] = useState("sensor"),
     [search, setSearch] = useState(""),
@@ -188,7 +191,14 @@ export default function Workspace() {
     [settings, setSettings] = useState(false),
     [guide, setGuide] = useState(false),
     [cursor, setCursor] = useState(1),
-    [outputId, setOutputId] = useState("scope");
+    [outputId, setOutputId] = useState("scope"),
+    [showStudyBinding, setShowStudyBinding] = useState(false);
+  const activeStudyId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.hash.split("?")[1] || "").get(
+          "studyId",
+        ) || undefined
+      : undefined;
   const [canvasNodes, setCanvasNodes] = useState<FlowNode[]>(() =>
     reconcileCanvasNodes([], project.nodes, selected),
   );
@@ -1106,7 +1116,24 @@ export default function Workspace() {
                     }}
                   >
                     <Play size={14} />
-                    მონიტორინგი
+                  </button>
+                  <button
+                    className="canvas-tab"
+                    onClick={() => setShowStudyBinding(true)}
+                    title={t(
+                      "ფლოუს კვლევასთან დაკავშირება (Model Version)",
+                      "Link Flow to Study (Model Version)",
+                    )}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: activeStudyId ? "rgba(37, 99, 235, 0.1)" : undefined,
+                      borderColor: activeStudyId ? "#2563eb" : undefined,
+                    }}
+                  >
+                    <FlaskConical size={14} color={activeStudyId ? "#2563eb" : undefined} />
+                    <span>{t("კვლევასთან მიბმა", "Link to Study")}</span>
                   </button>
                   <span className="workflow-version">v3</span>
                 </div>
@@ -2255,6 +2282,14 @@ export default function Workspace() {
               )}
             </section>
           </div>
+        )}
+        {showStudyBinding && (
+          <BindingDialog
+            project={project}
+            isOpen={showStudyBinding}
+            onClose={() => setShowStudyBinding(false)}
+            defaultStudyId={activeStudyId}
+          />
         )}
       </FlowContext.Provider>
     </PlotClock.Provider>

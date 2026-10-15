@@ -1,0 +1,99 @@
+{
+  "name": "Small Molecule Screen (Lipinski Rules)",
+  "description": "Drug discovery candidate filtering using Lipinski rule of five. Example values — replace with your own.",
+  "domain": "pharmacology",
+  "exclusion_threshold": 0.05,
+  "confidence": 0.95,
+  "max_engine_evaluations": 50000,
+  "parameters": [
+    {
+      "key": "mw",
+      "label": "Molecular Weight",
+      "unit": "Da",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 100,
+        "max": 900,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "logp",
+      "label": "Octanol-Water Partition (LogP)",
+      "unit": "",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": -3,
+        "max": 8,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "hbd",
+      "label": "Hydrogen Bond Donors",
+      "unit": "",
+      "kind": "integer",
+      "role": "controlled",
+      "spec": {
+        "min": 0,
+        "max": 15,
+        "step": 1
+      }
+    },
+    {
+      "key": "hba",
+      "label": "Hydrogen Bond Acceptors",
+      "unit": "",
+      "kind": "integer",
+      "role": "controlled",
+      "spec": {
+        "min": 0,
+        "max": 20,
+        "step": 1
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "key": "toxic",
+      "label": "Cytotoxicity Indicator",
+      "unit": "",
+      "kind": "binary",
+      "direction": "minimize",
+      "criterion": {
+        "op": "equals",
+        "value": 0
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "label": "Lipinski: MW <= 500",
+      "expression": "mw <= 500",
+      "kind": "hard",
+      "rationale": "Lipinski rule of five: Molecular mass under 500 daltons"
+    },
+    {
+      "label": "Lipinski: LogP <= 5",
+      "expression": "logp <= 5",
+      "kind": "hard",
+      "rationale": "Lipinski rule of five: Lipophilicity logP under 5"
+    },
+    {
+      "label": "Lipinski: HBD <= 5",
+      "expression": "hbd <= 5",
+      "kind": "hard",
+      "rationale": "Lipinski rule of five: No more than 5 hydrogen bond donors"
+    },
+    {
+      "label": "Lipinski: HBA <= 10",
+      "expression": "hba <= 10",
+      "kind": "hard",
+      "rationale": "Lipinski rule of five: No more than 10 hydrogen bond acceptors"
+    }
+  ]
+}

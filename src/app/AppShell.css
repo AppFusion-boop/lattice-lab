@@ -1,0 +1,112 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  background: #f7f8f5;
+  color: #283e37;
+}
+
+.app-shell-topbar {
+  height: 32px;
+  background: #f0f3ef;
+  border-bottom: 1px solid var(--line, #e3e8e2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 11px;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.app-shell-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-shell-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #61736a;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 11px;
+}
+
+.app-shell-tab:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #283e37;
+}
+
+.app-shell-tab.active {
+  background: #fff;
+  border-color: var(--line, #e3e8e2);
+  color: #247861;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.app-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-shell-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--line, #e3e8e2);
+  background: #fff;
+  color: #4a5c53;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell-lang-btn:hover {
+  background: #f7f8f5;
+  color: #247861;
+}
+
+.app-shell-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell-placeholder {
+  padding: 40px;
+  text-align: center;
+  max-width: 600px;
+  margin: 60px auto;
+  background: #fff;
+  border: 1px solid var(--line, #e3e8e2);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.app-shell-placeholder h2 {
+  font-size: 18px;
+  margin-top: 0;
+  color: #247861;
+}
+
+.app-shell-placeholder p {
+  color: #61736a;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}

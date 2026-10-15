@@ -2,16 +2,33 @@
 
 ქართულენოვანი ვიზუალური ფლოუს რედაქტორი: 35 ნოუდი, ტიპიზებული პორტები, ფორმულები, სენსორები და კონფიგურირებადი სცენის მოვლენები.
 
-## ლოკალური გაშვება
+## ლოკალური გაშვება / Running Locally
 
+### ქართულად
 ```sh
 npm install
-npm run dev -- --host 127.0.0.1
+uv sync --directory server
+npm run dev:all
 ```
 
-მისამართი: http://127.0.0.1:5173/
+- ვებ-ინტერფეისი: http://127.0.0.1:5173/
+- სერვერის API: http://127.0.0.1:8765/ (ან http://127.0.0.1:5173/api/v1/health)
+- მხოლოდ ფლოუს რედაქტორის გაშვება: `npm run dev`
+- Windows-ზე ასევე შეგიძლიათ გაუშვათ `Start-Local.ps1`.
 
-Windows-ზე ასევე შეგიძლიათ გაუშვათ Start-Local.ps1.
+### English
+```sh
+npm install                  # Install frontend dependencies
+uv sync --directory server   # Install Python backend dependencies
+npm run dev:all              # Start both frontend (:5173) and API backend (:8765)
+```
+
+- Web UI: http://127.0.0.1:5173/
+- Backend Health: http://127.0.0.1:5173/api/v1/health (proxied via Vite)
+- Frontend-only: `npm run dev`
+- Tests: `npm test` (TypeScript) and `npm run test:server` (Python pytest)
+- Build: `npm run build`
+
 
 ## საერთო დრო და მონიტორინგი
 

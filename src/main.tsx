@@ -1,8 +1,9 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import Workspace from "./Workspace";
+import { AppShell } from "./app/AppShell";
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <Workspace />
+    <AppShell />
   </React.StrictMode>,
 );
