@@ -7,7 +7,13 @@ import type {
   Vec3,
   LabNode,
 } from "./types.ts";
-export type Measurement = "pressure" | "temperature" | "light" | "acceleration";
+export type Measurement =
+  | "pressure"
+  | "temperature"
+  | "light"
+  | "acceleration"
+  | "gasConcentration"
+  | "heatFlux";
 type EffectContext = {
   params: Config;
   age: number;
@@ -267,6 +273,169 @@ export const sceneEvents: SceneEventDefinition[] = [
     help: "A phenomenological local pressure multiplier, useful for comparing assumptions. It does not model water droplets, mist transport or shock-wave mitigation.",
     effect: ({ params: p, age }) =>
       (Number(p.reduction) / 100) * Math.min(1, age / Number(p.rise)),
+  },
+  {
+    id: "gasExplosion",
+    visual: "fire",
+    title: "აირის/გაზის აფეთქება (Gas Explosion & Blast Wave)",
+    description: "საწვავის წვა, დარტყმითი ტალღა (Shockwave), ალი და ტოქსიკური აირი",
+    color: "#ea580c",
+    icon: "Flame",
+    channels: ["pressure", "temperature", "gasConcentration", "light"],
+    mode: "add",
+    tailTime: (p) => Number(p.radius) / Number(p.speed),
+    front: (p, t) => Math.min(Number(p.radius), t * Number(p.speed)),
+    fields: [
+      {
+        key: "fuel",
+        label: "საწვავი აირი (Fuel Gas)",
+        kind: "select",
+        default: "Methane (CH4)",
+        options: [
+          "Methane (CH4)",
+          "Hydrogen (H2)",
+          "Propane (C3H8)",
+          "Acetylene (C2H2)",
+          "Vapor Cloud (TNT Eq)",
+        ],
+      },
+      num("phi", "ექვივალენტური ფარდობა (Equivalence Ratio phi)", 1.0, 0.4, 2.5, "", 0.05),
+      num("fuelMass", "საწვავის მასა (Fuel Mass)", 25, 0.1, 5000, "kg", 1),
+      num("overpressure", "პიკური დარტყმითი წნევა (Peak Overpressure)", 35000, 100, 500000, "Pa", 500),
+      num("speed", "დარტყმითი ტალღის სიჩქარე (Shock Speed)", 420, 100, 3000, "m/s", 10),
+      num("width", "იმპულსის ხანგრძლივობა (Positive Phase td)", 0.045, 0.001, 2, "s", 0.002),
+      num("flameTemp", "ალის ტემპერატურა (Flame Temp)", 1850, 400, 3200, "°C", 25),
+      num("toxicYield", "ტოქსიკური აირის გამოსავალი (CO / Toxic ppm)", 480, 0, 5000, "ppm", 10),
+    ],
+    help: "დარტყმითი ტალღა გამოითვლება ფრიდლანდერის (Friedlander) განტოლებით. წვის პროდუქტები და ტოქსიკური გაზის (CO) გამოსავალი იზრდება საწვავის სიჭარბისას (phi > 1.0).",
+    effect: ({ params: p, age, distance, channel }) => {
+      const t = age - distance / Number(p.speed);
+      const w = Number(p.width);
+      if (t < 0 || t > Number(p.duration)) return 0;
+      if (channel === "pressure") {
+        const tau = t / w;
+        if (tau > 1.8) return 0;
+        return Number(p.overpressure) * (1 - tau) * Math.exp(-1.5 * tau);
+      }
+      if (channel === "temperature") {
+        return Number(p.flameTemp) * Math.exp(-Math.pow((t - 0.5 * w) / (2 * w), 2));
+      }
+      if (channel === "gasConcentration") {
+        const phi = Number(p.phi);
+        const richFactor = phi > 1.0 ? 1.0 + 1.8 * (phi - 1.0) : Math.max(0.2, phi);
+        return Number(p.toxicYield) * richFactor * (1 / (1 + 0.3 * distance)) * Math.exp(-0.4 * t);
+      }
+      if (channel === "light") {
+        return 12000 * Math.exp(-Math.pow(t / w, 2));
+      }
+      return 0;
+    },
+  },
+  {
+    id: "fluidSprayer",
+    visual: "mist",
+    title: "სითხის/ნისლის გამფრქვევი (Universal Fluid Sprayer & Scrubber)",
+    description: "სხვადასხვა სითხე (წყალი, ქიმიური ნეიტრალიზატორი, ქაფი), წვეთების ზომა და რეაქცია",
+    color: "#0ea5e9",
+    icon: "Droplets",
+    channels: ["pressure", "temperature", "gasConcentration"],
+    mode: "multiply",
+    channelModes: { temperature: "add", gasConcentration: "multiply" },
+    fields: [
+      {
+        key: "fluid",
+        label: "გამფრქვევი სითხე (Fluid Agent)",
+        kind: "select",
+        default: "Water (H2O)",
+        options: [
+          "Water (H2O)",
+          "Chemical Neutralizer (Scrubber/Alkaline)",
+          "Firefighting Foam (AFFF)",
+          "Potassium Salt Slurry (Purple-K)",
+          "Liquid Nitrogen (LN2)",
+        ],
+      },
+      num("flow", "სითხის ხარჯი (Mass Flow Rate)", 25, 0.5, 300, "L/min", 1),
+      num("droplet", "წვეთების ზომა D32 (Sauter Mean Diameter)", 75, 5, 1200, "µm", 5),
+      num("nozzles", "საქშენების რაოდენობა (Nozzles Count)", 12, 1, 48, "", 1),
+      num("fallSpeed", "გამოფრქვევის სიჩქარე (Discharge Velocity)", 6, 0.5, 25, "m/s", 0.5),
+      num("pressureMitigation", "დარტყმითი ტალღის ჩახშობა (Shock Mitigation)", 60, 0, 98, "%", 1),
+      num("coolingRate", "აორთქლებით გაგრილება (Evaporative Cooling)", 22, 0, 65, "°C", 0.5),
+      num("scavengingEfficiency", "ქიმიური შთანთქმა/ნეიტრალიზაცია (Scavenging)", 80, 0, 99, "%", 1),
+      num("rise", "სისტემის ამოქმედების დრო (Activation Ramp)", 0.2, 0.01, 10, "s", 0.01),
+    ],
+    help: "უნივერსალური გამფრქვევი: წყალი აგრილებს აორთქლებით და ახშობს ტალღას. ქიმიური ნეიტრალიზატორი და ქაფი დამატებით რეაქციაში შედის წვის გაზებთან და ანეიტრალებს ტოქსიკურობას (Scavenging).",
+    effect: ({ params: p, age, channel }) => {
+      const fill = Math.min(1, age / Number(p.rise));
+      if (channel === "temperature") {
+        const fluid = String(p.fluid);
+        const latentFactor = fluid.includes("Nitrogen") ? 2.5 : fluid.includes("Water") ? 1.0 : 0.8;
+        return -Number(p.coolingRate) * latentFactor * fill;
+      }
+      if (channel === "pressure") {
+        return (Number(p.pressureMitigation) / 100) * fill;
+      }
+      if (channel === "gasConcentration") {
+        const fluid = String(p.fluid);
+        const d32 = Math.max(10, Number(p.droplet));
+        const areaBoost = Math.min(2.0, 100 / d32);
+        const reacts = fluid.includes("Neutralizer") || fluid.includes("Foam") || fluid.includes("Purple");
+        const eff = (Number(p.scavengingEfficiency) / 100) * (reacts ? 1.0 : 0.25) * areaBoost;
+        return Math.min(0.98, eff) * fill;
+      }
+      return 0;
+    },
+  },
+  {
+    id: "gasCloud",
+    visual: "zone",
+    title: "გაზის გაჟონვა / ღრუბელი (Gas Leak Dispersion Cloud)",
+    description: "საშიში ან აალებადი აირის კონცენტრაციის გავრცელება",
+    color: "#84cc16",
+    icon: "Cloud",
+    channels: ["gasConcentration"],
+    mode: "add",
+    fields: [
+      {
+        key: "gas",
+        label: "აირის სახეობა (Gas Species)",
+        kind: "select",
+        default: "Methane (CH4)",
+        options: [
+          "Methane (CH4)",
+          "Carbon Monoxide (CO)",
+          "Hydrogen Sulfide (H2S)",
+          "Ammonia (NH3)",
+          "Hydrogen (H2)",
+        ],
+      },
+      num("concentration", "საწყისი კონცენტრაცია (Concentration)", 1200, 10, 50000, "ppm", 50),
+      num("decayRate", "გაფანტვის კოეფიციენტი (Dispersion Decay)", 0.25, 0.01, 2, "1/s", 0.02),
+    ],
+    help: "სცენაში აირის გაჟონვის 3D ღრუბელი. კონცენტრაცია მცირდება მანძილთან და დროთან ერთად.",
+    effect: ({ params: p, age, distance }) =>
+      Number(p.concentration) * Math.exp(-Number(p.decayRate) * age) * (1 / (1 + 0.2 * distance)),
+  },
+  {
+    id: "thermalRadiation",
+    visual: "heat",
+    title: "სითბური გამოსხივება (Radiant Heat Flux)",
+    description: "ალის ან გახურებული ზედაპირის გამოსხივება (Stefan-Boltzmann)",
+    color: "#f43f5e",
+    icon: "SunMedium",
+    channels: ["heatFlux", "temperature"],
+    mode: "add",
+    fields: [
+      num("flux", "სითბური ნაკადის სიმკვრივე (Radiant Heat Flux)", 45, 1, 200, "kW/m²", 1),
+      num("emissivity", "გამოსხივების კოეფიციენტი (Emissivity epsilon)", 0.85, 0.1, 1.0, "", 0.05),
+    ],
+    help: "სტეფან-ბოლცმანის კანონით გამოთვლილი რადიაციული სითბური ნაკადი.",
+    effect: ({ params: p, distance, channel }) => {
+      const atten = 1 / (1 + 0.15 * distance * distance);
+      return channel === "heatFlux"
+        ? Number(p.flux) * Number(p.emissivity) * atten
+        : (Number(p.flux) * 4.2) * atten;
+    },
   },
 ];
 for (const d of sceneEvents) {

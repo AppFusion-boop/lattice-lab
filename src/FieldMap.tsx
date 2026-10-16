@@ -10,6 +10,8 @@ const channels: Record<Measurement, { label: string; unit: string }> = {
   temperature: { label: "ტემპერატურა", unit: "°C" },
   light: { label: "განათება", unit: "lx" },
   acceleration: { label: "აჩქარება", unit: "m/s²" },
+  gasConcentration: { label: "გაზის კონცენტრაცია", unit: "ppm" },
+  heatFlux: { label: "სითბური ნაკადი", unit: "kW/m²" },
 };
 export function FieldMap({ scene, time }: { scene: SceneData; time: number }) {
   const available = [

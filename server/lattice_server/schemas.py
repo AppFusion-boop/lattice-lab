@@ -441,7 +441,12 @@ class ExpressionCheckResponse(BaseModel):
 
 
 class TemplateCreateRequest(BaseModel):
-    template: Literal["tunnel_blast", "drug_screen", "microchannel_cold_plate"]
+    template: Literal[
+        "tunnel_blast",
+        "drug_screen",
+        "microchannel_cold_plate",
+        "smart_cement_skyscraper",
+    ]
     name: str | None = None
 
 

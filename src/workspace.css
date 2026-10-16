@@ -595,13 +595,48 @@ button.secondary,
   background: #fff;
   border: 0;
   border-right: 1px solid #e8eee2;
-  fill: #7a957a;
+  fill: #5b755b;
+  color: #5b755b;
   width: 30px;
   height: 30px;
-  padding: 9px;
+  padding: 0;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+}
+.react-flow__controls-button:hover {
+  background: #f4f7f2;
+  color: #1b4324;
+}
+.react-flow__controls-button svg {
+  max-width: 15px;
+  max-height: 15px;
 }
 .react-flow__controls-button:last-child {
   border: 0;
+}
+.canvas-align-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d4ded0;
+  font-size: 10px;
+  font-weight: 500;
+  color: #3f5544;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+.canvas-align-btn:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
 }
 .react-flow__minimap {
   width: 118px;

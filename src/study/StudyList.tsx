@@ -12,7 +12,7 @@ export function StudyList() {
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createMode, setCreateMode] = useState<"blank" | "template">("blank");
-  const [selectedTemplate, setSelectedTemplate] = useState<"tunnel_blast" | "drug_screen" | "microchannel_cold_plate">("microchannel_cold_plate");
+  const [selectedTemplate, setSelectedTemplate] = useState<"tunnel_blast" | "drug_screen" | "microchannel_cold_plate" | "smart_cement_skyscraper">("smart_cement_skyscraper");
   const [formError, setFormError] = useState<string | null>(null);
 
   // Blank Study Form State
@@ -269,6 +269,9 @@ export function StudyList() {
                         value={selectedTemplate}
                         onChange={(e) => setSelectedTemplate(e.target.value as any)}
                       >
+                        <option value="smart_cement_skyscraper">
+                          {tr("თვითჩამქრობი ბეტონი ცათამბჯენებისთვის (Smart Cement Skyscraper — Civil/Materials)", "Smart Cement Skyscraper (Civil & Dynamic Wind)")}
+                        </option>
                         <option value="microchannel_cold_plate">
                           {tr("მიკროარხული გამაგრილებელი ფილა (Microchannel Cold Plate — Physics)", "Microchannel Cold Plate (Physics & Heat Transfer)")}
                         </option>
@@ -285,7 +288,9 @@ export function StudyList() {
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "#1e6350", marginBottom: 4 }}>
                         <FileText size={14} />
                         <span>
-                          {selectedTemplate === "microchannel_cold_plate"
+                          {selectedTemplate === "smart_cement_skyscraper"
+                            ? "Smart Damped Cement Skyscraper (Civil & Materials)"
+                            : selectedTemplate === "microchannel_cold_plate"
                             ? "Microchannel Cold Plate Optimization (Physics)"
                             : selectedTemplate === "tunnel_blast"
                             ? "Tunnel Blast Mitigation (Physics)"
@@ -293,7 +298,12 @@ export function StudyList() {
                         </span>
                       </div>
                       <p style={{ margin: 0, color: "#586b62", lineHeight: 1.4 }}>
-                        {selectedTemplate === "microchannel_cold_plate"
+                        {selectedTemplate === "smart_cement_skyscraper"
+                          ? tr(
+                              "პარამეტრები: w/b (0.16–0.28), silica_fume (0.05–0.25), polymer_cement (0–10%), fiber_volume (0.2–2.5%), wind_gust (25–65 m/s). შედეგები: a_peak < 18 milli-g, f_c > 90 MPa, zeta > 3.0%, carbon < 450 kg CO2/m³. შეზღუდვები: f_c >= 80 MPa, a_peak <= 22 milli-g, fiber+0.1*poly <= 3.2.",
+                              "Parameters: w/b (0.16–0.28), silica_fume (0.05–0.25), polymer_cement (0–10%), fiber_volume (0.2–2.5%), wind_gust (25–65 m/s). Outcomes: a_peak < 18 milli-g, f_c > 90 MPa, zeta > 3.0%, carbon < 450 kg CO2/m³. Constraints: f_c >= 80 MPa, a_peak <= 22 milli-g, fiber+0.1*poly <= 3.2."
+                            )
+                          : selectedTemplate === "microchannel_cold_plate"
                           ? tr(
                               "პარამეტრები: channel_width (0.15–1.0 mm), fin_thickness (0.15–0.8 mm), aspect_ratio (2–10), flow_velocity (0.3–3.0 m/s), heat_flux (80–220 W/cm²). შედეგები: t_junction < 75 °C, pressure_drop < 40 kPa. შეზღუდვები: aspect_ratio <= 8.5, pitch >= 0.35 mm.",
                               "Parameters: channel_width (0.15–1.0 mm), fin_thickness (0.15–0.8 mm), aspect_ratio (2–10), flow_velocity (0.3–3.0 m/s), heat_flux (80–220 W/cm²). Outcomes: t_junction < 75 °C, pressure_drop < 40 kPa. Constraints: aspect_ratio <= 8.5, pitch >= 0.35 mm."

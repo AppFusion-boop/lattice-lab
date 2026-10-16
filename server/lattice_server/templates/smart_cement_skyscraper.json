@@ -1,0 +1,151 @@
+{
+  "name": "Smart Damped Cement Skyscraper (Civil & Materials)",
+  "description": "Ultra-High-Performance Concrete (UHPC) and viscoelastic fiber-damped cement composite screening to minimize wind flutter and seismic vibration in 300m supertall buildings. Example values — replace with your own.",
+  "domain": "engineering",
+  "exclusion_threshold": 0.05,
+  "confidence": 0.95,
+  "max_engine_evaluations": 50000,
+  "parameters": [
+    {
+      "key": "water_binder_ratio",
+      "label": "Water-to-Binder Ratio (w/b)",
+      "unit": "",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.16,
+        "max": 0.28,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "silica_fume_ratio",
+      "label": "Silica Fume Clinker Replacement",
+      "unit": "",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.05,
+        "max": 0.25,
+        "scale": "linear",
+        "levels": 9
+      }
+    },
+    {
+      "key": "polymer_cement_ratio",
+      "label": "Viscoelastic Polymer Ratio (p/c)",
+      "unit": "%",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.0,
+        "max": 10.0,
+        "scale": "linear",
+        "levels": 11
+      }
+    },
+    {
+      "key": "fiber_volume_fraction",
+      "label": "Fiber Volume Fraction (V_f)",
+      "unit": "%",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.2,
+        "max": 2.5,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "wind_speed_gust",
+      "label": "Peak Wind Storm Gust Speed",
+      "unit": "m/s",
+      "kind": "continuous",
+      "role": "uncertain",
+      "spec": {
+        "min": 25.0,
+        "max": 65.0,
+        "scale": "linear",
+        "distribution": {
+          "type": "normal",
+          "mean": 42.0,
+          "sd": 8.0
+        }
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "key": "top_acceleration",
+      "label": "Top Floor Peak Vibration Acceleration",
+      "unit": "milligravity",
+      "kind": "continuous",
+      "direction": "minimize",
+      "criterion": {
+        "op": "<",
+        "value": 18.0
+      }
+    },
+    {
+      "key": "compressive_strength",
+      "label": "28-Day Compressive Strength",
+      "unit": "MPa",
+      "kind": "continuous",
+      "direction": "maximize",
+      "criterion": {
+        "op": ">",
+        "value": 90.0
+      }
+    },
+    {
+      "key": "damping_ratio",
+      "label": "Structural Damping Ratio (zeta)",
+      "unit": "%",
+      "kind": "continuous",
+      "direction": "maximize",
+      "criterion": {
+        "op": ">",
+        "value": 3.0
+      }
+    },
+    {
+      "key": "embodied_carbon",
+      "label": "Embodied Carbon Footprint",
+      "unit": "kg/m**3",
+      "kind": "continuous",
+      "direction": "minimize",
+      "criterion": {
+        "op": "<",
+        "value": 450.0
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "label": "Workability & Fiber Dispersion Limit",
+      "expression": "fiber_volume_fraction + 0.1 * polymer_cement_ratio <= 3.0",
+      "kind": "hard",
+      "rationale": "Prevents fiber clumping and pump line blockage during high-rise placement"
+    },
+    {
+      "label": "Polymer Strength Degradation Cap",
+      "expression": "polymer_cement_ratio <= 8.5",
+      "kind": "hard",
+      "rationale": "Excessive polymer dosage softens the inorganic C-S-H crystal matrix"
+    },
+    {
+      "label": "Minimum Matrix Binder Densification",
+      "expression": "water_binder_ratio - 0.5 * silica_fume_ratio <= 0.22",
+      "kind": "hard",
+      "rationale": "Ensures sufficient pozzolanic micro-silica to consume free calcium hydroxide"
+    },
+    {
+      "label": "Maximum Water Content for Durability",
+      "expression": "water_binder_ratio <= 0.26",
+      "kind": "hard",
+      "rationale": "Guarantees low capillary porosity and high freeze-thaw/carbonation resistance"
+    }
+  ]
+}

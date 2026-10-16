@@ -6,6 +6,9 @@ export const sensorUnits: Record<string, string> = {
   accelerometer: "m/s²",
   microphone: "Pa",
   light: "lx",
+  gasSensor: "ppm",
+  heatFluxSensor: "kW/m²",
+  blastImpulseSensor: "Pa·s",
 };
 const n = (c: EvalContext, k: string) => Number(c.params[k]);
 const signal = (
@@ -95,6 +98,9 @@ export function sampleSensor(c: EvalContext): Packet {
         temperature: "temperature",
         light: "light",
         accelerometer: "acceleration",
+        gasSensor: "gasConcentration",
+        heatFluxSensor: "heatFlux",
+        blastImpulseSensor: "pressure",
       };
       value = applySceneEvents(
         value,

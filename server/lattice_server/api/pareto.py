@@ -13,6 +13,7 @@ from lattice_server.errors import ApiHttpError
 from lattice_server.repo import candidates as candidates_repo
 from lattice_server.repo import models as models_repo
 from lattice_server.repo import outcomes as outcomes_repo
+from lattice_server.repo import parameters as parameters_repo
 from lattice_server.repo import studies as studies_repo
 from lattice_server.schemas import ParetoPointModel, ParetoResponse
 from lattice_server.stats.pareto import compute_pareto_analysis
@@ -70,6 +71,18 @@ def get_pareto_frontier(
             message="No candidate records found in active set.",
         )
 
+    # Collect parameter defaults for uncertain or non-controlled parameters
+    study_params = parameters_repo.list_parameters(conn, study_id)
+    all_defaults: dict[str, float] = {}
+    for p in study_params:
+        spec = p.spec if isinstance(p.spec, dict) else (p.spec.model_dump() if hasattr(p.spec, "model_dump") else {})
+        if "value" in spec and spec["value"] is not None:
+            all_defaults[p.key] = float(spec["value"])
+        elif "min" in spec and "max" in spec:
+            all_defaults[p.key] = (float(spec["min"]) + float(spec["max"])) / 2.0
+        else:
+            all_defaults[p.key] = 1.0
+
     # Parse candidate values
     candidates_list: list[dict[str, Any]] = []
     eval_batch: list[dict[str, Any]] = []
@@ -82,10 +95,12 @@ def get_pareto_frontier(
             "outcomes": {},
         }
         candidates_list.append(cand_dict)
-        eval_batch.append({"id": r["id"], "values": vals})
+        full_vals = dict(all_defaults)
+        full_vals.update(vals)
+        eval_batch.append({"id": r["id"], "values": full_vals})
 
     # Evaluate outcomes using active model if available
-    model = models_repo.get_active_model_version(conn, study_id)
+    model = models_repo.get_latest_model_version(conn, study_id)
     if model and model.project:
         results = bridge.evaluate(
             project=model.project,

@@ -19,6 +19,7 @@ import {
   applyNodeChanges,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   type ReactFlowInstance,
   type NodeChange,
@@ -43,6 +44,7 @@ import {
   X,
   Settings2,
   Workflow,
+  LayoutGrid,
   Box,
   PanelRightClose,
   PanelLeftClose,
@@ -106,6 +108,7 @@ import {
 } from "./core/canvas-state";
 import { SignalPlot, PacketView, PlotClock } from "./Plots";
 import { tunnelProject } from "./core/tunnel-demo";
+import { autoLayoutProject } from "./core/auto-layout";
 const FlowMonitor = lazy(() =>
   import("./FlowMonitor").then((m) => ({ default: m.FlowMonitor })),
 );
@@ -277,6 +280,15 @@ export default function Workspace({
       setFuture([]);
     }
   };
+  const handleAutoLayout = useCallback(() => {
+    if (!project.nodes.length) return;
+    const aligned = autoLayoutProject(project);
+    commit(aligned);
+    setNotice(t("ფლოუ გასწორდა", "Workflow nodes aligned"));
+    setTimeout(() => {
+      flow.current?.fitView({ padding: 0.18, duration: 400 });
+    }, 50);
+  }, [project, commit, t]);
   const patch = (
     id: string,
     params: Record<string, unknown>,
@@ -518,6 +530,9 @@ export default function Workspace({
       } else if (!editing && (e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         runFlow();
+      } else if (!editing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        handleAutoLayout();
       } else if (e.key === "Escape") {
         setSceneId("");
         setGuide(false);
@@ -815,6 +830,15 @@ export default function Workspace({
                   <Redo2 size={15} />
                 </button>
                 <button
+                  className="icon-button undo-header"
+                  aria-label={t("ავტომატური განლაგება", "Auto Align Nodes")}
+                  title={t("ავტომატური განლაგება (Ctrl+L)", "Auto Align Nodes (Ctrl+L)")}
+                  disabled={!project.nodes.length}
+                  onClick={handleAutoLayout}
+                >
+                  <LayoutGrid size={15} />
+                </button>
+                <button
                   className="save-button"
                   style={{ background: "#2563eb", height: 28, fontSize: 11, padding: "0 12px" }}
                   onClick={() => setShowStudyBinding(true)}
@@ -906,6 +930,15 @@ export default function Workspace({
                   <Redo2 size={17} />
                 </button>
                 <button
+                  className="icon-button undo-header"
+                  aria-label={t("ავტომატური განლაგება", "Auto Align Nodes")}
+                  title={t("ავტომატური განლაგება (Ctrl+L)", "Auto Align Nodes (Ctrl+L)")}
+                  disabled={!project.nodes.length}
+                  onClick={handleAutoLayout}
+                >
+                  <LayoutGrid size={16} />
+                </button>
+                <button
                   className="save-button"
                   aria-label={t("შენახვა", "Save")}
                   onClick={save}
@@ -964,6 +997,17 @@ export default function Workspace({
                 >
                   <Download size={15} />
                   {t("JSON-ის ექსპორტი", "Export workflow JSON")}
+                </button>
+                <button
+                  onClick={() => {
+                    handleAutoLayout();
+                    setMenu(false);
+                  }}
+                  disabled={!project.nodes.length}
+                >
+                  <LayoutGrid size={15} />
+                  {t("ნოუდების გასწორება", "Auto Align Nodes")}
+                  <kbd style={{ marginLeft: "auto", fontSize: 10, opacity: 0.7 }}>Ctrl+L</kbd>
                 </button>
                 <hr />
                 <span>დაიწყეთ შაბლონიდან</span>
@@ -1335,7 +1379,15 @@ export default function Workspace({
                     }}
                   >
                     <Background color="#bdcec5" gap={20} size={1} />
-                    <Controls showInteractive={false} position="bottom-left" />
+                    <Controls showInteractive={false} position="bottom-left">
+                      <ControlButton
+                        onClick={handleAutoLayout}
+                        title={t("ავტომატური განლაგება (Ctrl+L)", "Auto Align Nodes (Ctrl+L)")}
+                        aria-label={t("ავტომატური განლაგება", "Auto Align Nodes")}
+                      >
+                        <LayoutGrid size={14} />
+                      </ControlButton>
+                    </Controls>
                     <MiniMap
                       nodeColor={(n) =>
                         categories.find(
@@ -1366,6 +1418,16 @@ export default function Workspace({
                           "Connect matching ports · double-click a node to inspect",
                         )}
                       </small>
+                      {project.nodes.length > 1 && (
+                        <button
+                          className="canvas-align-btn"
+                          onClick={handleAutoLayout}
+                          title={t("ნოუდების გასწორება (Ctrl+L)", "Auto Align Nodes (Ctrl+L)")}
+                        >
+                          <LayoutGrid size={12} />
+                          <span>{t("ნოუდების გასწორება", "Auto Align")}</span>
+                        </button>
+                      )}
                     </div>
                     {!project.nodes.length && (
                       <div className="empty-canvas">

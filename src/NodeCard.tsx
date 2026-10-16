@@ -39,6 +39,13 @@ import {
   PanelTop,
   Table2,
   ListOrdered,
+  Atom,
+  Cloud,
+  Droplets,
+  Flame,
+  Sliders,
+  SunMedium,
+  Wind,
 } from "lucide-react";
 const iconMap = {
   MousePointer2,
@@ -67,6 +74,13 @@ const iconMap = {
   PanelTop,
   Table2,
   ListOrdered,
+  Atom,
+  Cloud,
+  Droplets,
+  Flame,
+  Sliders,
+  SunMedium,
+  Wind,
 };
 import {
   getDefinition,

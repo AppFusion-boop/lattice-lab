@@ -27,6 +27,7 @@ import { CalibrationWizard } from "../components/CalibrationWizard";
 import { tunnelProject } from "../../core/tunnel-demo";
 import { molecularProject } from "../../core/molecule-demo";
 import { microchannelProject } from "../../core/microchannel-demo";
+import { skyscraperProject } from "../../core/skyscraper-demo";
 import type { Project, Object3D } from "../../core/types";
 
 interface ModelTabProps {
@@ -85,6 +86,15 @@ export function ModelTab({ study }: ModelTabProps) {
       study.name.toLowerCase().includes("heat")
     ) {
       return microchannelProject();
+    }
+    if (
+      study.name.toLowerCase().includes("cement") ||
+      study.name.toLowerCase().includes("skyscraper") ||
+      study.name.toLowerCase().includes("concrete") ||
+      study.name.toLowerCase().includes("tower") ||
+      study.name.toLowerCase().includes("damped")
+    ) {
+      return skyscraperProject();
     }
     if (study.domain === "physics" || study.name.toLowerCase().includes("tunnel")) {
       return tunnelProject();

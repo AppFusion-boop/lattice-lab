@@ -170,6 +170,11 @@ export const categories = [
   { id: "Data", ka: "მონაცემები", color: "#77966c" },
   { id: "Sensors", ka: "სენსორები", color: "#589f9b" },
   { id: "Processing", ka: "დამუშავება", color: "#9380bd" },
+  { id: "Physics & Fluids", ka: "ფიზიკა და ჰიდროდინამიკა", color: "#38bdf8" },
+  { id: "Thermodynamics", ka: "თერმოდინამიკა", color: "#f87171" },
+  { id: "Chemistry & Reactions", ka: "ქიმია და რეაქციები", color: "#fb923c" },
+  { id: "Structural Dynamics", ka: "სტრუქტურული დინამიკა", color: "#818cf8" },
+  { id: "Signal & Math", ka: "სიგნალები და მათემატიკა", color: "#34d399" },
   { id: "Logic & events", ka: "ლოგიკა და მოვლენები", color: "#bd83a6" },
   { id: "Outputs", ka: "გამომავალი", color: "#7f90a5" },
 ];

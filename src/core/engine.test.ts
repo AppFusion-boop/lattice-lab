@@ -16,6 +16,7 @@ import {
   outputTypes,
 } from "./runtime.ts";
 import { blankProject, type Packet, type Signal } from "./types.ts";
+import { autoLayoutNodes, autoLayoutProject } from "./auto-layout.ts";
 test("formula parser obeys precedence, exponent associativity, comparisons and lazy branches", () => {
   assert.equal(compileExpression("-2^2 + 2^3^2")({}), 508);
   assert.equal(
@@ -773,4 +774,127 @@ test("scrubbing cached results backwards never mutates the prepared run", () => 
   if (later.type === "signal" && early.type === "signal")
     assert.ok(early.value.times.length < later.value.times.length);
   assert.equal(JSON.stringify(run), before);
+});
+
+test("all scientific nodes execute successfully with finite outputs and correct schemas", () => {
+  const p = blankProject();
+  p.duration = 1.0;
+  p.sampleRate = 100;
+  // Test scalar evaluation of physical nodes
+  const scalarKinds = [
+    "chemicalReactor",
+    "gasMixture",
+    "toxicScrubber",
+    "bernoulliOrifice",
+    "darcyFriction",
+    "shockwaveJump",
+    "heatConduction",
+    "heatConvection",
+    "dropletEvaporation",
+    "beamDeflection",
+  ];
+  for (const kind of scalarKinds) {
+    const node = makeNode(kind);
+    p.nodes.push(node);
+  }
+  const run = execute(p);
+  for (const kind of scalarKinds) {
+    const node = p.nodes.find((n) => n.kind === kind)!;
+    const res = run.results[node.id];
+    assert.equal(res.status, "ok", `Node ${kind} failed: ${res.message}`);
+    for (const [outKey, packet] of Object.entries(res.outputs)) {
+      if (packet.type === "number") {
+        assert.ok(Number.isFinite(packet.value), `${kind}.${outKey} is not finite`);
+      } else if (packet.type === "boolean") {
+        assert.equal(typeof packet.value, "boolean");
+      }
+    }
+  }
+
+  // Test signal processing nodes with a generator signal
+  const pSig = blankProject();
+  pSig.duration = 1.0;
+  pSig.sampleRate = 100;
+  const gen = makeNode("generator");
+  pSig.nodes.push(gen);
+
+  const signalConsumerKinds = [
+    { kind: "sdofVibration", inputPort: "force" },
+    { kind: "viscoelasticDamper", inputPort: "displacement" },
+    { kind: "fftSpectrum", inputPort: "signal" },
+    { kind: "integrator", inputPort: "signal" },
+    { kind: "differentiator", inputPort: "signal" },
+    { kind: "pidController", inputPort: "measurement" },
+    { kind: "bandpassFilter", inputPort: "signal" },
+  ];
+
+  for (const { kind, inputPort } of signalConsumerKinds) {
+    const node = makeNode(kind);
+    pSig.nodes.push(node);
+    pSig.edges.push({
+      id: `wire-${kind}`,
+      source: gen.id,
+      sourceHandle: "signal",
+      target: node.id,
+      targetHandle: inputPort,
+    });
+  }
+
+  const runSig = execute(pSig);
+  for (const { kind } of signalConsumerKinds) {
+    const node = pSig.nodes.find((n) => n.kind === kind)!;
+    const res = runSig.results[node.id];
+    assert.equal(res.status, "ok", `Signal node ${kind} failed: ${res.message}`);
+    for (const [outKey, packet] of Object.entries(res.outputs)) {
+      if (packet.type === "signal") {
+        assert.ok(packet.value.values.length > 0, `${kind}.${outKey} signal empty`);
+        assert.ok(
+          packet.value.values.every(Number.isFinite),
+          `${kind}.${outKey} has non-finite values`,
+        );
+      } else if (packet.type === "number") {
+        assert.ok(Number.isFinite(packet.value), `${kind}.${outKey} is not finite`);
+      }
+    }
+  }
+});
+
+test("auto-layout organizes DAG nodes into left-to-right ranks with clean non-overlapping coordinates", () => {
+  const p = blankProject();
+  const nA = makeNode("generator", 500, 300); // source
+  const nB = makeNode("filter", 100, 100);    // intermediate
+  const nC = makeNode("scope", 50, 400);      // sink
+  p.nodes = [nA, nB, nC];
+  p.edges = [
+    { id: "e1", source: nA.id, sourceHandle: "signal", target: nB.id, targetHandle: "signal" },
+    { id: "e2", source: nB.id, sourceHandle: "signal", target: nC.id, targetHandle: "ch1" },
+  ];
+
+  const aligned = autoLayoutProject(p, { startX: 100, columnSpacing: 300 });
+  const posA = aligned.nodes.find((n) => n.id === nA.id)!.position;
+  const posB = aligned.nodes.find((n) => n.id === nB.id)!.position;
+  const posC = aligned.nodes.find((n) => n.id === nC.id)!.position;
+
+  // Left to right rank progression: A -> B -> C
+  assert.equal(posA.x, 100);
+  assert.equal(posB.x, 400);
+  assert.equal(posC.x, 700);
+
+  // Test branching topology
+  const nBranch1 = makeNode("filter", 0, 0);
+  const nBranch2 = makeNode("filter", 0, 0);
+  const nJoin = makeNode("scope", 0, 0);
+  const pBranch = blankProject();
+  pBranch.nodes = [nA, nBranch1, nBranch2, nJoin];
+  pBranch.edges = [
+    { id: "e3", source: nA.id, sourceHandle: "signal", target: nBranch1.id, targetHandle: "signal" },
+    { id: "e4", source: nA.id, sourceHandle: "signal", target: nBranch2.id, targetHandle: "signal" },
+    { id: "e5", source: nBranch1.id, sourceHandle: "signal", target: nJoin.id, targetHandle: "ch1" },
+    { id: "e6", source: nBranch2.id, sourceHandle: "signal", target: nJoin.id, targetHandle: "ch2" },
+  ];
+  const alignedBranch = autoLayoutProject(pBranch);
+  const b1 = alignedBranch.nodes.find((n) => n.id === nBranch1.id)!.position;
+  const b2 = alignedBranch.nodes.find((n) => n.id === nBranch2.id)!.position;
+  assert.equal(b1.x, b2.x); // Same column
+  assert.notEqual(b1.y, b2.y); // Different rows, no overlap
 });

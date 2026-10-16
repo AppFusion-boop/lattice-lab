@@ -87,13 +87,26 @@ def compute_sobol_sensitivity(
         dists.append(uniform(loc=p_min, scale=scale))
         param_ranges.append((p_min, p_max))
 
+    # Collect baseline defaults for all parameters (including non-controlled/uncertain)
+    all_defaults: dict[str, float] = {}
+    for p in parameters:
+        spec = p.spec if isinstance(p.spec, dict) else (p.spec.model_dump() if hasattr(p.spec, "model_dump") else {})
+        if "value" in spec and spec["value"] is not None:
+            all_defaults[p.key] = float(spec["value"])
+        elif "min" in spec and "max" in spec:
+            all_defaults[p.key] = (float(spec["min"]) + float(spec["max"])) / 2.0
+        else:
+            all_defaults[p.key] = 1.0
+
     # Evaluation function for scipy.stats.sobol_indices
     # func receives x of shape (k, n_evals)
     def model_evaluator(x: np.ndarray) -> np.ndarray:
         n_evals = x.shape[1]
         batch_rows: list[dict[str, Any]] = []
         for j in range(n_evals):
-            row_vals = {param_keys[i]: float(x[i, j]) for i in range(k)}
+            row_vals = dict(all_defaults)
+            for i in range(k):
+                row_vals[param_keys[i]] = float(x[i, j])
             batch_rows.append({"id": f"s_{j}", "values": row_vals})
 
         # Evaluate through TS engine bridge

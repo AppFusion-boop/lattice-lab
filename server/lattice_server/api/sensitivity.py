@@ -40,7 +40,7 @@ def run_sensitivity_analysis(
         )
 
     # Fetch active model
-    model = models_repo.get_active_model_version(conn, study_id)
+    model = models_repo.get_latest_model_version(conn, study_id)
     if not model or not model.project:
         raise ApiHttpError(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
