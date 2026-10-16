@@ -39,6 +39,7 @@ def run_parameter_calibration(
     initial_guess: float,
     evidence_points: list[dict[str, Any]],
     target_outcome: str,
+    parameter_defaults: dict[str, float] | None = None,
     seed: int = 42,
 ) -> CalibrationResult:
     """Calibrate a single model parameter against physical evidence observations."""
@@ -73,7 +74,8 @@ def run_parameter_calibration(
     def evaluate_model_at_theta(theta: float) -> np.ndarray:
         eval_rows = []
         for idx, pt in enumerate(valid_points):
-            row_vals = dict(pt.get("values", {}))
+            row_vals = dict(parameter_defaults or {})
+            row_vals.update(pt.get("values", {}))
             row_vals[parameter_key] = float(theta)
             eval_rows.append(
                 {
@@ -93,6 +95,8 @@ def run_parameter_calibration(
 
         sim_y = []
         for r in results:
+            if getattr(r, "status", "ok") != "ok":
+                logger.warning("Calibration bridge row failed: %s", getattr(r, "message", "unknown"))
             sim_y.append(float(r.outcomes.get(target_outcome, 0.0)))
         return np.array(sim_y, dtype=np.float64)
 
