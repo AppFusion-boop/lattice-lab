@@ -51,3 +51,14 @@ export type ModelVersion = components["schemas"]["ModelVersionResponse"];
 export type ModelVersionCreate = components["schemas"]["ModelVersionCreate"];
 export type ParameterBindingModel = components["schemas"]["ParameterBindingModel"];
 export type OutcomeBindingModel = components["schemas"]["OutcomeBindingModel"];
+
+export type SensitivityRequest = components["schemas"]["SensitivityRequest"];
+export type SensitivityResponse = components["schemas"]["SensitivityResponse"];
+export type ParameterSensitivity = components["schemas"]["ParameterSensitivityModel"];
+export type FreezingRecommendation = components["schemas"]["FreezingRecommendationModel"];
+export type ParetoResponse = components["schemas"]["ParetoResponse"];
+export type ParetoPoint = components["schemas"]["ParetoPointModel"];
+
+export type CalibrationRequest = components["schemas"]["CalibrationRequest"];
+export type CalibrationResponse = components["schemas"]["CalibrationResponse"];
+export type CalibrationApplyRequest = components["schemas"]["CalibrationApplyRequest"];

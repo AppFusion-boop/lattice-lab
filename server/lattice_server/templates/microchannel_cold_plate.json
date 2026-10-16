@@ -1,0 +1,123 @@
+{
+  "name": "Microchannel Cold Plate Optimization (Physics)",
+  "description": "High-heat-flux conjugate heat transfer and hydraulic screening for liquid-cooled microchannel cold plates. Example values — replace with your own.",
+  "domain": "physics",
+  "exclusion_threshold": 0.05,
+  "confidence": 0.95,
+  "max_engine_evaluations": 50000,
+  "parameters": [
+    {
+      "key": "channel_width",
+      "label": "Microchannel Width (w_c)",
+      "unit": "mm",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.15,
+        "max": 1.0,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "fin_thickness",
+      "label": "Fin Thickness (w_f)",
+      "unit": "mm",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.15,
+        "max": 0.8,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "aspect_ratio",
+      "label": "Channel Aspect Ratio (alpha)",
+      "unit": "",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 2.0,
+        "max": 10.0,
+        "scale": "linear",
+        "levels": 9
+      }
+    },
+    {
+      "key": "flow_velocity",
+      "label": "Coolant Flow Velocity (v)",
+      "unit": "m/s",
+      "kind": "continuous",
+      "role": "controlled",
+      "spec": {
+        "min": 0.3,
+        "max": 3.0,
+        "scale": "linear",
+        "levels": 10
+      }
+    },
+    {
+      "key": "heat_flux",
+      "label": "Die Heat Flux (q'')",
+      "unit": "W/cm²",
+      "kind": "continuous",
+      "role": "uncertain",
+      "spec": {
+        "min": 80,
+        "max": 220,
+        "scale": "linear",
+        "distribution": {
+          "type": "normal",
+          "mean": 130,
+          "sd": 25
+        }
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "key": "t_junction",
+      "label": "Peak Junction Temperature",
+      "unit": "°C",
+      "kind": "continuous",
+      "direction": "minimize",
+      "criterion": {
+        "op": "<",
+        "value": 75.0
+      }
+    },
+    {
+      "key": "pressure_drop",
+      "label": "Hydraulic Pressure Drop",
+      "unit": "kPa",
+      "kind": "continuous",
+      "direction": "minimize",
+      "criterion": {
+        "op": "<",
+        "value": 40.0
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "label": "Fin Aspect Ratio Limit",
+      "expression": "aspect_ratio <= 8.5",
+      "kind": "hard",
+      "rationale": "Micro-machining/DRIE aspect ratio limit to prevent fin buckling and collapse"
+    },
+    {
+      "label": "Minimum Feature Pitch",
+      "expression": "channel_width + fin_thickness >= 0.35",
+      "kind": "hard",
+      "rationale": "Minimum tooling cutter diameter and structural pitch for copper cold plate fabrication"
+    },
+    {
+      "label": "Delivery Velocity Limit",
+      "expression": "flow_velocity <= 2.8",
+      "kind": "hard",
+      "rationale": "Maximum coolant velocity limit to prevent turbulent erosion and cavitation"
+    }
+  ]
+}

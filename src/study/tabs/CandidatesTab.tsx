@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Database,
   Filter,
+  TrendingUp,
 } from "lucide-react";
 import { apiGet, apiPost, ApiError } from "../api/client";
 import { useApi } from "../api/hooks";
@@ -19,10 +20,12 @@ import type {
   Candidate,
   PaginatedCandidates,
   Parameter,
+  Outcome,
   OverrideCreate,
 } from "../api/types";
 import { tr } from "../../i18n";
 import { useRoute } from "../../app/router";
+import { ParetoExplorer } from "../components/ParetoExplorer";
 
 interface CandidatesTabProps {
   study: Study;
@@ -72,8 +75,14 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
     apiGet<CandidateSet>(`/studies/${study.id}/candidate-sets/active`).catch(() => null as unknown as CandidateSet)
   );
 
+  const [showPareto, setShowPareto] = useState<boolean>(false);
+
   const { data: parameters } = useApi<Parameter[]>(`parameters-${study.id}`, () =>
     apiGet<Parameter[]>(`/studies/${study.id}/parameters`)
+  );
+
+  const { data: outcomes } = useApi<Outcome[]>(`outcomes-${study.id}`, () =>
+    apiGet<Outcome[]>(`/studies/${study.id}/outcomes`)
   );
 
   const controlledParams = parameters?.filter((p) => p.role === "controlled") || [];
@@ -240,7 +249,19 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowPareto(!showPareto)}
+              title={tr("მრავალ-კრიტერიუმიანი პარეტოს ფრონტირი", "Multi-Objective Pareto Frontier")}
+            >
+              <TrendingUp size={13} color="#0284c7" />
+              <span>
+                {showPareto
+                  ? tr("პარეტოს დახურვა", "Hide Pareto")
+                  : tr("პარეტოს ფრონტირი", "Pareto Frontier")}
+              </span>
+            </button>
             <button className="btn-secondary" onClick={() => setShowImportModal(true)}>
               <Upload size={13} />
               <span>{tr("იმპორტი (CSV/XLSX)", "Import Table")}</span>
@@ -252,6 +273,19 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
           </div>
         </div>
       </div>
+
+      {/* Pareto Frontier Explorer Section */}
+      {showPareto && (
+        <div className="study-card" style={{ padding: "16px 20px" }}>
+          <ParetoExplorer
+            study={study}
+            outcomes={outcomes || []}
+            onSelectCandidate={(cand) => {
+              // Optionally highlight or filter candidate
+            }}
+          />
+        </div>
+      )}
 
       {/* Candidates List with Filters */}
       <div className="study-card">

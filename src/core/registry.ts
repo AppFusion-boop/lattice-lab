@@ -251,7 +251,7 @@ export const definitions: NodeDefinition[] = [
     ],
     outputs: [port("scene", "Environment", ["scene"])],
     fields: [
-      sel("environment", "გარემო", "Open space", ["Open space", "Tunnel"]),
+      sel("environment", "გარემო", "Open space", ["Open space", "Tunnel", "Molecular"]),
       num("width", "Width", 20, 2, 100, "m"),
       num("depth", "Depth", 12, 2, 100, "m"),
       num("height", "Height", 8, 2, 50, "m"),

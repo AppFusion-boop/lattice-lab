@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Plus, Trash2, X, Sliders, AlertCircle } from "lucide-react";
+import { Plus, Trash2, X, Sliders, AlertCircle, Activity } from "lucide-react";
 import { apiGet, apiPost, apiDelete, ApiError } from "../api/client";
 import { useApi } from "../api/hooks";
-import type { Study, Parameter, ParameterCreate } from "../api/types";
+import type { Study, Parameter, ParameterCreate, Outcome } from "../api/types";
 import { tr } from "../../i18n";
+import { TornadoChart } from "../components/TornadoChart";
 
 interface ParametersTabProps {
   study: Study;
@@ -39,12 +40,20 @@ export function ParametersTab({ study }: ParametersTabProps) {
   const [distMean, setDistMean] = useState("");
   const [distSd, setDistSd] = useState("");
 
+  const [showTornado, setShowTornado] = useState<boolean>(false);
+
   const {
     data: parameters,
     loading,
     refresh,
   } = useApi<Parameter[]>(`parameters-${study.id}`, () =>
     apiGet<Parameter[]>(`/studies/${study.id}/parameters`)
+  );
+
+  const {
+    data: outcomes,
+  } = useApi<Outcome[]>(`outcomes-${study.id}`, () =>
+    apiGet<Outcome[]>(`/studies/${study.id}/outcomes`)
   );
 
   const resetForm = () => {
@@ -172,11 +181,38 @@ export function ParametersTab({ study }: ParametersTabProps) {
               )}
             </p>
           </div>
-          <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-            <Plus size={14} />
-            <span>{tr("პარამეტრის დამატება", "Add Parameter")}</span>
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowTornado(!showTornado)}
+              title={tr("სობოლის მგრძნობელობის ანალიზი", "Sobol Global Sensitivity Analysis")}
+            >
+              <Activity size={14} />
+              <span>
+                {showTornado
+                  ? tr("ტორნადოს დახურვა", "Hide Tornado")
+                  : tr("მგრძნობელობის ანალიზი (Tornado)", "Sensitivity Ranking (Tornado)")}
+              </span>
+            </button>
+            <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+              <Plus size={14} />
+              <span>{tr("პარამეტრის დამატება", "Add Parameter")}</span>
+            </button>
+          </div>
         </div>
+
+        {showTornado && (
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+            <TornadoChart
+              study={study}
+              outcomes={outcomes || []}
+              parameters={parameters || []}
+              onParameterUpdated={() => {
+                refresh();
+              }}
+            />
+          </div>
+        )}
 
         {loading ? (
           <div style={{ padding: 24, textAlign: "center", color: "#84938b" }}>{tr("იტვირთება...", "Loading...")}</div>

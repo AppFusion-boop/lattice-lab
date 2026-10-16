@@ -12,7 +12,7 @@ export function StudyList() {
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createMode, setCreateMode] = useState<"blank" | "template">("blank");
-  const [selectedTemplate, setSelectedTemplate] = useState<"tunnel_blast" | "drug_screen">("tunnel_blast");
+  const [selectedTemplate, setSelectedTemplate] = useState<"tunnel_blast" | "drug_screen" | "microchannel_cold_plate">("microchannel_cold_plate");
   const [formError, setFormError] = useState<string | null>(null);
 
   // Blank Study Form State
@@ -269,6 +269,9 @@ export function StudyList() {
                         value={selectedTemplate}
                         onChange={(e) => setSelectedTemplate(e.target.value as any)}
                       >
+                        <option value="microchannel_cold_plate">
+                          {tr("მიკროარხული გამაგრილებელი ფილა (Microchannel Cold Plate — Physics)", "Microchannel Cold Plate (Physics & Heat Transfer)")}
+                        </option>
                         <option value="tunnel_blast">
                           {tr("გვირაბში აფეთქების ჩახშობა (Tunnel Blast Mitigation — Physics)", "Tunnel Blast Mitigation (Physics)")}
                         </option>
@@ -282,13 +285,20 @@ export function StudyList() {
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, color: "#1e6350", marginBottom: 4 }}>
                         <FileText size={14} />
                         <span>
-                          {selectedTemplate === "tunnel_blast"
+                          {selectedTemplate === "microchannel_cold_plate"
+                            ? "Microchannel Cold Plate Optimization (Physics)"
+                            : selectedTemplate === "tunnel_blast"
                             ? "Tunnel Blast Mitigation (Physics)"
                             : "Early-stage Drug Screen (Lipinski Rules)"}
                         </span>
                       </div>
                       <p style={{ margin: 0, color: "#586b62", lineHeight: 1.4 }}>
-                        {selectedTemplate === "tunnel_blast"
+                        {selectedTemplate === "microchannel_cold_plate"
+                          ? tr(
+                              "პარამეტრები: channel_width (0.15–1.0 mm), fin_thickness (0.15–0.8 mm), aspect_ratio (2–10), flow_velocity (0.3–3.0 m/s), heat_flux (80–220 W/cm²). შედეგები: t_junction < 75 °C, pressure_drop < 40 kPa. შეზღუდვები: aspect_ratio <= 8.5, pitch >= 0.35 mm.",
+                              "Parameters: channel_width (0.15–1.0 mm), fin_thickness (0.15–0.8 mm), aspect_ratio (2–10), flow_velocity (0.3–3.0 m/s), heat_flux (80–220 W/cm²). Outcomes: t_junction < 75 °C, pressure_drop < 40 kPa. Constraints: aspect_ratio <= 8.5, pitch >= 0.35 mm."
+                            )
+                          : selectedTemplate === "tunnel_blast"
                           ? tr(
                               "პარამეტრები: droplet (10–1000 µm), flow (1–150 L/min), nozzles (1–24), mist_lead (0–1 s). შედეგი: peak_pressure < 8000 Pa. შეზღუდვა: flow * nozzles <= 600 (ტუმბოს სიმძლავრე).",
                               "Parameters: droplet (10–1000 µm), flow (1–150 L/min), nozzles (1–24), mist_lead (0–1 s). Outcome: peak_pressure < 8000 Pa. Constraint: flow * nozzles <= 600 (pump rating)."

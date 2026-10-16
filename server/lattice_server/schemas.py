@@ -441,7 +441,7 @@ class ExpressionCheckResponse(BaseModel):
 
 
 class TemplateCreateRequest(BaseModel):
-    template: Literal["tunnel_blast", "drug_screen"]
+    template: Literal["tunnel_blast", "drug_screen", "microchannel_cold_plate"]
     name: str | None = None
 
 
@@ -771,3 +771,94 @@ class ModelVersionResponse(BaseModel):
     validation_json: dict[str, Any] | None = None
     notes: str
     created_at: str
+
+
+# --- Sensitivity & Pareto Models ---
+
+
+class SensitivityRequest(BaseModel):
+    outcome_id: str | None = None
+    outcome_key: str | None = None
+    n_samples: int = Field(default=64, ge=16, le=512)
+    seed: int | None = None
+    freezing_threshold: float = Field(default=0.05, gt=0, lt=0.5)
+
+
+class ParameterSensitivityModel(BaseModel):
+    param_id: str
+    name: str
+    key: str
+    first_order: float
+    total_order: float
+    ci_95: list[float]
+
+
+class FreezingRecommendationModel(BaseModel):
+    param_id: str
+    key: str
+    name: str
+    reason: str
+    suggested_value: float
+    unit: str | None = None
+
+
+class SensitivityResponse(BaseModel):
+    outcome_id: str
+    outcome_key: str
+    n_samples: int
+    n_evaluations: int
+    parameters: list[ParameterSensitivityModel]
+    freezing_recommendations: list[FreezingRecommendationModel]
+
+
+class ParetoPointModel(BaseModel):
+    candidate_id: str
+    label: str | None = None
+    values: dict[str, Any]
+    outcomes: dict[str, float]
+    rank: int
+
+
+class ParetoResponse(BaseModel):
+    study_id: str
+    x_outcome: str
+    y_outcome: str
+    x_direction: Literal["minimize", "maximize"]
+    y_direction: Literal["minimize", "maximize"]
+    total_candidates: int
+    frontier_count: int
+    ideal_point: dict[str, float]
+    nadir_point: dict[str, float]
+    frontier: list[ParetoPointModel]
+    all_points: list[ParetoPointModel]
+
+
+# --- Auto-Calibration Models (Pillar 6, §13) ---
+
+
+class CalibrationRequest(BaseModel):
+    parameter_key: str
+    target_outcome: str
+    initial_guess: float
+    param_bounds: list[float] = Field(min_length=2, max_length=2)
+    evidence_ids: list[str] | None = None
+
+
+class CalibrationResponse(BaseModel):
+    study_id: str
+    model_id: str
+    parameter_key: str
+    prior_value: float
+    calibrated_value: float
+    ci_95: list[float]
+    standard_error: float
+    prior_rmse: float
+    calibrated_rmse: float
+    rmse_reduction_pct: float
+    n_evidence_points: int
+
+
+class CalibrationApplyRequest(BaseModel):
+    parameter_key: str
+    calibrated_value: float
+    notes: str | None = None

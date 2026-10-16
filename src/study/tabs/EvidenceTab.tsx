@@ -10,6 +10,7 @@ import {
   AlertOctagon,
   X,
   RefreshCw,
+  Printer,
 } from "lucide-react";
 import { apiGet, apiPost } from "../api/client";
 import { useApi } from "../api/hooks";
@@ -17,13 +18,14 @@ import type { Evidence, Outcome, Parameter, Source, Study } from "../api/types";
 import { tr } from "../../i18n";
 import { ImportWizard } from "../components/ImportWizard";
 import { EvidenceScatterPlot } from "../components/EvidenceScatterPlot";
+import { LabProtocolSheet } from "../components/LabProtocolSheet";
 
 interface EvidenceTabProps {
   study: Study;
 }
 
 export function EvidenceTab({ study }: EvidenceTabProps) {
-  const [viewMode, setViewMode] = useState<"table" | "plot">("table");
+  const [viewMode, setViewMode] = useState<"table" | "plot" | "protocol">("table");
   const [kindFilter, setKindFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [sourceFilter, setSourceFilter] = useState<string>("");
@@ -309,6 +311,14 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
               <BarChart2 size={14} style={{ marginRight: 4 }} />
               <span>{tr("დიაგრამა", "Scatter Plot")}</span>
             </button>
+            <button
+              className={`study-tab-btn ${viewMode === "protocol" ? "active" : ""}`}
+              onClick={() => setViewMode("protocol")}
+              style={{ padding: "4px 10px", fontSize: 12, border: "none" }}
+            >
+              <Printer size={14} style={{ marginRight: 4 }} />
+              <span>{tr("საგამოცდო პროტოკოლი", "Bench Protocol")}</span>
+            </button>
           </div>
 
           <button className="btn-secondary" onClick={() => setShowImportWizard(true)}>
@@ -412,8 +422,14 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
         </span>
       </div>
 
-      {/* Main Content Area: Table or Scatter Plot */}
-      {viewMode === "plot" ? (
+      {/* Main Content Area: Table, Scatter Plot, or Bench Protocol */}
+      {viewMode === "protocol" ? (
+        <LabProtocolSheet
+          study={study}
+          parameters={parameters}
+          outcomes={outcomes}
+        />
+      ) : viewMode === "plot" ? (
         <div className="study-card">
           <EvidenceScatterPlot
             evidence={filteredEvidence}

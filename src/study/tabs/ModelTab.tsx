@@ -11,24 +11,33 @@ import {
   ChevronRight,
   Workflow,
   ShieldCheck,
+  Activity,
+  Download,
+  Sparkles,
 } from "lucide-react";
 import Workspace from "../../Workspace";
 import { apiGet } from "../api/client";
 import { useApi } from "../api/hooks";
-import type { Study, ModelVersion } from "../api/types";
+import type { Study, ModelVersion, Parameter, Outcome, Evidence } from "../api/types";
 import { tr } from "../../i18n";
 import { BindingDialog } from "../components/BindingDialog";
+import { TornadoChart } from "../components/TornadoChart";
+import { FabricationExportModal } from "../components/FabricationExportModal";
+import { CalibrationWizard } from "../components/CalibrationWizard";
 import { tunnelProject } from "../../core/tunnel-demo";
 import { molecularProject } from "../../core/molecule-demo";
-import type { Project } from "../../core/types";
+import { microchannelProject } from "../../core/microchannel-demo";
+import type { Project, Object3D } from "../../core/types";
 
 interface ModelTabProps {
   study: Study;
 }
 
 export function ModelTab({ study }: ModelTabProps) {
-  const [viewMode, setViewMode] = useState<"workspace" | "mappings" | "history">("workspace");
+  const [viewMode, setViewMode] = useState<"workspace" | "mappings" | "sensitivity" | "history">("workspace");
   const [showBindingDialog, setShowBindingDialog] = useState<boolean>(false);
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [showCalibrationWizard, setShowCalibrationWizard] = useState<boolean>(false);
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({});
 
   const {
@@ -38,6 +47,25 @@ export function ModelTab({ study }: ModelTabProps) {
     refresh,
   } = useApi<ModelVersion[]>(`models-${study.id}`, () =>
     apiGet<ModelVersion[]>(`/studies/${study.id}/models`),
+  );
+
+  const {
+    data: parameters,
+    refresh: refreshParams,
+  } = useApi<Parameter[]>(`parameters-${study.id}`, () =>
+    apiGet<Parameter[]>(`/studies/${study.id}/parameters`),
+  );
+
+  const {
+    data: outcomes,
+  } = useApi<Outcome[]>(`outcomes-${study.id}`, () =>
+    apiGet<Outcome[]>(`/studies/${study.id}/outcomes`),
+  );
+
+  const {
+    data: evidence,
+  } = useApi<Evidence[]>(`evidence-${study.id}`, () =>
+    apiGet<Evidence[]>(`/studies/${study.id}/evidence`),
   );
 
   const toggleExpand = (id: string) => {
@@ -50,6 +78,13 @@ export function ModelTab({ study }: ModelTabProps) {
   const activeProject = useMemo<Project | undefined>(() => {
     if (latestModel?.project && typeof latestModel.project === "object") {
       return latestModel.project as Project;
+    }
+    if (
+      study.name.toLowerCase().includes("microchannel") ||
+      study.name.toLowerCase().includes("cold plate") ||
+      study.name.toLowerCase().includes("heat")
+    ) {
+      return microchannelProject();
     }
     if (study.domain === "physics" || study.name.toLowerCase().includes("tunnel")) {
       return tunnelProject();
@@ -66,6 +101,15 @@ export function ModelTab({ study }: ModelTabProps) {
     }
     return undefined;
   }, [latestModel, study]);
+
+  const sceneObjects = useMemo<Object3D[]>(() => {
+    if (!activeProject || !Array.isArray(activeProject.nodes)) return [];
+    const sceneNode = activeProject.nodes.find((n) => n.kind === "scene3d" || n.kind === "scene");
+    if (sceneNode && Array.isArray(sceneNode.params.objects)) {
+      return sceneNode.params.objects as Object3D[];
+    }
+    return [];
+  }, [activeProject]);
 
   return (
     <div className="model-tab-container">
@@ -89,6 +133,14 @@ export function ModelTab({ study }: ModelTabProps) {
             >
               <SlidersHorizontal size={13} />
               <span>{tr("მიბმები & რედუქტორები", "Bindings & Reducers")}</span>
+            </button>
+            <button
+              className={`model-mode-btn ${viewMode === "sensitivity" ? "active" : ""}`}
+              onClick={() => setViewMode("sensitivity")}
+              title={tr("სობოლის მგრძნობელობის ანალიზი და პარამეტრების გაყინვა", "Sobol sensitivity analysis & parameter freezing")}
+            >
+              <Activity size={13} />
+              <span>{tr("მგრძნობელობა (Tornado)", "Sensitivity (Tornado)")}</span>
             </button>
             {models && models.length > 1 && (
               <button
@@ -148,6 +200,24 @@ export function ModelTab({ study }: ModelTabProps) {
 
         {/* Right Toolbar Actions */}
         <div className="model-tab-toolbar-right">
+          <button
+            className="btn-secondary"
+            style={{ padding: "4px 10px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
+            onClick={() => setShowExportModal(true)}
+            title={tr("ფიზიკური დამზადების ექსპორტი (AutoCAD DXF, 3D STL, CSV)", "Export for CNC milling, Wire-EDM, and 3D printing (DXF, STL, CSV)")}
+          >
+            <Download size={13} />
+            <span>{tr("CAD ექსპორტი (DXF/STL)", "CAD Export (DXF/STL)")}</span>
+          </button>
+          <button
+            className="btn-secondary"
+            style={{ padding: "4px 10px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
+            onClick={() => setShowCalibrationWizard(true)}
+            title={tr("მოდელის ავტო-კალიბრაცია ლაბორატორიული მონაცემებით", "Auto-calibrate model with laboratory evidence")}
+          >
+            <Sparkles size={13} color="#059669" />
+            <span>{tr("ავტო-კალიბრაცია", "Auto-Calibrate")}</span>
+          </button>
           <button
             className="btn-primary"
             style={{ padding: "4px 10px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
@@ -429,6 +499,19 @@ export function ModelTab({ study }: ModelTabProps) {
         </div>
       )}
 
+      {viewMode === "sensitivity" && (
+        <div className="model-tab-scroll-wrap" style={{ padding: "20px 24px" }}>
+          <TornadoChart
+            study={study}
+            outcomes={outcomes || []}
+            parameters={parameters || []}
+            onParameterUpdated={() => {
+              refreshParams();
+            }}
+          />
+        </div>
+      )}
+
       {/* Binding Dialog Modal */}
       {showBindingDialog && (
         <BindingDialog
@@ -437,6 +520,31 @@ export function ModelTab({ study }: ModelTabProps) {
           onClose={() => setShowBindingDialog(false)}
           defaultStudyId={study.id}
           onSuccess={() => {
+            refresh();
+          }}
+        />
+      )}
+
+      {/* Fabrication CAD Export Modal */}
+      {showExportModal && (
+        <FabricationExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          objects={sceneObjects}
+          studyName={study.name}
+        />
+      )}
+
+      {/* Auto-Calibration Wizard */}
+      {showCalibrationWizard && (
+        <CalibrationWizard
+          isOpen={showCalibrationWizard}
+          onClose={() => setShowCalibrationWizard(false)}
+          study={study}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          evidence={evidence || []}
+          onModelUpgraded={() => {
             refresh();
           }}
         />

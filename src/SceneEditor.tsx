@@ -7,6 +7,7 @@ import { visibleSampleIndex } from "./core/tunnel-demo";
 import { useEffect, useRef, useState, useMemo, useId } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { parseOBJMesh } from "./core/mesh";
 import {
   X,
@@ -23,6 +24,17 @@ import {
   Sun,
   Zap,
   Play,
+  Eye,
+  EyeOff,
+  Copy,
+  Maximize2,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  Focus,
+  Grid,
+  Cylinder,
+  Circle,
 } from "lucide-react";
 import type {
   LabNode,
@@ -49,6 +61,13 @@ function View3D({
   events,
   time,
   guides = true,
+  transformMode = "select",
+  hiddenIds = new Set<string>(),
+  wireframe = false,
+  snapValue = null,
+  onTransformObject,
+  onTransformNode,
+  cameraControlsRef,
 }: {
   guides?: boolean;
   events: SceneEventConfig[];
@@ -57,12 +76,34 @@ function View3D({
   sensors: LabNode[];
   selected: string;
   onSelect: (id: string) => void;
+  transformMode?: "select" | "translate" | "rotate" | "scale";
+  hiddenIds?: Set<string>;
+  wireframe?: boolean;
+  snapValue?: number | null;
+  onTransformObject?: (
+    id: string,
+    patch: Partial<Object3D>,
+    record?: boolean,
+  ) => void;
+  onTransformNode?: (
+    id: string,
+    patch: { x: number; y: number; z: number },
+    record?: boolean,
+  ) => void;
+  cameraControlsRef?: React.MutableRefObject<{
+    setIso: () => void;
+    setTop: () => void;
+    setFront: () => void;
+    focus: (id?: string) => void;
+  } | null>;
 }) {
   const host = useRef<HTMLDivElement>(null),
-    view = useRef<number[]>([]);
+    view = useRef<number[]>([]),
+    target = useRef<number[]>([]);
   const animateEvents = useRef<(t: number) => void>(() => {});
   useEffect(() => animateEvents.current(time), [time]);
   const [error, setError] = useState("");
+
   useEffect(() => {
     const el = host.current!;
     let renderer: THREE.WebGLRenderer;
@@ -84,11 +125,13 @@ function View3D({
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.5;
     el.appendChild(renderer.domElement);
+
     const world = new THREE.Scene();
     world.add(new THREE.HemisphereLight(0xffffff, 0x698581, 2.7));
     const light = new THREE.DirectionalLight(0xffffff, 2);
     light.position.set(10, 25, 10);
     world.add(light);
+
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
     camera.position.set(
       ...((view.current.length
@@ -99,10 +142,16 @@ function View3D({
             scene.depth / 2 + Math.max(scene.width, scene.depth),
           ]) as [number, number, number]),
     );
+
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(scene.width / 2, scene.height / 2, scene.depth / 2);
-    controls.minDistance = 3;
-    controls.maxDistance = 180;
+    if (target.current.length) {
+      controls.target.set(...(target.current as [number, number, number]));
+    } else {
+      controls.target.set(scene.width / 2, scene.height / 2, scene.depth / 2);
+    }
+    controls.minDistance = 1;
+    controls.maxDistance = 250;
+
     const grid = new THREE.GridHelper(
       Math.max(scene.width, scene.depth),
       20,
@@ -122,6 +171,7 @@ function View3D({
       molGrid.position.set(scene.width / 2, -0.02, scene.depth / 2);
       world.add(molGrid);
     }
+
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(scene.width, scene.depth),
       new THREE.MeshStandardMaterial({
@@ -136,8 +186,12 @@ function View3D({
     if (scene.environment !== "Tunnel" && scene.environment !== "Molecular") {
       world.add(floor);
     }
+
     const pickable: THREE.Object3D[] = [];
+
+    // Scene Objects
     for (const o of scene.objects) {
+      const isHidden = hiddenIds.has(o.id);
       let geometry: THREE.BufferGeometry;
       if (o.shape === "mesh" && o.vertices) {
         geometry = new THREE.BufferGeometry();
@@ -149,7 +203,7 @@ function View3D({
       } else if (o.shape === "sphere" || o.shape === "source") {
         geometry = new THREE.SphereGeometry(0.5, 24, 18);
       } else if (o.shape === "cylinder") {
-        geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+        geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 24);
       } else {
         geometry = new THREE.BoxGeometry(1, 1, 1);
       }
@@ -157,6 +211,7 @@ function View3D({
         color: o.id === selected ? "#71b8a2" : o.color,
         roughness: 0.5,
         metalness: 0.12,
+        wireframe: wireframe,
         transparent: o.shape === "source",
         opacity: o.shape === "source" ? 0.85 : 1,
       });
@@ -173,15 +228,22 @@ function View3D({
         mesh.rotation.y = (o.rotation * Math.PI) / 180;
       }
       mesh.userData.id = o.id;
+      mesh.visible = !isHidden;
       world.add(mesh);
-      pickable.push(mesh);
-      if (o.id === selected) world.add(new THREE.BoxHelper(mesh, 0x338d75));
+      if (!isHidden) pickable.push(mesh);
+      if (o.id === selected && !isHidden) {
+        world.add(new THREE.BoxHelper(mesh, 0x338d75));
+      }
     }
+
+    // Sensors
     for (const n of sensors) {
+      const isHidden = hiddenIds.has(n.id);
       const mesh = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.32),
         new THREE.MeshStandardMaterial({
           color: n.id === selected ? 0xe5ab63 : 0x2e968d,
+          wireframe: wireframe,
         }),
       );
       mesh.position.set(
@@ -190,8 +252,9 @@ function View3D({
         Number(n.params.z),
       );
       mesh.userData.id = n.id;
+      mesh.visible = !isHidden;
       world.add(mesh);
-      pickable.push(mesh);
+      if (!isHidden) pickable.push(mesh);
       const stem = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
           new THREE.Vector3(mesh.position.x, 0, mesh.position.z),
@@ -199,24 +262,33 @@ function View3D({
         ]),
         new THREE.LineBasicMaterial({ color: 0x438d83 }),
       );
+      stem.visible = !isHidden;
       world.add(stem);
     }
+
+    // Events
     const eventMeshes: {
       event: SceneEventConfig;
       mesh: THREE.Mesh;
       ring: THREE.Mesh;
     }[] = [];
     for (const event of events) {
+      const isHidden = hiddenIds.has(event.id);
       const p = event.params,
         d = eventDefinition(event.kind)!;
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(0.32, 20, 16),
-        new THREE.MeshStandardMaterial({ color: d.color, transparent: true }),
+        new THREE.MeshStandardMaterial({
+          color: d.color,
+          transparent: true,
+          wireframe: wireframe,
+        }),
       );
       mesh.position.set(Number(p.x), Number(p.y), Number(p.z));
       mesh.userData.id = event.id;
+      mesh.visible = !isHidden;
       world.add(mesh);
-      pickable.push(mesh);
+      if (!isHidden) pickable.push(mesh);
       const radius = Number(p.radius);
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(radius * 0.985, radius, 80),
@@ -227,14 +299,165 @@ function View3D({
           side: THREE.DoubleSide,
         }),
       );
-      ring.visible = guides;
+      ring.visible = !isHidden && guides;
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(Number(p.x), 0.03, Number(p.z));
       world.add(ring);
-      if (event.id === selected) world.add(new THREE.BoxHelper(mesh, 0xce885a));
+      if (event.id === selected && !isHidden) {
+        world.add(new THREE.BoxHelper(mesh, 0xce885a));
+      }
       eventMeshes.push({ event, mesh, ring });
     }
+
     const render = () => renderer.render(world, camera);
+
+    // TransformControls Gizmo
+    const tControls = new TransformControls(camera, renderer.domElement);
+    tControls.size = 0.85;
+    const tHelper = tControls.getHelper();
+    world.add(tHelper);
+    tHelper.visible = false;
+
+    if (snapValue !== null && snapValue > 0) {
+      tControls.setTranslationSnap(snapValue);
+      tControls.setRotationSnap(THREE.MathUtils.degToRad(15));
+      tControls.setScaleSnap(snapValue);
+    } else {
+      tControls.setTranslationSnap(null);
+      tControls.setRotationSnap(null);
+      tControls.setScaleSnap(null);
+    }
+
+    let isDraggingGizmo = false;
+    tControls.addEventListener("dragging-changed", (e: any) => {
+      controls.enabled = !e.value;
+      isDraggingGizmo = !!e.value;
+      if (!e.value) {
+        // Drag finished: commit transform
+        const targetMesh = tControls.object;
+        if (!targetMesh) return;
+        const id = targetMesh.userData.id;
+        if (!id) return;
+        const isObj = scene.objects.some((o) => o.id === id);
+        if (isObj) {
+          const px = Math.round(targetMesh.position.x * 100) / 100;
+          const py = Math.round(targetMesh.position.y * 100) / 100;
+          const pz = Math.round(targetMesh.position.z * 100) / 100;
+          const sx = Math.max(0.01, Math.round(targetMesh.scale.x * 100) / 100);
+          const sy = Math.max(0.01, Math.round(targetMesh.scale.y * 100) / 100);
+          const sz = Math.max(0.01, Math.round(targetMesh.scale.z * 100) / 100);
+          const ry = Math.round(THREE.MathUtils.radToDeg(targetMesh.rotation.y));
+          const rx = Math.round(THREE.MathUtils.radToDeg(targetMesh.rotation.x));
+          const rz = Math.round(THREE.MathUtils.radToDeg(targetMesh.rotation.z));
+          onTransformObject?.(
+            id,
+            {
+              position: { x: px, y: py, z: pz },
+              size: { x: sx, y: sy, z: sz },
+              rotation: ry,
+              rotationVec: { x: rx, y: ry, z: rz },
+            },
+            true,
+          );
+        } else {
+          const px = Math.round(targetMesh.position.x * 100) / 100;
+          const py = Math.round(targetMesh.position.y * 100) / 100;
+          const pz = Math.round(targetMesh.position.z * 100) / 100;
+          onTransformNode?.(id, { x: px, y: py, z: pz }, true);
+        }
+      }
+    });
+
+    tControls.addEventListener("change", render);
+
+    // Attach gizmo to selected object if applicable
+    const selectedMesh = pickable.find((m) => m.userData.id === selected);
+    if (
+      selected &&
+      selectedMesh &&
+      transformMode !== "select" &&
+      !hiddenIds.has(selected)
+    ) {
+      const isNode = !scene.objects.some((o) => o.id === selected);
+      if (isNode && (transformMode === "rotate" || transformMode === "scale")) {
+        tControls.detach();
+        tHelper.visible = false;
+      } else {
+        tControls.setMode(
+          transformMode === "rotate"
+            ? "rotate"
+            : transformMode === "scale"
+            ? "scale"
+            : "translate",
+        );
+        tControls.attach(selectedMesh);
+        tHelper.visible = true;
+      }
+    } else {
+      tControls.detach();
+      tHelper.visible = false;
+    }
+
+    // Camera control presets callback
+    if (cameraControlsRef) {
+      cameraControlsRef.current = {
+        setIso: () => {
+          const cx = scene.width / 2,
+            cy = scene.height / 2,
+            cz = scene.depth / 2;
+          const d = Math.max(scene.width, scene.depth, scene.height) * 1.3;
+          camera.position.set(cx + d * 0.8, cy + d * 0.7, cz + d * 0.9);
+          camera.up.set(0, 1, 0);
+          controls.target.set(cx, cy, cz);
+          controls.update();
+          render();
+        },
+        setTop: () => {
+          const cx = scene.width / 2,
+            cy = scene.height / 2,
+            cz = scene.depth / 2;
+          const d = Math.max(scene.width, scene.depth) * 1.5;
+          camera.position.set(cx, cy + d, cz + 0.001);
+          camera.up.set(0, 0, -1);
+          controls.target.set(cx, cy, cz);
+          controls.update();
+          render();
+        },
+        setFront: () => {
+          const cx = scene.width / 2,
+            cy = scene.height / 2,
+            cz = scene.depth / 2;
+          const d = Math.max(scene.width, scene.height) * 1.6;
+          camera.position.set(cx, cy, cz + d);
+          camera.up.set(0, 1, 0);
+          controls.target.set(cx, cy, cz);
+          controls.update();
+          render();
+        },
+        focus: (targetId?: string) => {
+          const id = targetId || selected;
+          const targetMesh = pickable.find((m) => m.userData.id === id);
+          if (targetMesh) {
+            const pos = new THREE.Vector3();
+            targetMesh.getWorldPosition(pos);
+            controls.target.copy(pos);
+            const maxDim = Math.max(
+              targetMesh.scale.x,
+              targetMesh.scale.y,
+              targetMesh.scale.z,
+              2,
+            );
+            const dist = maxDim * 2.8;
+            const dir = camera.position.clone().sub(controls.target).normalize();
+            if (dir.lengthSq() < 0.01) dir.set(1, 1, 1).normalize();
+            camera.position.copy(pos).addScaledVector(dir, dist);
+            controls.update();
+            render();
+          }
+        },
+      };
+    }
+
     const cleanupTunnel =
       scene.environment === "Tunnel"
         ? buildTunnel(world, scene, render)
@@ -258,47 +481,57 @@ function View3D({
       render();
     };
     animateEvents.current(time);
+
     const resize = () => {
       renderer.setSize(el.clientWidth, el.clientHeight);
       camera.aspect =
         Math.max(1, el.clientWidth) / Math.max(1, el.clientHeight);
-      const direction = camera.position
-        .clone()
-        .sub(controls.target)
-        .normalize();
-      const right = new THREE.Vector3()
-        .crossVectors(camera.up, direction)
-        .normalize();
-      const up = new THREE.Vector3().crossVectors(direction, right).normalize();
-      const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      let distance = 3;
-      for (const x of [0, scene.width])
-        for (const y of [0, scene.height])
-          for (const z of [0, scene.depth]) {
-            const corner = new THREE.Vector3(x, y, z).sub(controls.target);
-            distance = Math.max(
-              distance,
-              corner.dot(direction) +
-                Math.abs(corner.dot(right)) / (tangent * camera.aspect),
-              corner.dot(direction) + Math.abs(corner.dot(up)) / tangent,
-            );
-          }
-      camera.position
-        .copy(controls.target)
-        .addScaledVector(direction, distance * 1.12);
       camera.updateProjectionMatrix();
+
+      if (!view.current.length) {
+        const direction = camera.position
+          .clone()
+          .sub(controls.target)
+          .normalize();
+        const right = new THREE.Vector3()
+          .crossVectors(camera.up, direction)
+          .normalize();
+        const up = new THREE.Vector3()
+          .crossVectors(direction, right)
+          .normalize();
+        const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        let distance = 3;
+        for (const x of [0, scene.width])
+          for (const y of [0, scene.height])
+            for (const z of [0, scene.depth]) {
+              const corner = new THREE.Vector3(x, y, z).sub(controls.target);
+              distance = Math.max(
+                distance,
+                corner.dot(direction) +
+                  Math.abs(corner.dot(right)) / (tangent * camera.aspect),
+                corner.dot(direction) + Math.abs(corner.dot(up)) / tangent,
+              );
+            }
+        camera.position
+          .copy(controls.target)
+          .addScaledVector(direction, distance * 1.12);
+        camera.updateProjectionMatrix();
+      }
       controls.update();
       render();
     };
+
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     controls.addEventListener("change", render);
     controls.update();
     resize();
+
     let down = { x: 0, y: 0 };
     const pointerdown = (e: PointerEvent) =>
       (down = { x: e.clientX, y: e.clientY });
     const pick = (e: PointerEvent) => {
+      if (isDraggingGizmo) return;
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;
       const b = el.getBoundingClientRect(),
         ray = new THREE.Raycaster();
@@ -314,11 +547,15 @@ function View3D({
     };
     renderer.domElement.addEventListener("pointerdown", pointerdown);
     renderer.domElement.addEventListener("pointerup", pick);
+
     return () => {
+      tControls.dispose();
+      tHelper.removeFromParent();
       eventEffects.dispose();
       cleanupTunnel();
       animateEvents.current = () => {};
       view.current = camera.position.toArray();
+      target.current = controls.target.toArray();
       observer.disconnect();
       controls.dispose();
       world.traverse((o) => {
@@ -336,7 +573,12 @@ function View3D({
     JSON.stringify(scene),
     JSON.stringify(sensors.map((n) => ({ id: n.id, params: n.params }))),
     selected,
+    transformMode,
+    wireframe,
+    snapValue,
+    Array.from(hiddenIds).sort().join(","),
   ]);
+
   return (
     <div className="three-view" ref={host}>
       {error && <p>{message(error)}</p>}
@@ -353,6 +595,7 @@ function View2D({
   onEnd,
   events,
   time,
+  hiddenIds = new Set<string>(),
 }: {
   events: SceneEventConfig[];
   time: number;
@@ -363,6 +606,7 @@ function View2D({
   onMove: (id: string, x: number, z: number) => void;
   onStart: () => void;
   onEnd: () => void;
+  hiddenIds?: Set<string>;
 }) {
   const gridId = useId();
   const drag = useRef<string | null>(null),
@@ -451,10 +695,12 @@ function View2D({
           .reverse()
           .find((s) => time >= s && time <= eventEnd(event, s));
         const active = start !== undefined;
+        const isHidden = hiddenIds.has(event.id);
         const radius = Number(p.radius) * scale;
         return (
           <g
             key={event.id}
+            opacity={isHidden ? 0.25 : 1}
             transform={
               "translate(" +
               (left + Number(p.x) * scale) +
@@ -521,17 +767,20 @@ function View2D({
           sx: 0.5,
           sz: 0.5,
         })),
-      ].map((o) => (
-        <g
-          key={o.id}
-          transform={
-            "translate(" +
-            (left + o.x * scale) +
-            " " +
-            (top + o.z * scale) +
-            ")"
-          }
-          className="scene-draggable"
+      ].map((o) => {
+        const isHidden = hiddenIds.has(o.id);
+        return (
+          <g
+            key={o.id}
+            opacity={isHidden ? 0.25 : 1}
+            transform={
+              "translate(" +
+              (left + o.x * scale) +
+              " " +
+              (top + o.z * scale) +
+              ")"
+            }
+            className="scene-draggable"
           onPointerDown={(e) => {
             e.stopPropagation();
             onStart();
@@ -570,7 +819,8 @@ function View2D({
             {o.label}
           </text>
         </g>
-      ))}
+        );
+      })}
     </svg>
   );
 }
@@ -615,7 +865,25 @@ export function SceneEditor({
     [selected, setSelected] = useState(""),
     [error, setError] = useState(""),
     [sensorKind, setSensorKind] = useState("pressure"),
-    [eventKind, setEventKind] = useState("wavePulse");
+    [eventKind, setEventKind] = useState("wavePulse"),
+    [transformMode, setTransformMode] = useState<
+      "select" | "translate" | "rotate" | "scale"
+    >("translate"),
+    [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set()),
+    [wireframe, setWireframe] = useState(false),
+    [snapValue, setSnapValue] = useState<number | null>(null),
+    [searchQuery, setSearchQuery] = useState(""),
+    [objectsExpanded, setObjectsExpanded] = useState(true),
+    [sensorsExpanded, setSensorsExpanded] = useState(true),
+    [eventsExpanded, setEventsExpanded] = useState(true);
+
+  const cameraControlsRef = useRef<{
+    setIso: () => void;
+    setTop: () => void;
+    setFront: () => void;
+    focus: (id?: string) => void;
+  } | null>(null);
+
   const { time, playing } = playback;
   const file = useRef<HTMLInputElement>(null);
   const scene = useMemo(
@@ -689,6 +957,7 @@ export function SceneEditor({
   );
   const object = scene.objects.find((o) => o.id === selected),
     sensor = sensors.find((n) => n.id === selected);
+
   const patchObject = (patch: Partial<Object3D>, record = true) =>
     onPatch(
       node.id,
@@ -699,7 +968,80 @@ export function SceneEditor({
       },
       record,
     );
-  const add = (shape: "box" | "sphere" | "source") => {
+
+  const toggleHide = (id: string) => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const duplicateObject = (o: Object3D) => {
+    if (scene.objects.length >= 40) {
+      setError("სცენაში მაქსიმუმ 40 ობიექტი");
+      return;
+    }
+    const id = crypto.randomUUID();
+    const dup: Object3D = {
+      ...o,
+      id,
+      name: `${o.name} (Copy)`,
+      position: {
+        x: Math.min(scene.width, Math.round((o.position.x + 0.3) * 100) / 100),
+        y: o.position.y,
+        z: Math.min(scene.depth, Math.round((o.position.z + 0.3) * 100) / 100),
+      },
+    };
+    onPatch(node.id, {
+      objects: [...scene.objects, dup],
+    });
+    setSelected(id);
+  };
+
+  const deleteObject = (id: string) => {
+    onPatch(node.id, {
+      objects: scene.objects.filter((o) => o.id !== id),
+    });
+    if (selected === id) setSelected("");
+  };
+
+  // Keyboard shortcuts listener
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      if (e.key === "q" || e.key === "Q") {
+        setTransformMode("select");
+      } else if (e.key === "w" || e.key === "W") {
+        setTransformMode("translate");
+      } else if (e.key === "e" || e.key === "E") {
+        setTransformMode("rotate");
+      } else if (e.key === "r" || e.key === "R") {
+        setTransformMode("scale");
+      } else if (e.key === "f" || e.key === "F") {
+        if (selected) {
+          cameraControlsRef.current?.focus(selected);
+        }
+      } else if (e.key === "h" || e.key === "H") {
+        if (e.altKey) {
+          setHiddenIds(new Set());
+        } else if (selected) {
+          toggleHide(selected);
+        }
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        if (selected && scene.objects.some((o) => o.id === selected)) {
+          deleteObject(selected);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selected, scene.objects]);
+
+  const add = (shape: "box" | "sphere" | "cylinder" | "source") => {
     if (scene.objects.length >= 40) {
       setError("სცენაში მაქსიმუმ 40 ობიექტი");
       return;
@@ -713,6 +1055,8 @@ export function SceneEditor({
           name:
             shape === "source"
               ? "ტალღის წყარო"
+              : shape === "cylinder"
+              ? "ცილინდრი"
               : shape === "box"
                 ? "ყუთი"
                 : "სფერო",
@@ -723,13 +1067,19 @@ export function SceneEditor({
             y: shape === "source" ? 0.5 : 2,
             z: shape === "source" ? 0.5 : 2,
           },
-          color: shape === "source" ? "#dda665" : "#85aaa1",
+          color:
+            shape === "source"
+              ? "#dda665"
+              : shape === "cylinder"
+              ? "#38bdf8"
+              : "#85aaa1",
           rotation: 0,
         },
       ],
     });
     setSelected(id);
   };
+
   const importOBJ = async (f: File) => {
     try {
       if (f.size > 2e6) throw Error("OBJ file limit: 2 MB");
@@ -758,6 +1108,40 @@ export function SceneEditor({
       setError(e instanceof Error ? e.message : String(e));
     }
   };
+
+  // Search filtering
+  const q = searchQuery.toLowerCase().trim();
+  const filteredObjects = useMemo(
+    () =>
+      scene.objects.filter(
+        (o) =>
+          !q ||
+          o.name.toLowerCase().includes(q) ||
+          o.shape.toLowerCase().includes(q),
+      ),
+    [scene.objects, q],
+  );
+  const filteredSensors = useMemo(
+    () =>
+      sensors.filter(
+        (s) =>
+          !q ||
+          s.label.toLowerCase().includes(q) ||
+          s.kind.toLowerCase().includes(q),
+      ),
+    [sensors, q],
+  );
+  const filteredEvents = useMemo(
+    () =>
+      eventNodes.filter(
+        (e) =>
+          !q ||
+          e.label.toLowerCase().includes(q) ||
+          e.kind.toLowerCase().includes(q),
+      ),
+    [eventNodes, q],
+  );
+
   return (
     <div className="modal-shade">
       <section
@@ -804,6 +1188,10 @@ export function SceneEditor({
           <button onClick={() => add("box")}>
             <Plus size={14} />
             ყუთი
+          </button>
+          <button onClick={() => add("cylinder")}>
+            <Cylinder size={14} />
+            ცილინდრი
           </button>
           <button onClick={() => add("sphere")}>
             <Plus size={14} />
@@ -891,6 +1279,121 @@ export function SceneEditor({
         <div className="scene-body">
           <div className="scene-stage">
             <div className="scene-viewport">
+              {mode === "3d" && (
+                <div className="viewport-floating-toolbar">
+                  <div className="viewport-toolgroup">
+                    <button
+                      className={`viewport-tool-btn ${transformMode === "select" ? "active" : ""}`}
+                      title="მონიშვნა · Select (Q)"
+                      onClick={() => setTransformMode("select")}
+                    >
+                      <MousePointer2 size={13} />
+                      <span>Select</span>
+                    </button>
+                    <button
+                      className={`viewport-tool-btn ${transformMode === "translate" ? "active" : ""}`}
+                      title="გადაადგილება · Move (W)"
+                      onClick={() => setTransformMode("translate")}
+                    >
+                      <Move3D size={13} />
+                      <span>Move</span>
+                    </button>
+                    <button
+                      className={`viewport-tool-btn ${transformMode === "rotate" ? "active" : ""}`}
+                      title="ბრუნვა · Rotate (E)"
+                      onClick={() => setTransformMode("rotate")}
+                    >
+                      <RotateCcw size={13} />
+                      <span>Rotate</span>
+                    </button>
+                    <button
+                      className={`viewport-tool-btn ${transformMode === "scale" ? "active" : ""}`}
+                      title="მასშტაბი · Scale (R)"
+                      onClick={() => setTransformMode("scale")}
+                    >
+                      <Maximize2 size={13} />
+                      <span>Scale</span>
+                    </button>
+                  </div>
+
+                  <div className="viewport-tool-separator" />
+
+                  <div className="viewport-toolgroup">
+                    <button
+                      className={`viewport-tool-btn ${snapValue !== null ? "active" : ""}`}
+                      title="ბადეზე მიბმა · Grid Snap"
+                      onClick={() => {
+                        if (snapValue === null) setSnapValue(0.1);
+                        else if (snapValue === 0.1) setSnapValue(0.5);
+                        else if (snapValue === 0.5) setSnapValue(1.0);
+                        else setSnapValue(null);
+                      }}
+                    >
+                      <Grid size={13} />
+                      <span>{snapValue !== null ? `${snapValue}m` : "Snap Off"}</span>
+                    </button>
+                  </div>
+
+                  <div className="viewport-tool-separator" />
+
+                  <div className="viewport-toolgroup">
+                    <button
+                      className="viewport-tool-btn"
+                      title="იზომეტრიული ხედი · Isometric View"
+                      onClick={() => cameraControlsRef.current?.setIso()}
+                    >
+                      <span>ISO</span>
+                    </button>
+                    <button
+                      className="viewport-tool-btn"
+                      title="ზედხედი · Top View"
+                      onClick={() => cameraControlsRef.current?.setTop()}
+                    >
+                      <span>Top</span>
+                    </button>
+                    <button
+                      className="viewport-tool-btn"
+                      title="წინა ხედი · Front View"
+                      onClick={() => cameraControlsRef.current?.setFront()}
+                    >
+                      <span>Front</span>
+                    </button>
+                    <button
+                      className="viewport-tool-btn"
+                      title="კამერის ფოკუსი მონიშნულზე · Focus (F)"
+                      disabled={!selected}
+                      onClick={() => cameraControlsRef.current?.focus(selected)}
+                    >
+                      <Focus size={13} />
+                      <span>Focus</span>
+                    </button>
+                  </div>
+
+                  <div className="viewport-tool-separator" />
+
+                  <div className="viewport-toolgroup">
+                    <button
+                      className={`viewport-tool-btn ${wireframe ? "active" : ""}`}
+                      title="კარკასული რეჟიმი · Wireframe Mode"
+                      onClick={() => setWireframe(!wireframe)}
+                    >
+                      <Box size={13} />
+                      <span>Wire</span>
+                    </button>
+                    {hiddenIds.size > 0 && (
+                      <button
+                        className="viewport-tool-btn"
+                        title="ყველას გამოჩენა · Unhide All (Alt+H)"
+                        onClick={() => setHiddenIds(new Set())}
+                      >
+                        <Eye size={13} />
+                        <span>Show ({hiddenIds.size})</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {mode === "3d" ? (
                 <View3D
                   scene={scene}
@@ -899,6 +1402,31 @@ export function SceneEditor({
                   sensors={sensors}
                   selected={selected}
                   onSelect={setSelected}
+                  transformMode={transformMode}
+                  hiddenIds={hiddenIds}
+                  wireframe={wireframe}
+                  snapValue={snapValue}
+                  onTransformObject={(id, patch, rec) =>
+                    onPatch(
+                      node.id,
+                      {
+                        objects: scene.objects.map((o) =>
+                          o.id === id ? { ...o, ...patch } : o,
+                        ),
+                      },
+                      rec,
+                    )
+                  }
+                  onTransformNode={(id, patch, rec) => {
+                    if (controlled(id)) {
+                      setError(
+                        "პოზიციას 3D ვექტორის ნოუდი მართავს. გადაადგილებისთვის შეცვალეთ ის ნოუდი.",
+                      );
+                      return;
+                    }
+                    onPatch(id, patch, rec);
+                  }}
+                  cameraControlsRef={cameraControlsRef}
                 />
               ) : (
                 <View2D
@@ -910,6 +1438,7 @@ export function SceneEditor({
                   onSelect={setSelected}
                   onStart={onStart}
                   onEnd={onEnd}
+                  hiddenIds={hiddenIds}
                   onMove={(id, x, z) => {
                     const o = scene.objects.find((o) => o.id === id);
                     if (o)
@@ -935,7 +1464,7 @@ export function SceneEditor({
               <div className="scene-viewport-note">
                 <MousePointer2 size={13} />
                 {mode === "3d"
-                  ? "გადაათრიეთ მოსაბრუნებლად · მიახლოება ბორბლით · მონიშვნა დაჭერით"
+                  ? "W (გადაადგილება) · E (ბრუნვა) · R (მასშტაბი) · F (ფოკუსი) · H (დამალვა) · ბორბლით მიახლოება"
                   : "გადაათრიეთ ობიექტი, სენსორი ან მოვლენა · კოორდინატები მეტრებში"}
               </div>
             </div>
@@ -979,180 +1508,691 @@ export function SceneEditor({
               unresolved={unresolved}
             />
           </div>
+
           <aside className="scene-properties">
-            <h4>
-              <Layers size={14} />
-              {ka ? "სცენის ობიექტები" : "სცენის შემადგენლობა"}
-            </h4>
-            {scene.objects.map((o) => (
-              <button
-                className={
-                  "hierarchy-row " + (o.id === selected ? "selected" : "")
-                }
-                key={o.id}
-                onClick={() => setSelected(o.id)}
-              >
-                <Box size={14} />
-                {o.name}
-                <small>{L(o.shape)}</small>
-              </button>
-            ))}
-            {sensors.map((n) => (
-              <button
-                key={n.id}
-                className={
-                  "hierarchy-row " + (n.id === selected ? "selected" : "")
-                }
-                onClick={() => setSelected(n.id)}
-              >
-                <Radio size={14} />
-                {n.label}
-                <small>სენსორი</small>
-              </button>
-            ))}
-            {eventNodes.map((n) => (
-              <button
-                key={n.id}
-                className={
-                  "hierarchy-row " + (selected === n.id ? "selected" : "")
-                }
-                onClick={() => setSelected(n.id)}
-              >
-                <Zap size={14} color={eventDefinition(n.kind)?.color} />
-                {n.label}
-                <small>
-                  {n.params.enabled === "Off" ? "გამორთული" : "მოვლენა"}
-                </small>
-              </button>
-            ))}
-            {eventNode ? (
-              <EventProperties
-                node={eventNode}
-                scene={scene}
-                project={project}
-                onTrigger={(value) => onEventTrigger(eventNode.id, value)}
-                onRename={(label) => onRename(eventNode.id, label)}
-                onPatch={onPatch}
-                onStart={onStart}
-                onEnd={onEnd}
-                onDetach={() => {
-                  onDetach(eventNode.id);
-                  setSelected("");
+            {/* TOP HALF: OUTLINER / OBJECT EXPLORER */}
+            <div className="scene-outliner">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
                 }}
-              />
-            ) : object || sensor ? (
-              <div className="transform-panel">
-                <h4>
-                  <Move3D size={14} />
-                  {ka ? "ტრანსფორმაცია" : "გარდაქმნა"}
+              >
+                <h4
+                  style={{
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#244d3c",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  <Layers size={14} />
+                  <span>ობიექტების ხე</span>
                 </h4>
-                <label>
-                  სახელი
-                  <input
-                    value={object?.name || sensor!.label}
-                    readOnly={!!sensor}
-                    onChange={(e) =>
-                      patchObject({ name: e.target.value.slice(0, 100) })
-                    }
-                  />
-                </label>
-                {(["x", "y", "z"] as const).map((k) => (
-                  <label key={k}>
-                    პოზიცია {k.toUpperCase()} · m
-                    <input
-                      aria-label={"ობიექტის პოზიცია " + k.toUpperCase()}
-                      disabled={!!sensor && controlled(sensor.id)}
-                      type="number"
-                      min="0"
-                      max={
-                        k === "x"
-                          ? scene.width
-                          : k === "y"
-                            ? scene.height
-                            : scene.depth
-                      }
-                      step=".1"
-                      value={
-                        object ? object.position[k] : Number(sensor!.params[k])
-                      }
-                      onChange={(e) => {
-                        const v = Number(e.target.value),
-                          limit =
-                            k === "x"
-                              ? scene.width
-                              : k === "y"
-                                ? scene.height
-                                : scene.depth;
-                        if (!Number.isFinite(v) || v < 0 || v > limit) return;
-                        if (object)
-                          patchObject({
-                            position: { ...object.position, [k]: v },
-                          });
-                        else onPatch(sensor!.id, { [k]: v });
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {hiddenIds.size > 0 && (
+                    <button
+                      className="viewport-tool-btn"
+                      style={{ fontSize: "10px", padding: "2px 5px", height: "20px" }}
+                      title="ყველას გამოჩენა (Alt+H)"
+                      onClick={() => setHiddenIds(new Set())}
+                    >
+                      <Eye size={11} />
+                      <span>{hiddenIds.size} დამალული</span>
+                    </button>
+                  )}
+                  <span className="outliner-group-badge">
+                    {scene.objects.length + sensors.length + eventNodes.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="outliner-search-box">
+                <Search size={13} color="#7c9688" />
+                <input
+                  placeholder="ძიება ობიექტებში…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X size={12} color="#7c9688" />
+                  </button>
+                )}
+              </div>
+
+              {/* Group: 3D Objects */}
+              <div className="outliner-group">
+                <button
+                  className="outliner-group-header"
+                  onClick={() => setObjectsExpanded(!objectsExpanded)}
+                >
+                  {objectsExpanded ? (
+                    <ChevronDown size={12} />
+                  ) : (
+                    <ChevronRight size={12} />
+                  )}
+                  <span>3D ობიექტები</span>
+                  <span className="outliner-group-badge">
+                    {scene.objects.length}
+                  </span>
+                </button>
+                {objectsExpanded &&
+                  filteredObjects.map((o) => {
+                    const isHidden = hiddenIds.has(o.id);
+                    const isSelected = selected === o.id;
+                    return (
+                      <div
+                        key={o.id}
+                        className={`outliner-row ${isSelected ? "selected" : ""} ${isHidden ? "is-hidden" : ""}`}
+                        onClick={() => setSelected(o.id)}
+                      >
+                        <button
+                          className="outliner-visibility-btn"
+                          title={isHidden ? "გამოჩენა" : "დამალვა (H)"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleHide(o.id);
+                          }}
+                        >
+                          {isHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                        {o.shape === "cylinder" ? (
+                          <Cylinder size={13} color={o.color} />
+                        ) : o.shape === "sphere" ? (
+                          <Circle size={13} color={o.color} />
+                        ) : o.shape === "source" ? (
+                          <Sun size={13} color={o.color} />
+                        ) : (
+                          <Box size={13} color={o.color} />
+                        )}
+                        <span className="outliner-row-name" title={o.name}>
+                          {o.name}
+                        </span>
+                        <span className="outliner-row-badge">{o.shape}</span>
+                        <div className="outliner-row-actions">
+                          <button
+                            className="outliner-action-btn"
+                            title="დუბლირება"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              duplicateObject(o);
+                            }}
+                          >
+                            <Copy size={12} />
+                          </button>
+                          <button
+                            className="outliner-action-btn danger"
+                            title="წაშლა"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteObject(o.id);
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Group: Sensors */}
+              {sensors.length > 0 && (
+                <div className="outliner-group">
+                  <button
+                    className="outliner-group-header"
+                    onClick={() => setSensorsExpanded(!sensorsExpanded)}
+                  >
+                    {sensorsExpanded ? (
+                      <ChevronDown size={12} />
+                    ) : (
+                      <ChevronRight size={12} />
+                    )}
+                    <span>სენსორები</span>
+                    <span className="outliner-group-badge">{sensors.length}</span>
+                  </button>
+                  {sensorsExpanded &&
+                    filteredSensors.map((s) => {
+                      const isHidden = hiddenIds.has(s.id);
+                      const isSelected = selected === s.id;
+                      return (
+                        <div
+                          key={s.id}
+                          className={`outliner-row ${isSelected ? "selected" : ""} ${isHidden ? "is-hidden" : ""}`}
+                          onClick={() => setSelected(s.id)}
+                        >
+                          <button
+                            className="outliner-visibility-btn"
+                            title={isHidden ? "გამოჩენა" : "დამალვა"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHide(s.id);
+                            }}
+                          >
+                            {isHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                          <Radio size={13} color="#2e968d" />
+                          <span className="outliner-row-name" title={s.label}>
+                            {s.label}
+                          </span>
+                          <span className="outliner-row-badge">{s.kind}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Group: Events */}
+              {eventNodes.length > 0 && (
+                <div className="outliner-group">
+                  <button
+                    className="outliner-group-header"
+                    onClick={() => setEventsExpanded(!eventsExpanded)}
+                  >
+                    {eventsExpanded ? (
+                      <ChevronDown size={12} />
+                    ) : (
+                      <ChevronRight size={12} />
+                    )}
+                    <span>მოვლენები</span>
+                    <span className="outliner-group-badge">
+                      {eventNodes.length}
+                    </span>
+                  </button>
+                  {eventsExpanded &&
+                    filteredEvents.map((ev) => {
+                      const isHidden = hiddenIds.has(ev.id);
+                      const isSelected = selected === ev.id;
+                      const def = eventDefinition(ev.kind);
+                      return (
+                        <div
+                          key={ev.id}
+                          className={`outliner-row ${isSelected ? "selected" : ""} ${isHidden ? "is-hidden" : ""}`}
+                          onClick={() => setSelected(ev.id)}
+                        >
+                          <button
+                            className="outliner-visibility-btn"
+                            title={isHidden ? "გამოჩენა" : "დამალვა"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHide(ev.id);
+                            }}
+                          >
+                            {isHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                          <Zap size={13} color={def?.color || "#eab308"} />
+                          <span className="outliner-row-name" title={ev.label}>
+                            {ev.label}
+                          </span>
+                          <span className="outliner-row-badge">
+                            {ev.params.enabled === "Off" ? "off" : "evt"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* BOTTOM HALF: PROPERTIES INSPECTOR */}
+            <div className="scene-inspector">
+              {eventNode ? (
+                <EventProperties
+                  node={eventNode}
+                  scene={scene}
+                  project={project}
+                  onTrigger={(value) => onEventTrigger(eventNode.id, value)}
+                  onRename={(label) => onRename(eventNode.id, label)}
+                  onPatch={onPatch}
+                  onStart={onStart}
+                  onEnd={onEnd}
+                  onDetach={() => {
+                    onDetach(eventNode.id);
+                    setSelected("");
+                  }}
+                />
+              ) : object ? (
+                <div className="inspector-content">
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <h4
+                      style={{
+                        margin: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#1e4d3c",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
                       }}
+                    >
+                      <Move3D size={14} />
+                      <span>თვისებები</span>
+                    </h4>
+                    <div className="viewport-toolgroup">
+                      <button
+                        className={`viewport-tool-btn ${transformMode === "translate" ? "active" : ""}`}
+                        title="გადაადგილება (W)"
+                        onClick={() => setTransformMode("translate")}
+                      >
+                        <Move3D size={11} />
+                      </button>
+                      <button
+                        className={`viewport-tool-btn ${transformMode === "rotate" ? "active" : ""}`}
+                        title="ბრუნვა (E)"
+                        onClick={() => setTransformMode("rotate")}
+                      >
+                        <RotateCcw size={11} />
+                      </button>
+                      <button
+                        className={`viewport-tool-btn ${transformMode === "scale" ? "active" : ""}`}
+                        title="მასშტაბი (R)"
+                        onClick={() => setTransformMode("scale")}
+                      >
+                        <Maximize2 size={11} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: 8,
+                      fontSize: "11px",
+                      color: "#546e60",
+                    }}
+                  >
+                    სახელი
+                    <input
+                      type="text"
+                      style={{
+                        width: "100%",
+                        padding: "4px 8px",
+                        border: "1px solid #dbe6d5",
+                        borderRadius: 4,
+                        marginTop: 3,
+                        boxSizing: "border-box",
+                      }}
+                      value={object.name}
+                      onChange={(e) =>
+                        patchObject({ name: e.target.value.slice(0, 100) })
+                      }
                     />
                   </label>
-                ))}
-                {object && (
-                  <>
-                    {(["x", "y", "z"] as const).map((k) => (
-                      <label key={k}>
-                        ზომა {k.toUpperCase()}
-                        <input
-                          type="number"
-                          min=".01"
-                          max="100"
-                          step=".1"
-                          value={object.size[k]}
-                          onChange={(e) => {
-                            const v = +e.target.value;
-                            if (v >= 0.01 && v <= 100)
-                              patchObject({ size: { ...object.size, [k]: v } });
-                          }}
-                        />
-                      </label>
-                    ))}
-                    <label>
-                      ბრუნვა Y · °
-                      <input
-                        type="number"
-                        min="-360"
-                        max="360"
-                        value={object.rotation}
-                        onChange={(e) => {
-                          const v = +e.target.value;
-                          if (v >= -360 && v <= 360)
-                            patchObject({ rotation: v });
+
+                  <div style={{ marginBottom: 10 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        color: "#546e60",
+                      }}
+                    >
+                      ფორმა
+                      <select
+                        style={{
+                          width: "100%",
+                          padding: "4px 6px",
+                          border: "1px solid #dbe6d5",
+                          borderRadius: 4,
+                          marginTop: 3,
+                          boxSizing: "border-box",
                         }}
-                      />
+                        value={object.shape}
+                        onChange={(e) =>
+                          patchObject({ shape: e.target.value as any })
+                        }
+                      >
+                        <option value="box">ყუთი (Box)</option>
+                        <option value="cylinder">ცილინდრი (Cylinder)</option>
+                        <option value="sphere">სფერო (Sphere)</option>
+                        <option value="source">ტალღის წყარო (Source)</option>
+                        {object.vertices && (
+                          <option value="mesh">მოდელი (Mesh)</option>
+                        )}
+                      </select>
                     </label>
-                    <label>
-                      ფერი
+                  </div>
+
+                  {/* POSITION X, Y, Z */}
+                  <div style={{ marginBottom: 10 }}>
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: "#4f6859",
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      პოზიცია (Position · m)
+                    </span>
+                    <div className="transform-matrix-row">
+                      {(["x", "y", "z"] as const).map((axis) => (
+                        <div key={axis} className="axis-input-group">
+                          <span className={`axis-label ${axis}`}>
+                            {axis.toUpperCase()}
+                          </span>
+                          <input
+                            type="number"
+                            step="0.05"
+                            value={object.position[axis]}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v)) {
+                                patchObject({
+                                  position: {
+                                    ...object.position,
+                                    [axis]: v,
+                                  },
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SIZE X, Y, Z */}
+                  <div style={{ marginBottom: 10 }}>
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: "#4f6859",
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      ზომა (Dimensions · m)
+                    </span>
+                    <div className="transform-matrix-row">
+                      {(["x", "y", "z"] as const).map((axis) => (
+                        <div key={axis} className="axis-input-group">
+                          <span className={`axis-label ${axis}`}>
+                            {axis.toUpperCase()}
+                          </span>
+                          <input
+                            type="number"
+                            step="0.05"
+                            min="0.01"
+                            value={object.size[axis]}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v) && v >= 0.01) {
+                                patchObject({
+                                  size: { ...object.size, [axis]: v },
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ROTATION */}
+                  <div style={{ marginBottom: 10 }}>
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: "#4f6859",
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      ბრუნვა (Rotation · °)
+                    </span>
+                    <div className="transform-matrix-row">
+                      {(["x", "y", "z"] as const).map((axis) => (
+                        <div key={axis} className="axis-input-group">
+                          <span className={`axis-label ${axis}`}>
+                            {axis.toUpperCase()}
+                          </span>
+                          <input
+                            type="number"
+                            step="5"
+                            value={
+                              axis === "y"
+                                ? object.rotationVec?.y ?? object.rotation ?? 0
+                                : object.rotationVec?.[axis] ?? 0
+                            }
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v)) {
+                                const curVec = object.rotationVec || {
+                                  x: 0,
+                                  y: object.rotation || 0,
+                                  z: 0,
+                                };
+                                const newVec = { ...curVec, [axis]: v };
+                                patchObject({
+                                  rotation: axis === "y" ? v : object.rotation,
+                                  rotationVec: newVec,
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* COLOR & PALETTE */}
+                  <div style={{ marginBottom: 12 }}>
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: "#4f6859",
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      ფერი და მასალა
+                    </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
                       <input
                         type="color"
+                        style={{
+                          width: 28,
+                          height: 26,
+                          padding: 0,
+                          border: "1px solid #c9d8c8",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                        }}
                         value={object.color}
                         onChange={(e) => patchObject({ color: e.target.value })}
                       />
-                    </label>
+                      <input
+                        type="text"
+                        style={{
+                          width: 75,
+                          padding: "3px 6px",
+                          border: "1px solid #dbe6d5",
+                          borderRadius: 4,
+                          fontSize: "11px",
+                          fontFamily: "var(--mono)",
+                        }}
+                        value={object.color}
+                        onChange={(e) => patchObject({ color: e.target.value })}
+                      />
+                    </div>
+                    <div className="palette-swatches">
+                      {[
+                        { color: "#d97736", title: "Copper (სპილენძი)" },
+                        { color: "#38bdf8", title: "Coolant (სითხე)" },
+                        { color: "#0f766e", title: "Teal (ფირუზისფერი)" },
+                        { color: "#334155", title: "Silicon (სილიციუმი)" },
+                        { color: "#f59e0b", title: "Warm (თბილი)" },
+                        { color: "#ef4444", title: "Hotspot (ცხელი წერტილი)" },
+                        { color: "#94a3b8", title: "Clear (გამჭვირვალე)" },
+                        { color: "#10b981", title: "Emerald (ზურმუხტისფერი)" },
+                      ].map((swatch) => (
+                        <button
+                          key={swatch.color}
+                          className="palette-swatch-btn"
+                          style={{ background: swatch.color }}
+                          title={swatch.title}
+                          onClick={() => patchObject({ color: swatch.color })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ACTIONS */}
+                  <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
+                    <button
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                        padding: "5px 8px",
+                        fontSize: "11px",
+                        background: "#f2f7ef",
+                        border: "1px solid #d5e2d1",
+                        borderRadius: 5,
+                        cursor: "pointer",
+                        color: "#2d5442",
+                      }}
+                      onClick={() => duplicateObject(object)}
+                    >
+                      <Copy size={12} />
+                      დუბლირება
+                    </button>
                     <button
                       className="danger"
-                      onClick={() => {
-                        onPatch(node.id, {
-                          objects: scene.objects.filter(
-                            (o) => o.id !== selected,
-                          ),
-                        });
-                        setSelected("");
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                        padding: "5px 8px",
+                        fontSize: "11px",
+                      }}
+                      onClick={() => deleteObject(object.id)}
+                    >
+                      <Trash2 size={12} />
+                      წაშლა
+                    </button>
+                  </div>
+                </div>
+              ) : sensor ? (
+                <div className="inspector-content">
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Radio size={16} color="#2e968d" />
+                    <h4
+                      style={{
+                        margin: 0,
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#1e4d3c",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
                       }}
                     >
-                      <Trash2 size={13} />
-                      ობიექტის წაშლა
-                    </button>
-                  </>
-                )}
-                {sensor && (
+                      სენსორი: {sensor.label}
+                    </h4>
+                  </div>
+
+                  <div style={{ marginBottom: 10 }}>
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: "#4f6859",
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      პოზიცია (Position · m)
+                    </span>
+                    {controlled(sensor.id) && (
+                      <small
+                        style={{
+                          display: "block",
+                          color: "#b45309",
+                          marginBottom: 4,
+                          fontSize: "10px",
+                        }}
+                      >
+                        პოზიციას 3D ვექტორის ნოუდი მართავს.
+                      </small>
+                    )}
+                    <div className="transform-matrix-row">
+                      {(["x", "y", "z"] as const).map((axis) => (
+                        <div key={axis} className="axis-input-group">
+                          <span className={`axis-label ${axis}`}>
+                            {axis.toUpperCase()}
+                          </span>
+                          <input
+                            type="number"
+                            step="0.1"
+                            disabled={controlled(sensor.id)}
+                            value={Number(sensor.params[axis]) || 0}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v)) {
+                                onPatch(sensor.id, { [axis]: v });
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <button
                     className="primary-soft"
+                    style={{
+                      width: "100%",
+                      marginTop: 10,
+                      fontSize: "11px",
+                      padding: "6px",
+                    }}
                     onClick={() => {
                       onSelectNode(sensor.id);
                       onClose();
@@ -1160,14 +2200,78 @@ export function SceneEditor({
                   >
                     სენსორის პარამეტრები →
                   </button>
-                )}
-              </div>
-            ) : (
-              <p className="muted scene-select-help">
-                აირჩიეთ ობიექტი, სენსორი ან მოვლენა. 2D გეგმაში ნიშნულები
-                გადაათრიეთ.
-              </p>
-            )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: "16px 8px",
+                    textAlign: "center",
+                    color: "#6a8577",
+                  }}
+                >
+                  <MousePointer2
+                    size={24}
+                    style={{ margin: "0 auto 8px auto", opacity: 0.5 }}
+                  />
+                  <p
+                    style={{
+                      margin: "0 0 6px 0",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#385647",
+                    }}
+                  >
+                    აირჩიეთ ობიექტი
+                  </p>
+                  <p
+                    style={{
+                      margin: "0 0 12px 0",
+                      fontSize: "10px",
+                      lineHeight: 1.4,
+                      color: "#5d786a",
+                    }}
+                  >
+                    დააწკაპუნეთ ობიექტს 3D ხედში ან აირჩიეთ ზედა ხიდან.
+                  </p>
+                  <div
+                    style={{
+                      textAlign: "left",
+                      background: "#f4f8f2",
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                      fontSize: "9.5px",
+                      color: "#456353",
+                    }}
+                  >
+                    <b
+                      style={{
+                        display: "block",
+                        marginBottom: 4,
+                        color: "#234938",
+                      }}
+                    >
+                      კლავიატურის ღილაკები:
+                    </b>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr",
+                        gap: "2px 8px",
+                      }}
+                    >
+                      <code>W</code> <span>გადაადგილება (Move)</span>
+                      <code>E</code> <span>ბრუნვა (Rotate)</span>
+                      <code>R</code> <span>მასშტაბი (Scale)</span>
+                      <code>Q</code> <span>მონიშვნა (Select)</span>
+                      <code>F</code> <span>კამერის ფოკუსი</span>
+                      <code>H</code> <span>დამალვა / გამოჩენა</span>
+                      <code>Alt+H</code> <span>ყველას გამოჩენა</span>
+                      <code>Del</code> <span>ობიექტის წაშლა</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </aside>
         </div>
         <footer>

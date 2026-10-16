@@ -390,9 +390,10 @@ export function parseProject(raw: string): Project {
         throw Error("Invalid " + f.label);
     }
     if (node.kind.startsWith("scene")) {
+      const maxObjects = node.params.environment === "Molecular" ? 120 : 40;
       if (
         !Array.isArray(node.params.objects) ||
-        node.params.objects.length > 40
+        node.params.objects.length > maxObjects
       )
         throw Error("Invalid scene objects");
       const objectIds = new Set();
@@ -403,7 +404,7 @@ export function parseProject(raw: string): Project {
           objectIds.has(o.id) ||
           typeof o.name !== "string" ||
           o.name.length > 100 ||
-          !["box", "sphere", "source", "mesh"].includes(o.shape) ||
+          !["box", "sphere", "source", "mesh", "cylinder"].includes(o.shape) ||
           typeof o.color !== "string" ||
           !/^#[a-f\d]{6}$/i.test(o.color) ||
           !Number.isFinite(o.rotation) ||

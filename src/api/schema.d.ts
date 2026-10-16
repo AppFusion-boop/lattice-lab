@@ -724,6 +724,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/studies/{study_id}/sensitivity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Sensitivity Analysis */
+        post: operations["run_sensitivity_analysis_api_v1_studies__study_id__sensitivity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/pareto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pareto Frontier */
+        get: operations["get_pareto_frontier_api_v1_studies__study_id__pareto_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/calibrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calibrate Model Parameter */
+        post: operations["calibrate_model_parameter_api_v1_studies__study_id__calibrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/calibrate/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Calibrated Model */
+        post: operations["apply_calibrated_model_api_v1_studies__study_id__calibrate_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -807,6 +875,53 @@ export interface components {
         Body_preview_import_api_v1_studies__study_id__imports_preview_post: {
             /** File */
             file: string;
+        };
+        /** CalibrationApplyRequest */
+        CalibrationApplyRequest: {
+            /** Parameter Key */
+            parameter_key: string;
+            /** Calibrated Value */
+            calibrated_value: number;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** CalibrationRequest */
+        CalibrationRequest: {
+            /** Parameter Key */
+            parameter_key: string;
+            /** Target Outcome */
+            target_outcome: string;
+            /** Initial Guess */
+            initial_guess: number;
+            /** Param Bounds */
+            param_bounds: number[];
+            /** Evidence Ids */
+            evidence_ids?: string[] | null;
+        };
+        /** CalibrationResponse */
+        CalibrationResponse: {
+            /** Study Id */
+            study_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Parameter Key */
+            parameter_key: string;
+            /** Prior Value */
+            prior_value: number;
+            /** Calibrated Value */
+            calibrated_value: number;
+            /** Ci 95 */
+            ci_95: number[];
+            /** Standard Error */
+            standard_error: number;
+            /** Prior Rmse */
+            prior_rmse: number;
+            /** Calibrated Rmse */
+            calibrated_rmse: number;
+            /** Rmse Reduction Pct */
+            rmse_reduction_pct: number;
+            /** N Evidence Points */
+            n_evidence_points: number;
         };
         /** CandidateImportResponse */
         CandidateImportResponse: {
@@ -1074,6 +1189,21 @@ export interface components {
             position?: number | null;
             /** Variables */
             variables?: string[];
+        };
+        /** FreezingRecommendationModel */
+        FreezingRecommendationModel: {
+            /** Param Id */
+            param_id: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+            /** Suggested Value */
+            suggested_value: number;
+            /** Unit */
+            unit?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1434,6 +1564,21 @@ export interface components {
             /** Position */
             position: number;
         };
+        /** ParameterSensitivityModel */
+        ParameterSensitivityModel: {
+            /** Param Id */
+            param_id: string;
+            /** Name */
+            name: string;
+            /** Key */
+            key: string;
+            /** First Order */
+            first_order: number;
+            /** Total Order */
+            total_order: number;
+            /** Ci 95 */
+            ci_95: number[];
+        };
         /** ParameterUpdate */
         ParameterUpdate: {
             /** Label */
@@ -1446,6 +1591,58 @@ export interface components {
             spec?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ParetoPointModel */
+        ParetoPointModel: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Label */
+            label?: string | null;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+            /** Outcomes */
+            outcomes: {
+                [key: string]: number;
+            };
+            /** Rank */
+            rank: number;
+        };
+        /** ParetoResponse */
+        ParetoResponse: {
+            /** Study Id */
+            study_id: string;
+            /** X Outcome */
+            x_outcome: string;
+            /** Y Outcome */
+            y_outcome: string;
+            /**
+             * X Direction
+             * @enum {string}
+             */
+            x_direction: "minimize" | "maximize";
+            /**
+             * Y Direction
+             * @enum {string}
+             */
+            y_direction: "minimize" | "maximize";
+            /** Total Candidates */
+            total_candidates: number;
+            /** Frontier Count */
+            frontier_count: number;
+            /** Ideal Point */
+            ideal_point: {
+                [key: string]: number;
+            };
+            /** Nadir Point */
+            nadir_point: {
+                [key: string]: number;
+            };
+            /** Frontier */
+            frontier: components["schemas"]["ParetoPointModel"][];
+            /** All Points */
+            all_points: components["schemas"]["ParetoPointModel"][];
         };
         /** RunSheetCreate */
         RunSheetCreate: {
@@ -1551,6 +1748,40 @@ export interface components {
              * @default 0
              */
             expected_false_exclusions_bound: number;
+        };
+        /** SensitivityRequest */
+        SensitivityRequest: {
+            /** Outcome Id */
+            outcome_id?: string | null;
+            /** Outcome Key */
+            outcome_key?: string | null;
+            /**
+             * N Samples
+             * @default 64
+             */
+            n_samples: number;
+            /** Seed */
+            seed?: number | null;
+            /**
+             * Freezing Threshold
+             * @default 0.05
+             */
+            freezing_threshold: number;
+        };
+        /** SensitivityResponse */
+        SensitivityResponse: {
+            /** Outcome Id */
+            outcome_id: string;
+            /** Outcome Key */
+            outcome_key: string;
+            /** N Samples */
+            n_samples: number;
+            /** N Evaluations */
+            n_evaluations: number;
+            /** Parameters */
+            parameters: components["schemas"]["ParameterSensitivityModel"][];
+            /** Freezing Recommendations */
+            freezing_recommendations: components["schemas"]["FreezingRecommendationModel"][];
         };
         /** SourceCreate */
         SourceCreate: {
@@ -1706,7 +1937,7 @@ export interface components {
              * Template
              * @enum {string}
              */
-            template: "tunnel_blast" | "drug_screen";
+            template: "tunnel_blast" | "drug_screen" | "microchannel_cold_plate";
             /** Name */
             name?: string | null;
         };
@@ -3530,6 +3761,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_sensitivity_analysis_api_v1_studies__study_id__sensitivity_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SensitivityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SensitivityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pareto_frontier_api_v1_studies__study_id__pareto_get: {
+        parameters: {
+            query: {
+                /** @description Key of outcome for X-axis */
+                x_outcome: string;
+                /** @description Key of outcome for Y-axis */
+                y_outcome: string;
+                x_direction?: "minimize" | "maximize";
+                y_direction?: "minimize" | "maximize";
+                max_candidates?: number;
+            };
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParetoResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calibrate_model_parameter_api_v1_studies__study_id__calibrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalibrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalibrationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_calibrated_model_api_v1_studies__study_id__calibrate_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalibrationApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelVersionResponse"];
                 };
             };
             /** @description Validation Error */
