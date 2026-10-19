@@ -425,8 +425,8 @@ export function CalibrationWizard({
 
               <div style={{ fontSize: 11, color: "#15803d", lineHeight: 1.4 }}>
                 {tr(
-                  `მოდელის პროგნოზის ცდომილება (RMSE) შემცირდა ${calibResult.prior_rmse}-დან ${calibResult.calibrated_rmse}-მდე (${calibResult.n_evidence_points} ფიზიკურ დაკვირვებაზე). მოდელის ახალ ვერსიაზე გადაყვანით მისი ვალიდაციის სტატუსი გახდება 'Validated'.`,
-                  `Residual Mean Squared Error reduced from ${calibResult.prior_rmse} to ${calibResult.calibrated_rmse} across ${calibResult.n_evidence_points} physical observations. Upgrading creates a validated ModelVersion (Hard Rule 6 satisfied).`
+                  `მოდელის პროგნოზის ცდომილება (RMSE) შემცირდა ${calibResult.prior_rmse}-დან ${calibResult.calibrated_rmse}-მდე (${calibResult.n_evidence_points} ფიზიკურ დაკვირვებაზე). განახლებით შეიქმნება ახალი მოდელის ვერსია, რომელიც საჭიროებს დაფარვის ვალიდაციას (Hard Rule 6).`,
+                  `Residual Mean Squared Error reduced from ${calibResult.prior_rmse} to ${calibResult.calibrated_rmse} across ${calibResult.n_evidence_points} physical observations. Applying creates a new ModelVersion ready for empirical coverage validation (Hard Rule 6).`
                 )}
               </div>
             </div>
@@ -448,7 +448,7 @@ export function CalibrationWizard({
             {applySuccess && (
               <span style={{ fontSize: 12, fontWeight: 600, color: "#16a34a", display: "inline-flex", gap: 4, alignItems: "center" }}>
                 <CheckCircle2 size={14} />
-                {tr("ახალი ვალიდირებული მოდელი შენახულია!", "New Validated Model Version Created!")}
+                {tr("ახალი დაკალიბრებული მოდელი შენახულია!", "New Calibrated Model Version Created!")}
               </span>
             )}
           </div>
@@ -493,8 +493,8 @@ export function CalibrationWizard({
                 <ShieldCheck size={14} />
                 <span>
                   {isApplying
-                    ? tr("ვერსია იქმნება...", "Upgrading Model...")
-                    : tr("დადასტურება და მოდელის განახლება", "Apply & Upgrade Model Version")}
+                    ? tr("ვერსია იქმნება...", "Creating Model Version...")
+                    : tr("დაკალიბრებული პარამეტრის შენახვა (ახალი ვერსია)", "Apply Calibrated Parameter (Creates New Model Version)")}
                 </span>
               </button>
             )}

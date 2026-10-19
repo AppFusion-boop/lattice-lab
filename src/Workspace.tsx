@@ -166,12 +166,14 @@ export interface WorkspaceProps {
   initialProject?: Project;
   studyId?: string;
   hideHeaderBrand?: boolean;
+  onProjectChange?: (project: Project) => void;
 }
 
 export default function Workspace({
   initialProject,
   studyId,
   hideHeaderBrand = false,
+  onProjectChange,
 }: WorkspaceProps = {}) {
   const ka = useLang() === "ka";
   const [project, setProject] = useState<Project>(() => initialProject || getSaved()),
@@ -212,6 +214,10 @@ export default function Workspace({
       setProject(initialProject);
     }
   }, [initialProject]);
+
+  useEffect(() => {
+    onProjectChange?.(project);
+  }, [project, onProjectChange]);
 
   const activeStudyId =
     studyId ||

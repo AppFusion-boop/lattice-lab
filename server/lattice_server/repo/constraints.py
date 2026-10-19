@@ -126,8 +126,9 @@ def update_constraint(
     if not existing:
         return None
 
-    if update.expression is not None:
-        validate_constraint_expression(conn, existing.study_id, update.expression)
+    if update.expression is not None or update.kind is not None:
+        expr_to_check = update.expression if update.expression is not None else existing.expression
+        validate_constraint_expression(conn, existing.study_id, expr_to_check)
 
     updates: list[str] = []
     params: list[object] = []

@@ -1,18 +1,16 @@
-"""API router for model auto-calibration (§4.4, §13)."""
+"""API router for model auto-calibration (§4.4, §13, T1-1)."""
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
-from datetime import UTC, datetime
-from typing import Annotated
 
 from fastapi import APIRouter, status
 
 from lattice_server.audit import write_audit
 from lattice_server.db import DbConn
-from lattice_server.engine import bridge
 from lattice_server.errors import ApiHttpError
-from lattice_server.ids import new_id
 from lattice_server.repo import evidence as evidence_repo
 from lattice_server.repo import models as models_repo
 from lattice_server.repo import parameters as parameters_repo
@@ -57,19 +55,36 @@ def calibrate_model_parameter(
         )
     latest_model = models[0]
 
+    # Verify parameter is bound in the active model
+    bound_param = next(
+        (
+            b
+            for b in latest_model.parameter_bindings
+            if b.parameter_key == req.parameter_key and not b.not_in_model and b.node_id and b.param_key
+        ),
+        None,
+    )
+    if not bound_param:
+        raise ApiHttpError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="unbound_parameter",
+            message=f"Parameter '{req.parameter_key}' is not bound to any flow node in model v{latest_model.version}.",
+            field="parameter_key",
+        )
+
     # 2. Extract baseline nominal parameter defaults for complete row evaluation
     all_params = parameters_repo.list_parameters(conn, study_id)
     parameter_defaults: dict[str, float] = {}
     for p in all_params:
         spec = p.spec
-        if "value" in spec and spec["value"] is not None:
+        if "value" in spec and spec["value"] is not None and isinstance(spec["value"], (int, float)):
             parameter_defaults[p.key] = float(spec["value"])
         elif "min" in spec and "max" in spec:
             parameter_defaults[p.key] = (float(spec["min"]) + float(spec["max"])) / 2.0
         else:
             parameter_defaults[p.key] = 1.0
 
-    # 3. Fetch evidence rows
+    # 3. Fetch real physical evidence rows (Hard Rule 1: NEVER invent synthetic data)
     all_evidence = evidence_repo.list_evidence(conn, study_id, include_retracted=False)
     if req.evidence_ids:
         evidence_points = [
@@ -78,31 +93,20 @@ def calibrate_model_parameter(
     else:
         evidence_points = [e.model_dump() for e in all_evidence if e.status == "valid"]
 
-    if not evidence_points:
-        # If no physical evidence imported yet, generate realistic calibration benchmarks
-        # using the physics model evaluated at a physical target offset
-        p_low = req.param_bounds[0]
-        p_high = req.param_bounds[1]
-        p_target = p_low + (p_high - p_low) * 0.42
-        bench_row = dict(parameter_defaults)
-        bench_row[req.parameter_key] = p_target
-        sim_res = bridge.evaluate(
-            project=latest_model.project,
-            param_bindings=[b.model_dump() for b in latest_model.parameter_bindings],
-            outcome_bindings=[b.model_dump() for b in latest_model.outcome_bindings],
-            rows=[{"id": "bench_0", "idx": 0, "values": bench_row}],
+    valid_for_outcome = [
+        ep for ep in evidence_points if req.target_outcome in (ep.get("outcomes") or {})
+    ]
+    if len(valid_for_outcome) < 3:
+        raise ApiHttpError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="insufficient_evidence",
+            message=(
+                f"Calibration requires at least 3 valid evidence records measuring "
+                f"outcome '{req.target_outcome}' (found {len(valid_for_outcome)}). "
+                f"Never invent synthetic calibration data (Hard Rule 1)."
+            ),
+            field="evidence_ids",
         )
-        base_measured = (
-            float(sim_res[0].outcomes.get(req.target_outcome, 52.0))
-            if sim_res and sim_res[0].outcomes
-            else 52.0
-        )
-
-        evidence_points = [
-            {"values": dict(bench_row), "outcomes": {req.target_outcome: round(base_measured, 2)}},
-            {"values": dict(bench_row), "outcomes": {req.target_outcome: round(base_measured + 0.12, 2)}},
-            {"values": dict(bench_row), "outcomes": {req.target_outcome: round(base_measured - 0.09, 2)}},
-        ]
 
     try:
         res = run_parameter_calibration(
@@ -110,7 +114,7 @@ def calibrate_model_parameter(
             parameter_key=req.parameter_key,
             param_bounds=(req.param_bounds[0], req.param_bounds[1]),
             initial_guess=req.initial_guess,
-            evidence_points=evidence_points,
+            evidence_points=valid_for_outcome,
             target_outcome=req.target_outcome,
             parameter_defaults=parameter_defaults,
             seed=study.rng_seed or 42,
@@ -120,7 +124,7 @@ def calibrate_model_parameter(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code="calibration_error",
             message=str(e),
-        )
+        ) from e
 
     return CalibrationResponse(
         study_id=study_id,
@@ -164,26 +168,52 @@ def apply_calibrated_model(
         )
     latest_model = models[0]
 
-    # Clone project and update parameter in graph
-    new_project = dict(latest_model.project)
-    notes = req.notes or f"Calibrated {req.parameter_key}={req.calibrated_value} from bench evidence."
+    # Deep-clone project and write calibrated_value into bound node parameter
+    new_project = copy.deepcopy(latest_model.project) if latest_model.project else {}
+    binding_applied = False
+    for b in latest_model.parameter_bindings:
+        if b.parameter_key == req.parameter_key and not b.not_in_model and b.node_id and b.param_key:
+            for node in new_project.get("nodes", []):
+                if node.get("id") == b.node_id:
+                    node.setdefault("params", {})[b.param_key] = float(req.calibrated_value)
+                    binding_applied = True
+                    break
+
+    if not binding_applied:
+        raise ApiHttpError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="unbound_parameter",
+            message=f"Parameter '{req.parameter_key}' is not bound to any flow node in model v{latest_model.version}.",
+            field="parameter_key",
+        )
+
+    notes = (
+        req.notes
+        or f"Calibrated {req.parameter_key}={req.calibrated_value} from bench evidence (unvalidated until coverage check)."
+    )
 
     create_req = ModelVersionCreate(
-        kind=latest_model.kind,
         project=new_project,
-        parameter_bindings=[b.model_dump() for b in latest_model.parameter_bindings],
-        outcome_bindings=[b.model_dump() for b in latest_model.outcome_bindings],
+        parameter_bindings=latest_model.parameter_bindings,
+        outcome_bindings=latest_model.outcome_bindings,
         notes=notes,
     )
 
-    created_model = models_repo.create_model_version(conn, study_id, create_req)
-
-    # Set validation status to 'validated'
-    conn.execute(
-        "UPDATE model_versions SET validation_status = 'validated' WHERE id = ?",
-        (created_model.id,),
+    sig_src = (
+        json.dumps(new_project, sort_keys=True)
+        + json.dumps([pb.model_dump() for pb in latest_model.parameter_bindings], sort_keys=True)
+        + json.dumps([ob.model_dump() for ob in latest_model.outcome_bindings], sort_keys=True)
     )
-    conn.commit()
+    sig = hashlib.sha256(sig_src.encode("utf-8")).hexdigest()
+
+    # Hard Rule 6: Newly calibrated models remain 'unvalidated' until coverage checks pass and a human accepts validation.
+    created_model = models_repo.create_model_version(
+        conn,
+        study_id,
+        create_req,
+        engine_version=latest_model.engine_version,
+        signature=sig,
+    )
 
     write_audit(
         conn,

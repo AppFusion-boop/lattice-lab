@@ -898,3 +898,57 @@ test("auto-layout organizes DAG nodes into left-to-right ranks with clean non-ov
   assert.equal(b1.x, b2.x); // Same column
   assert.notEqual(b1.y, b2.y); // Different rows, no overlap
 });
+
+test("T2-1 & T2-2: waterMist responds to droplet/flow/nozzles, blastImpulseSensor integrates over time, and formula supports 4 inputs", () => {
+  // 1. Verify waterMist physical coupling to droplet diameter and flow rate
+  const pFine = tunnelProject();
+  const mistFine = pFine.nodes.find((n) => n.id === "water")!;
+  mistFine.params.droplet = 80;
+  mistFine.params.flow = 60;
+  const runFine = execute(pFine);
+  const sigFine = (runFine.results.mist.outputs["sensor:probe"] as { type: "signal"; value: { values: number[] } }).value.values;
+  const peakFine = Math.max(...sigFine.map(Math.abs));
+
+  const pCoarse = tunnelProject();
+  const mistCoarse = pCoarse.nodes.find((n) => n.id === "water")!;
+  mistCoarse.params.droplet = 600;
+  mistCoarse.params.flow = 5;
+  const runCoarse = execute(pCoarse);
+  const sigCoarse = (runCoarse.results.mist.outputs["sensor:probe"] as { type: "signal"; value: { values: number[] } }).value.values;
+  const peakCoarse = Math.max(...sigCoarse.map(Math.abs));
+
+  // Fine mist (80 um, 60 L/min) must attenuate peak pressure significantly more than coarse sparse spray (600 um, 5 L/min)
+  assert.ok(peakFine < peakCoarse * 0.75, `Expected fine mist peak (${peakFine}) < 0.75 * coarse peak (${peakCoarse})`);
+
+  // 2. Verify blastImpulseSensor integrates pressure over time (monotonically non-decreasing)
+  const pImp = exampleProject();
+  const sensor = pImp.nodes.find((n) => n.id === "sensor")!;
+  sensor.kind = "blastImpulseSensor";
+  sensor.params = { ...defaultParams("blastImpulseSensor"), x: 5, y: 1, z: 6, tau: 0 };
+  const impVals = sceneSignal(pImp).values;
+  for (let i = 1; i < impVals.length; i++) {
+    assert.ok(impVals[i] >= impVals[i - 1] - 1e-12, "Impulse integral must be monotonically non-decreasing");
+  }
+  assert.ok(impVals[impVals.length - 1] > 0, "Final integrated impulse must be positive");
+
+  // 3. Verify 4-input formula node (a + b + c * d)
+  const pForm = blankProject();
+  const cA = makeNode("constant"); cA.params.value = 10;
+  const cB = makeNode("constant"); cB.params.value = 20;
+  const cC = makeNode("constant"); cC.params.value = 3;
+  const cD = makeNode("constant"); cD.params.value = 4;
+  const form = makeNode("formula");
+  form.params.expression = "a + b + c * d";
+  pForm.nodes = [cA, cB, cC, cD, form];
+  pForm.edges = [
+    { id: "ea", source: cA.id, sourceHandle: "value", target: form.id, targetHandle: "a" },
+    { id: "eb", source: cB.id, sourceHandle: "value", target: form.id, targetHandle: "b" },
+    { id: "ec", source: cC.id, sourceHandle: "value", target: form.id, targetHandle: "c" },
+    { id: "ed", source: cD.id, sourceHandle: "value", target: form.id, targetHandle: "d" },
+  ];
+  const runForm = execute(pForm);
+  const formOut = runForm.results[form.id].outputs.result;
+  assert.equal(formOut.type, "number");
+  assert.equal(formOut.value, 42);
+});
+

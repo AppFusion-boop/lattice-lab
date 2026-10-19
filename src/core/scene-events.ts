@@ -140,9 +140,22 @@ export const sceneEvents: SceneEventDefinition[] = [
     help: "წყლის ხარჯი, წვეთების ზომა და საქშენები მართავს ვიზუალს. წნევის ჩახშობა და გაგრილება მომხმარებლის დაშვებებია; ეს არ არის ნისლის ან წვის ვალიდირებული მოდელი.",
     effect: ({ params: p, age, channel }) => {
       const fill = Math.min(1, age / Number(p.rise));
-      return channel === "temperature"
-        ? -Number(p.cooling) * fill
-        : (Number(p.reduction) / 100) * fill;
+      const flowRatio = (Math.max(0, Number(p.flow ?? 12)) * Math.max(1, Number(p.nozzles ?? 8))) / (12 * 8);
+      const angleDeg = Math.min(150, Math.max(10, Number(p.angle ?? 65)));
+      const angleRatio = Math.sin((angleDeg * Math.PI) / 180) / Math.sin((65 * Math.PI) / 180);
+      const fallRatio = Math.pow(3 / Math.max(0.2, Number(p.fallSpeed ?? 3)), 0.35);
+      const droplet = Math.max(5, Number(p.droplet ?? 80));
+      const logRatio = Math.log(droplet / 80);
+      const dropletFactor = Math.exp(-0.35 * logRatio * logRatio) * Math.pow(80 / droplet, 0.25);
+      const effectiveLoad = Math.max(0, flowRatio * angleRatio * fallRatio * dropletFactor);
+
+      if (channel === "temperature") {
+        return -Number(p.cooling) * effectiveLoad * fill;
+      }
+      const r0 = Math.min(0.98, Math.max(0, Number(p.reduction) / 100));
+      if (r0 <= 0 || effectiveLoad <= 0) return 0;
+      const effectiveReduction = Math.abs(effectiveLoad - 1) < 1e-12 ? r0 : 1 - Math.pow(1 - r0, effectiveLoad);
+      return effectiveReduction * fill;
     },
   },
   {
@@ -312,21 +325,38 @@ export const sceneEvents: SceneEventDefinition[] = [
       const t = age - distance / Number(p.speed);
       const w = Number(p.width);
       if (t < 0 || t > Number(p.duration)) return 0;
+      const fuel = String(p.fuel ?? "Methane (CH4)");
+      const fuelFactor = fuel.includes("Hydrogen")
+        ? 1.35
+        : fuel.includes("Acetylene")
+          ? 1.25
+          : fuel.includes("Vapor Cloud")
+            ? 1.15
+            : fuel.includes("Propane")
+              ? 1.05
+              : 1.0;
+      const massScale = Math.cbrt(Math.max(0.1, Number(p.fuelMass ?? 25)) / 25);
+      const phi = Number(p.phi ?? 1.0);
+      const stoichScale =
+        Math.exp(-Math.pow((phi - 1.05) / 0.65, 2)) /
+        Math.exp(-Math.pow((1.0 - 1.05) / 0.65, 2));
+      const energyMult = fuelFactor * massScale * stoichScale;
+
       if (channel === "pressure") {
         const tau = t / w;
         if (tau > 1.8) return 0;
-        return Number(p.overpressure) * (1 - tau) * Math.exp(-1.5 * tau);
+        return Number(p.overpressure) * energyMult * (1 - tau) * Math.exp(-1.5 * tau);
       }
       if (channel === "temperature") {
-        return Number(p.flameTemp) * Math.exp(-Math.pow((t - 0.5 * w) / (2 * w), 2));
+        const tempMult = Math.pow(fuelFactor * stoichScale, 0.35);
+        return Number(p.flameTemp) * tempMult * Math.exp(-Math.pow((t - 0.5 * w) / (2 * w), 2));
       }
       if (channel === "gasConcentration") {
-        const phi = Number(p.phi);
         const richFactor = phi > 1.0 ? 1.0 + 1.8 * (phi - 1.0) : Math.max(0.2, phi);
-        return Number(p.toxicYield) * richFactor * (1 / (1 + 0.3 * distance)) * Math.exp(-0.4 * t);
+        return Number(p.toxicYield) * massScale * richFactor * (1 / (1 + 0.3 * distance)) * Math.exp(-0.4 * t);
       }
       if (channel === "light") {
-        return 12000 * Math.exp(-Math.pow(t / w, 2));
+        return 12000 * energyMult * Math.exp(-Math.pow(t / w, 2));
       }
       return 0;
     },
@@ -367,20 +397,28 @@ export const sceneEvents: SceneEventDefinition[] = [
     help: "უნივერსალური გამფრქვევი: წყალი აგრილებს აორთქლებით და ახშობს ტალღას. ქიმიური ნეიტრალიზატორი და ქაფი დამატებით რეაქციაში შედის წვის გაზებთან და ანეიტრალებს ტოქსიკურობას (Scavenging).",
     effect: ({ params: p, age, channel }) => {
       const fill = Math.min(1, age / Number(p.rise));
+      const flowRatio = (Math.max(0, Number(p.flow ?? 25)) * Math.max(1, Number(p.nozzles ?? 12))) / (25 * 12);
+      const d32 = Math.max(5, Number(p.droplet ?? 75));
+      const dFactor = Math.pow(75 / d32, 0.35);
+      const vFactor = Math.pow(6 / Math.max(0.5, Number(p.fallSpeed ?? 6)), 0.25);
+      const loadFactor = Math.max(0, flowRatio * dFactor * vFactor);
+
       if (channel === "temperature") {
         const fluid = String(p.fluid);
         const latentFactor = fluid.includes("Nitrogen") ? 2.5 : fluid.includes("Water") ? 1.0 : 0.8;
-        return -Number(p.coolingRate) * latentFactor * fill;
+        return -Number(p.coolingRate) * latentFactor * loadFactor * fill;
       }
       if (channel === "pressure") {
-        return (Number(p.pressureMitigation) / 100) * fill;
+        const r0 = Math.min(0.98, Math.max(0, Number(p.pressureMitigation) / 100));
+        if (r0 <= 0 || loadFactor <= 0) return 0;
+        const effP = Math.abs(loadFactor - 1) < 1e-12 ? r0 : 1 - Math.pow(1 - r0, loadFactor);
+        return effP * fill;
       }
       if (channel === "gasConcentration") {
         const fluid = String(p.fluid);
-        const d32 = Math.max(10, Number(p.droplet));
-        const areaBoost = Math.min(2.0, 100 / d32);
+        const areaBoost = Math.min(2.0, 100 / Math.max(10, d32));
         const reacts = fluid.includes("Neutralizer") || fluid.includes("Foam") || fluid.includes("Purple");
-        const eff = (Number(p.scavengingEfficiency) / 100) * (reacts ? 1.0 : 0.25) * areaBoost;
+        const eff = (Number(p.scavengingEfficiency) / 100) * (reacts ? 1.0 : 0.25) * areaBoost * Math.pow(flowRatio, 0.5);
         return Math.min(0.98, eff) * fill;
       }
       return 0;
@@ -413,8 +451,23 @@ export const sceneEvents: SceneEventDefinition[] = [
       num("decayRate", "გაფანტვის კოეფიციენტი (Dispersion Decay)", 0.25, 0.01, 2, "1/s", 0.02),
     ],
     help: "სცენაში აირის გაჟონვის 3D ღრუბელი. კონცენტრაცია მცირდება მანძილთან და დროთან ერთად.",
-    effect: ({ params: p, age, distance }) =>
-      Number(p.concentration) * Math.exp(-Number(p.decayRate) * age) * (1 / (1 + 0.2 * distance)),
+    effect: ({ params: p, age, distance }) => {
+      const gas = String(p.gas ?? "Methane (CH4)");
+      const diffFactor = gas.includes("Hydrogen (H2)")
+        ? 1.8
+        : gas.includes("Ammonia")
+          ? 0.95
+          : gas.includes("Carbon Monoxide")
+            ? 0.85
+            : gas.includes("Hydrogen Sulfide")
+              ? 0.75
+              : 1.0;
+      return (
+        Number(p.concentration) *
+        Math.exp(-Number(p.decayRate) * diffFactor * age) *
+        (1 / (1 + 0.2 * distance))
+      );
+    },
   },
   {
     id: "thermalRadiation",

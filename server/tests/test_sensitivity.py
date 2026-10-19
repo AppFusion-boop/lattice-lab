@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-import pytest
-
 from lattice_server.schemas import (
     ModelVersionResponse,
     OutcomeResponse,

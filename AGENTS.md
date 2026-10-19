@@ -1,6 +1,6 @@
 # Instructions for AI Agents in Lattice Lab
 
-Before doing any work, read the full [Implementation Plan](docs/IMPLEMENTATION_PLAN.md).
+Before doing any work, read the full [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) and the [Scientific Overhaul Implementation Plan](docs/SCIENTIFIC_OVERHAUL_IMPLEMENTATION_PLAN.md) (alongside [Scientific & Developer Critique](docs/SCIENTIFIC_AND_DEVELOPER_CRITIQUE.md)).
 
 ## Commands (§3.2)
 - `npm install` — frontend dependencies

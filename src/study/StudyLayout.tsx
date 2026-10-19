@@ -12,6 +12,9 @@ import { ConstraintsTab } from "./tabs/ConstraintsTab";
 import { CandidatesTab } from "./tabs/CandidatesTab";
 import { ModelTab } from "./tabs/ModelTab";
 import { EvidenceTab } from "./tabs/EvidenceTab";
+import { AnalysisTab } from "./tabs/AnalysisTab";
+import { PlanTab } from "./tabs/PlanTab";
+import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
 import "./study.css";
 
@@ -122,6 +125,24 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
           {tr("მტკიცებულებები (Evidence)", "Evidence")}
         </button>
         <button
+          className={`study-tab-btn ${currentTab === "analysis" ? "active" : ""}`}
+          onClick={() => navigate(`studies/${id}/analysis`)}
+        >
+          {tr("ანალიზი (Analysis)", "Analysis")}
+        </button>
+        <button
+          className={`study-tab-btn ${currentTab === "plan" ? "active" : ""}`}
+          onClick={() => navigate(`studies/${id}/plan`)}
+        >
+          {tr("გეგმა (Plan)", "Plan")}
+        </button>
+        <button
+          className={`study-tab-btn ${currentTab === "report" ? "active" : ""}`}
+          onClick={() => navigate(`studies/${id}/report`)}
+        >
+          {tr("ანგარიში (Report)", "Report")}
+        </button>
+        <button
           className={`study-tab-btn ${currentTab === "audit" ? "active" : ""}`}
           onClick={() => navigate(`studies/${id}/audit`)}
         >
@@ -146,6 +167,9 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
         {currentTab === "constraints" && <ConstraintsTab study={study} />}
         {currentTab === "candidates" && <CandidatesTab study={study} onCandidatesChanged={refresh} />}
         {currentTab === "evidence" && <EvidenceTab study={study} />}
+        {currentTab === "analysis" && <AnalysisTab study={study} />}
+        {currentTab === "plan" && <PlanTab study={study} />}
+        {currentTab === "report" && <ReportTab study={study} />}
         {currentTab === "audit" && <AuditTab study={study} />}
       </main>
     </div>

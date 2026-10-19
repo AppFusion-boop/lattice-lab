@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from lattice_server import config, db
+from lattice_server.api.analyses import router as analyses_router
 from lattice_server.api.audit import router as audit_router
 from lattice_server.api.backup_export import router as backup_export_router
 from lattice_server.api.calibration import router as calibration_router
@@ -23,6 +24,7 @@ from lattice_server.api.outcomes import router as outcomes_router
 from lattice_server.api.overrides import router as overrides_router
 from lattice_server.api.parameters import router as parameters_router
 from lattice_server.api.pareto import router as pareto_router
+from lattice_server.api.reports import router as reports_router
 from lattice_server.api.run_sheets import router as run_sheets_router
 from lattice_server.api.screening import router as screening_router
 from lattice_server.api.sensitivity import router as sensitivity_router
@@ -105,6 +107,8 @@ app.include_router(backup_export_router, prefix="/api/v1")
 app.include_router(sensitivity_router, prefix="/api/v1")
 app.include_router(pareto_router, prefix="/api/v1")
 app.include_router(calibration_router, prefix="/api/v1")
+app.include_router(analyses_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

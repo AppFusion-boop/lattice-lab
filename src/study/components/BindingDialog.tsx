@@ -180,7 +180,7 @@ export function BindingDialog({
     setSubmitting(true);
 
     try {
-      // Build parameter bindings
+      // Build parameter bindings with unit metadata for automatic Pint conversion
       const pbs: ParameterBindingModel[] = parameters.map((p) => {
         const state = paramBindings[p.key];
         if (state?.notInModel) {
@@ -189,12 +189,17 @@ export function BindingDialog({
             not_in_model: true,
           };
         }
+        const boundNode = project.nodes.find((n) => n.id === state?.nodeId);
+        const def = boundNode ? nodeDefinition(boundNode, project) : undefined;
+        const field = def?.fields.find((f) => f.key === state?.paramKey);
         return {
           parameter_key: p.key,
           node_id: state?.nodeId,
           param_key: state?.paramKey,
           not_in_model: false,
-        };
+          param_unit: p.unit || undefined,
+          field_unit: field?.unit || undefined,
+        } as ParameterBindingModel;
       });
 
       // Build outcome bindings

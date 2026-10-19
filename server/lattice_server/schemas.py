@@ -475,6 +475,7 @@ class DecisionSummary(BaseModel):
     p_hat: float | None = None
     p_upper: float | None = None
     reason: str
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class CandidateResponse(BaseModel):
@@ -683,6 +684,7 @@ class RunSheetCreate(BaseModel):
     candidate_status: Literal["recommended", "open"] = "recommended"
     replicates: int = Field(default=3, ge=1, le=20)
     seed: int | None = None
+    hard_to_change_keys: list[str] = Field(default_factory=list)
 
 
 class RunSheetResponse(BaseModel):
@@ -691,6 +693,9 @@ class RunSheetResponse(BaseModel):
     screening_run_id: str | None
     seed: int
     count: int
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    hardware_changeovers: int = 0
+    saved_changeovers: int = 0
     created_at: str
 
 
@@ -735,6 +740,8 @@ class ParameterBindingModel(BaseModel):
     node_id: str | None = None
     param_key: str | None = None
     not_in_model: bool = False
+    param_unit: str | None = None
+    field_unit: str | None = None
 
 
 class OutcomeBindingModel(BaseModel):

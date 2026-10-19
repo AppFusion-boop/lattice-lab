@@ -194,3 +194,105 @@ def sobol(
     sampler = qmc.Sobol(d=d, scramble=True, seed=seed)
     unit_samples = sampler.random(n=n_effective)
     return _transform_unit_samples(unit_samples, controlled)
+
+
+def select_maximin_batch(
+    candidate_rows: list[dict[str, Any]],
+    params: list[ParameterResponse],
+    batch_size: int,
+    seed: int = 42,
+) -> list[int]:
+    """Greedy farthest-point (maximin) selection in normalized [0, 1]^d space over open candidates (P5-1)."""
+    n = len(candidate_rows)
+    if n == 0 or batch_size <= 0:
+        return []
+    if batch_size >= n:
+        return list(range(n))
+
+    from lattice_server.stats.surrogate import FeatureEncoder
+
+    enc = FeatureEncoder(params)
+    X = enc.transform(candidate_rows)
+    rng = np.random.default_rng(seed)
+
+    # Start with point farthest from center (or deterministic seeded choice among top 3)
+    center = np.mean(X, axis=0, keepdims=True)
+    dist_center = np.sum((X - center) ** 2, axis=1)
+    first_idx = int(np.argmax(dist_center))
+    selected: list[int] = [first_idx]
+
+    min_sq_dist = np.sum((X - X[first_idx : first_idx + 1]) ** 2, axis=1)
+    min_sq_dist[first_idx] = -1.0
+
+    for _ in range(1, batch_size):
+        # Small deterministic jitter to break ties
+        jitter = rng.uniform(0.0, 1e-12, size=n)
+        next_idx = int(np.argmax(min_sq_dist + jitter))
+        selected.append(next_idx)
+        d_new = np.sum((X - X[next_idx : next_idx + 1]) ** 2, axis=1)
+        min_sq_dist = np.minimum(min_sq_dist, d_new)
+        for s_idx in selected:
+            min_sq_dist[s_idx] = -1.0
+
+    return selected
+
+
+def select_d_optimal_batch(
+    candidate_rows: list[dict[str, Any]],
+    params: list[ParameterResponse],
+    batch_size: int,
+    seed: int = 42,
+) -> list[int]:
+    """Sequential D-optimal exchange maximizing log det(X^T X + reg * I) over open candidates (P5-1)."""
+    n = len(candidate_rows)
+    if n == 0 or batch_size <= 0:
+        return []
+    if batch_size >= n:
+        return list(range(n))
+
+    from lattice_server.stats.surrogate import FeatureEncoder
+
+    enc = FeatureEncoder(params)
+    X_raw = enc.transform(candidate_rows)
+    # Design matrix with intercept + linear + pure quadratic terms in [-1, 1]
+    X_centered = 2.0 * X_raw - 1.0
+    Phi = np.hstack([np.ones((n, 1)), X_centered, X_centered**2])
+    p_cols = Phi.shape[1]
+
+    # Initialize with maximin spread
+    selected = select_maximin_batch(candidate_rows, params, batch_size, seed=seed)
+    reg = 1e-5 * np.eye(p_cols)
+
+    def log_det(idxs: list[int]) -> float:
+        M = Phi[idxs]
+        sign, ld = np.linalg.slogdet(M.T @ M + reg)
+        return float(ld) if sign > 0 else -1e18
+
+    best_score = log_det(selected)
+    selected_set = set(selected)
+
+    # 2 passes of Fedorov coordinate exchange
+    for _pass in range(2):
+        improved = False
+        for pos in range(batch_size):
+            cur_member = selected[pos]
+            best_cand = cur_member
+            for cand_idx in range(n):
+                if cand_idx in selected_set:
+                    continue
+                trial = list(selected)
+                trial[pos] = cand_idx
+                sc = log_det(trial)
+                if sc > best_score + 1e-9:
+                    best_score = sc
+                    best_cand = cand_idx
+            if best_cand != cur_member:
+                selected_set.remove(cur_member)
+                selected_set.add(best_cand)
+                selected[pos] = best_cand
+                improved = True
+        if not improved:
+            break
+
+    return selected
+

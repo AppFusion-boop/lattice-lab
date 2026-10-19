@@ -1,7 +1,4 @@
 import json
-from pathlib import Path
-
-import pytest
 
 from lattice_server import config
 from lattice_server.engine import bridge

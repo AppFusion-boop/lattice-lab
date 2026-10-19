@@ -25,6 +25,7 @@ interface OverviewTabProps {
 
 export function OverviewTab({ study }: OverviewTabProps) {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [mcDraws, setMcDraws] = useState<number>(60);
 
   const {
     data: latestRun,
@@ -47,7 +48,7 @@ export function OverviewTab({ study }: OverviewTabProps) {
   const handleRunScreening = async () => {
     try {
       const jobRes = await apiPost<Job>(`/studies/${study.id}/screening-runs`, {
-        settings: { mc_draws: 5 },
+        settings: { mc_draws: mcDraws, adaptive: true },
       });
       setActiveJobId(jobRes.id);
     } catch (err) {
@@ -107,7 +108,18 @@ export function OverviewTab({ study }: OverviewTabProps) {
             </div>
           </div>
 
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <select
+              className="form-select"
+              value={mcDraws}
+              onChange={(e) => setMcDraws(Number(e.target.value))}
+              style={{ fontSize: 12, padding: "7px 10px" }}
+              title="Adaptive Monte Carlo maximum draws per candidate"
+            >
+              <option value={60}>{tr("ადაპტური (60 ცდა — 95% სანდოობა)", "Standard Adaptive (up to 60 draws)")}</option>
+              <option value={200}>{tr("მაღალი სიზუსტე (200 ცდა)", "High Precision (up to 200 draws)")}</option>
+              <option value={20}>{tr("სწრაფი გადახედვა (20 ცდა)", "Fast Preview (20 draws)")}</option>
+            </select>
             <button
               className="btn-primary"
               onClick={handleRunScreening}

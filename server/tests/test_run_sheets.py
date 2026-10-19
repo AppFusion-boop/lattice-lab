@@ -200,3 +200,33 @@ def test_run_sheet_results_round_trip(client: TestClient, db_conn: sqlite3.Conne
         actions = [r["action"] for r in audit_rows]
         assert "create" in actions
         assert "import_results" in actions
+
+
+def test_split_plot_hardware_changeover_run_sheet(client: TestClient, db_conn: sqlite3.Connection) -> None:
+    study_id, _ = _setup_run_sheet_study(client, db_conn)
+
+    # 6 candidates (droplet in {50, 100, 150} x flow in {10, 20}), 3 replicates -> 18 runs.
+    # If flow is hard-to-change (2 levels: 10 and 20), split-plot grouping must produce exactly 2 hardware changeovers!
+    res = client.post(
+        f"/api/v1/studies/{study_id}/run-sheets",
+        json={
+            "replicates": 3,
+            "candidate_status": "open",
+            "seed": 42,
+            "hard_to_change_keys": ["flow"],
+        },
+    )
+    assert res.status_code == 201
+    rs = res.json()
+    assert rs["count"] == 18
+    assert len(rs["rows"]) == 18
+    assert rs["hardware_changeovers"] == 2
+    assert rs["saved_changeovers"] > 0
+
+    # Verify all 9 runs in block 1 have the same flow value, and all 9 runs in block 2 have the other flow value
+    flows_block1 = {r["values"]["flow"] for r in rs["rows"][:9]}
+    flows_block2 = {r["values"]["flow"] for r in rs["rows"][9:]}
+    assert len(flows_block1) == 1
+    assert len(flows_block2) == 1
+    assert flows_block1 != flows_block2
+

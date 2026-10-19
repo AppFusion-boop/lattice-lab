@@ -164,7 +164,7 @@ def list_candidates_paginated(
     query_rows = f"""
         SELECT c.id, c.candidate_set_id, c.idx, c.label, c.values_json, c.values_hash,
                d.status AS dec_status, d.filter AS dec_filter, d.p_hat AS dec_p_hat,
-               d.p_upper AS dec_p_upper, d.reason AS dec_reason
+               d.p_upper AS dec_p_upper, d.reason AS dec_reason, d.details_json AS dec_details_json
         {query_base}
         ORDER BY {order_by}
         LIMIT ? OFFSET ?
@@ -182,6 +182,7 @@ def list_candidates_paginated(
                 p_hat=r["dec_p_hat"],
                 p_upper=r["dec_p_upper"],
                 reason=r["dec_reason"],
+                details=json.loads(r["dec_details_json"]) if r["dec_details_json"] else {},
             )
             if r["dec_status"]
             else None

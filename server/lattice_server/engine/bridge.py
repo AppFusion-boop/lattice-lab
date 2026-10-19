@@ -7,10 +7,10 @@ import os
 import shlex
 import shutil
 import subprocess
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from lattice_server import config
 from lattice_server.errors import ApiHttpError
@@ -42,20 +42,27 @@ def resolve_engine_command() -> list[str]:
         parts = ["node_modules/.bin/tsx", "scripts/eval-batch.ts"]
 
     cmd0 = parts[0]
-    # Check if relative to REPO_ROOT
     candidate0 = config.REPO_ROOT / cmd0
-    if candidate0.exists() and os.access(candidate0, os.X_OK):
+    candidate0_cmd = config.REPO_ROOT / f"{cmd0}.cmd"
+    if os.name == "nt" and candidate0_cmd.exists():
+        parts[0] = str(candidate0_cmd.resolve())
+    elif candidate0.exists() and os.access(candidate0, os.X_OK):
         parts[0] = str(candidate0.resolve())
-    elif not shutil.which(cmd0):
-        # If cmd0 is tsx, try npx tsx
-        if shutil.which("npx"):
-            parts = ["npx"] + parts
+    else:
+        which_cmd0 = shutil.which(cmd0)
+        if which_cmd0:
+            parts[0] = which_cmd0
+        else:
+            which_npx = shutil.which("npx")
+            if which_npx:
+                parts = [which_npx, "tsx"] + parts[1:]
 
-    # Check second argument (the script file)
-    if len(parts) > 1 and parts[1].endswith(".ts"):
-        script_cand = config.REPO_ROOT / parts[1]
-        if script_cand.exists():
-            parts[1] = str(script_cand.resolve())
+    # Check script file argument
+    for idx in range(1, len(parts)):
+        if parts[idx].endswith(".ts"):
+            script_cand = config.REPO_ROOT / parts[idx]
+            if script_cand.exists():
+                parts[idx] = str(script_cand.resolve())
 
     return parts
 
@@ -107,7 +114,7 @@ def health() -> dict[str, Any]:
             "ok": True,
             "engine_version": last_line.get("engineVersion", "unknown"),
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": str(exc)}
 
 
@@ -168,7 +175,7 @@ def _run_single_chunk(
                         node_errors=data.get("nodeErrors", {}),
                     )
                 )
-            except Exception as parse_err:
+            except Exception as parse_err:  # noqa: BLE001
                 results.append(
                     RowResult(
                         id="unknown",
@@ -191,7 +198,7 @@ def _run_single_chunk(
             )
             for r in chunk_rows
         ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         proc.kill()
         return [
             RowResult(id=r["id"], status="error", outcomes={}, message=str(exc))
@@ -219,13 +226,33 @@ def evaluate(
 
     cmd = resolve_engine_command()
     norm_pb = []
+    unit_conversions: dict[str, tuple[str, str]] = {}
     for pb in param_bindings:
+        p_key = pb.get("parameterKey") or pb.get("parameter_key")
+        not_in_mod = bool(pb.get("notInModel", pb.get("not_in_model", False)))
+        p_unit = pb.get("paramUnit") or pb.get("param_unit") or ""
+        f_unit = pb.get("fieldUnit") or pb.get("field_unit") or ""
+        if p_key and not not_in_mod and p_unit and f_unit and p_unit.strip() != f_unit.strip():
+            unit_conversions[str(p_key)] = (str(p_unit), str(f_unit))
         norm_pb.append({
-            "parameterKey": pb.get("parameterKey") or pb.get("parameter_key"),
+            "parameterKey": p_key,
             "nodeId": pb.get("nodeId") or pb.get("node_id"),
             "paramKey": pb.get("paramKey") or pb.get("param_key"),
-            "notInModel": bool(pb.get("notInModel", pb.get("not_in_model", False))),
+            "notInModel": not_in_mod,
         })
+
+    if unit_conversions:
+        from lattice_server.units import convert_unit
+
+        converted_rows: list[dict[str, Any]] = []
+        for r in rows:
+            vals = dict(r.get("values") or {})
+            for p_key, (from_u, to_u) in unit_conversions.items():
+                if p_key in vals and isinstance(vals[p_key], (int, float)):
+                    vals[p_key] = convert_unit(float(vals[p_key]), from_u, to_u)
+            converted_rows.append({**r, "values": vals})
+        rows = converted_rows
+
     norm_ob = []
     for ob in outcome_bindings:
         norm_ob.append({
@@ -285,7 +312,7 @@ def evaluate(
             idx, chunk = future_to_chunk[future]
             try:
                 chunk_res = future.result()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 chunk_res = [
                     RowResult(id=r["id"], status="error", outcomes={}, message=str(exc))
                     for r in chunk

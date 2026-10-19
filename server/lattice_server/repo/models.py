@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from lattice_server import ids
 from lattice_server.audit import write_audit
 from lattice_server.schemas import (
     ModelVersionCreate,
     ModelVersionResponse,
-    ParameterBindingModel,
     OutcomeBindingModel,
+    ParameterBindingModel,
 )
 
 
@@ -110,7 +109,7 @@ def create_model_version(
     version = int(row["next_v"]) if row else 1
 
     model_id = ids.new_id("mod")
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     project_json = json.dumps(payload.project)
     param_bindings_json = json.dumps(
         [pb.model_dump() for pb in payload.parameter_bindings]

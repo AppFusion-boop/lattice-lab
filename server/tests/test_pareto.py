@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from lattice_server.stats.pareto import compute_pareto_analysis, non_dominated_sort_2d
 

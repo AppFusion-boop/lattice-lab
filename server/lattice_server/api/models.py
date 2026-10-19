@@ -132,6 +132,7 @@ def create_model_version(
 
     # 1. Parameter completeness check
     study_params = parameters_repo.list_parameters(conn, study_id)
+    param_by_key = {p.key: p for p in study_params}
     bound_keys = {pb.parameter_key for pb in payload.parameter_bindings}
 
     for p in study_params:
@@ -142,7 +143,9 @@ def create_model_version(
                 message=f"Parameter '{p.key}' ({p.role}) must be bound to a node field or marked 'not in model'.",
             )
 
-    # 2. Build active bindings for verification
+    # 2. Build active bindings for verification & check dimensional compatibility
+    from lattice_server.units import convert_unit
+
     active_param_bindings = []
     for pb in payload.parameter_bindings:
         if not pb.not_in_model:
@@ -152,11 +155,26 @@ def create_model_version(
                     code="invalid_binding",
                     message=f"Parameter '{pb.parameter_key}' requires nodeId and paramKey unless marked 'not in model'.",
                 )
+            p_obj = param_by_key.get(pb.parameter_key)
+            if p_obj and p_obj.unit and not pb.param_unit:
+                pb.param_unit = p_obj.unit
+            if pb.param_unit and pb.field_unit:
+                try:
+                    convert_unit(1.0, pb.param_unit, pb.field_unit)
+                except ValueError as exc:
+                    raise ApiHttpError(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        code="incompatible_units",
+                        message=f"Incompatible units for parameter '{pb.parameter_key}': {exc}",
+                    ) from exc
+
             active_param_bindings.append(
                 {
                     "parameterKey": pb.parameter_key,
                     "nodeId": pb.node_id,
                     "paramKey": pb.param_key,
+                    "paramUnit": pb.param_unit,
+                    "fieldUnit": pb.field_unit,
                 }
             )
 
@@ -207,3 +225,35 @@ def create_model_version(
         engine_version=engine_ver,
         signature=sig,
     )
+
+
+@router.post(
+    "/studies/{study_id}/models/{model_id}/validate",
+    response_model=dict[str, Any],
+)
+def validate_model_endpoint(
+    study_id: str,
+    model_id: str,
+    conn: DbConn,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    from lattice_server.stats.validation import validate_flow_model
+
+    n_draws = int((payload or {}).get("n_draws", 60))
+    return validate_flow_model(conn=conn, study_id=study_id, model_id=model_id, n_draws=n_draws)
+
+
+@router.post(
+    "/models/{model_id}/accept-validation",
+    response_model=ModelVersionResponse,
+)
+def accept_model_validation_endpoint(
+    model_id: str,
+    payload: dict[str, Any],
+    conn: DbConn,
+) -> ModelVersionResponse:
+    from lattice_server.stats.validation import accept_model_validation
+
+    reason = str(payload.get("reason", ""))
+    return accept_model_validation(conn=conn, model_id=model_id, reason=reason)
+

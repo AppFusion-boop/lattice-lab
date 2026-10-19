@@ -120,7 +120,12 @@ def matches_candidate(
         e_val = evi_values[p.key]
 
         if p.kind == "continuous":
-            if not np.isclose(float(c_val), float(e_val), rtol=1e-6, atol=1e-9):
+            atol = 1e-9
+            p_min = p.spec.get("min") if isinstance(p.spec, dict) else getattr(p.spec, "min", None)
+            p_max = p.spec.get("max") if isinstance(p.spec, dict) else getattr(p.spec, "max", None)
+            if p_min is not None and p_max is not None:
+                atol = max(atol, 0.005 * abs(float(p_max) - float(p_min)))
+            if not np.isclose(float(c_val), float(e_val), rtol=1e-6, atol=atol):
                 return False
         elif p.kind == "integer":
             if int(c_val) != int(e_val):
@@ -166,7 +171,10 @@ class ScreeningContext:
     rng_seed: int = 42
     exclusion_threshold: float = 0.05
     confidence: float = 0.95
-    mc_draws: int = 10
+    mc_draws: int = 60
+    adaptive: bool = True
+    enable_dominance: bool = False
+    enable_redundancy: bool = False
 
 
 FilterFn = Callable[[ScreeningContext, CandidateBatch, list[FilterVerdict | None]], None]
@@ -197,7 +205,7 @@ def evidence_filter(
 ) -> None:
     """Step 2: Tested: valid evidence exists whose controlled values match candidate.
 
-    (continuous: relative tolerance 1e-6; integer/categorical: exact)
+    (continuous: relative tolerance 1e-6 or 0.5% span; integer/categorical: exact)
     -> tested_pass if majority of replicates succeed, else tested_fail.
     filter = 'evidence_match'
     """
@@ -226,10 +234,10 @@ def evidence_filter(
                 if r not in matching:
                     matching.append(r)
 
-        # 3. If no match yet and continuous parameters exist, check tolerance match
-        if not matching and has_continuous:
+        # 3. Check continuous tolerance match across all evidence records to aggregate all replicates
+        if has_continuous:
             for r in ctx.evidence_records:
-                if matches_candidate(c_id, c_hash, c_vals, r, ctx.controlled_params) and r not in matching:
+                if r not in matching and matches_candidate(c_id, c_hash, c_vals, r, ctx.controlled_params):
                     matching.append(r)
 
         if not matching:
@@ -256,7 +264,20 @@ def evidence_filter(
             else f"Tested: {n_valid - passes}/{n_valid} replicates failed outcome criteria"
         )
 
-        details = {
+        outcome_means: dict[str, float] = {}
+        outcome_stds: dict[str, float] = {}
+        for o in ctx.outcomes:
+            vals = []
+            for r in valid_recs:
+                out_entry = r["outcomes"].get(o.key)
+                v = out_entry.get("value") if isinstance(out_entry, dict) else out_entry
+                if isinstance(v, (int, float)) and np.isfinite(float(v)):
+                    vals.append(float(v))
+            if vals:
+                outcome_means[o.key] = round(float(np.mean(vals)), 4)
+                outcome_stds[o.key] = round(float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0, 4)
+
+        details: dict[str, Any] = {
             "replicates": n_valid,
             "passes": passes,
             "fails": n_valid - passes,
@@ -264,12 +285,16 @@ def evidence_filter(
             "outliers": len(outliers),
             "evidence_ids": [r["id"] for r in valid_recs],
         }
+        if outcome_means:
+            details["outcome_means"] = outcome_means
+            details["outcome_stds"] = outcome_stds
         if failed_runs:
             details["failed_run_ids"] = [r["id"] for r in failed_runs]
 
         verdicts[i] = FilterVerdict(
             status=status_str,
             filter="evidence_match",
+            p_hat=round(passes / n_valid, 4),
             reason=reason_str,
             details=details,
         )
@@ -304,12 +329,13 @@ def constraint_filter(
                 reason = constraint.rationale if constraint.rationale else constraint.expression
                 hard_violations[i].append(f"{constraint.expression} ({reason})")
 
-    # Evaluate soft constraints
+    # Evaluate soft constraints using their actual penalty weight
     for _constraint, compiled_expr in ctx.soft_constraints:
+        weight = float(_constraint.penalty) if _constraint.penalty is not None else 1.0
         values, finite_mask = compiled_expr.evaluate_vec(batch.values_by_key, n=n)
         for i in range(n):
             if not finite_mask[i] or values[i] <= 0:
-                soft_penalties[i] += 1.0
+                soft_penalties[i] += weight
 
     for i in range(n):
         if verdicts[i] is not None:
@@ -346,21 +372,79 @@ def constraint_filter(
             pass
 
 
+def dominance_filter(
+    ctx: ScreeningContext,
+    batch: CandidateBatch,
+    verdicts: list[FilterVerdict | None],
+) -> None:
+    """Step 6: Pareto dominance deprioritisation among open candidates when enabled."""
+    if not ctx.enable_dominance:
+        return
+    directed_outcomes = [o for o in ctx.outcomes if o.direction in ("minimize", "maximize")]
+    if not directed_outcomes:
+        return
+
+    open_indices = [
+        i
+        for i, v in enumerate(verdicts)
+        if v is not None and v.status == "open" and "outcome_means" in v.details
+    ]
+    if len(open_indices) < 2:
+        return
+
+    for i in open_indices:
+        vi = verdicts[i]
+        assert vi is not None
+        means_i = vi.details["outcome_means"]
+        for j in open_indices:
+            if i == j:
+                continue
+            vj = verdicts[j]
+            assert vj is not None
+            means_j = vj.details["outcome_means"]
+            # Check if j dominates i on all directed outcomes
+            all_better_or_eq = True
+            strictly_better = False
+            for o in directed_outcomes:
+                mi = means_i.get(o.key)
+                mj = means_j.get(o.key)
+                if mi is None or mj is None:
+                    all_better_or_eq = False
+                    break
+                if o.direction == "minimize":
+                    if mj > mi:
+                        all_better_or_eq = False
+                        break
+                    if mj < mi:
+                        strictly_better = True
+                else:
+                    if mj < mi:
+                        all_better_or_eq = False
+                        break
+                    if mj > mi:
+                        strictly_better = True
+            if all_better_or_eq and strictly_better:
+                vi.status = "deprioritised"
+                vi.filter = "dominance"
+                vi.reason = f"Pareto-dominated on all directed outcomes by candidate #{batch.indices[j] + 1}"
+                vi.details["dominated_by"] = batch.ids[j]
+                break
+
+
 def fallback_open_filter(
     ctx: ScreeningContext,
     batch: CandidateBatch,
     verdicts: list[FilterVerdict | None],
 ) -> None:
-    """Step 8: Any remaining candidates are marked open."""
-    # Re-evaluate soft penalties if needed or pass through
-    # For efficiency we compute soft penalties if any soft constraints exist
+    """Step 8: Any remaining candidates are marked open, and soft penalties attached."""
     n = len(batch.ids)
     soft_penalties: list[float] = [0.0 for _ in range(n)]
     for _constraint, compiled_expr in ctx.soft_constraints:
+        weight = float(_constraint.penalty) if _constraint.penalty is not None else 1.0
         values, finite_mask = compiled_expr.evaluate_vec(batch.values_by_key, n=n)
         for i in range(n):
             if not finite_mask[i] or values[i] <= 0:
-                soft_penalties[i] += 1.0
+                soft_penalties[i] += weight
 
     for i in range(n):
         if verdicts[i] is None:
@@ -373,6 +457,8 @@ def fallback_open_filter(
                 reason="Passed all active constraints",
                 details=details,
             )
+        elif soft_penalties[i] > 0 and "soft_penalty" not in verdicts[i].details:
+            verdicts[i].details["soft_penalty"] = soft_penalties[i]
 
 
 def model_simulation_filter(
@@ -409,6 +495,7 @@ def model_simulation_filter(
         exclusion_threshold=ctx.exclusion_threshold,
         confidence=ctx.confidence,
         mc_draws=ctx.mc_draws,
+        adaptive=ctx.adaptive,
     )
 
     for i in unresolved_indices:
@@ -425,12 +512,103 @@ def model_simulation_filter(
             )
 
 
+def evidence_gp_filter(
+    ctx: ScreeningContext,
+    batch: CandidateBatch,
+    verdicts: list[FilterVerdict | None],
+) -> None:
+    """Step 5b: Evidence GP surrogate screening when no Flow Model is active and >= 8 valid evidence rows exist."""
+    if ctx.active_model is not None:
+        return
+
+    valid_evi = [r for r in ctx.evidence_records if r["status"] == "valid"]
+    if len(valid_evi) < 8:
+        return
+
+    outcomes_with_crit = [o for o in ctx.outcomes if o.criterion is not None]
+    if not outcomes_with_crit:
+        return
+
+    unresolved_indices = [i for i in range(len(batch.ids)) if verdicts[i] is None]
+    if not unresolved_indices:
+        return
+
+    from lattice_server.stats.surrogate import GPSurrogate, criterion_success_probability
+
+    cand_rows = [batch.raw_values[i] for i in unresolved_indices]
+    m_cands = len(cand_rows)
+    delta = 1.0 - ctx.confidence
+    tau = ctx.exclusion_threshold
+
+    joint_p_hat = np.ones(m_cands, dtype=np.float64)
+    joint_p_upper = np.ones(m_cands, dtype=np.float64)
+    all_gp_validated = True
+    gp_details: dict[str, Any] = {}
+
+    for o in outcomes_with_crit:
+        x_rows: list[dict[str, Any]] = []
+        y_vals: list[float] = []
+        for r in valid_evi:
+            out_entry = r["outcomes"].get(o.key)
+            val = out_entry.get("value") if isinstance(out_entry, dict) else out_entry
+            if isinstance(val, (int, float)) and np.isfinite(float(val)):
+                x_rows.append(r["values"])
+                y_vals.append(float(val))
+        if len(x_rows) < 8:
+            return
+
+        gp = GPSurrogate(parameters=ctx.controlled_params, outcome_key=o.key, seed=ctx.rng_seed)
+        metrics = gp.fit(x_rows, np.asarray(y_vals, dtype=np.float64))
+        if not metrics.is_validated:
+            all_gp_validated = False
+
+        mean, std = gp.predict(cand_rows)
+        assert o.criterion is not None
+        p_h, p_u, _p_l = criterion_success_probability(mean, std, o.criterion, delta=delta)
+        joint_p_hat = np.minimum(joint_p_hat, p_h)
+        joint_p_upper = np.minimum(joint_p_upper, p_u)
+        gp_details[o.key] = {
+            "n_samples": metrics.n_samples,
+            "cv_rmse": metrics.cv_rmse,
+            "cv_coverage_90": metrics.cv_coverage_90,
+            "conformal_multiplier": metrics.conformal_multiplier,
+            "is_validated": metrics.is_validated,
+        }
+
+    for k_idx, i in enumerate(unresolved_indices):
+        ph = float(joint_p_hat[k_idx])
+        pu = float(joint_p_upper[k_idx])
+        if all_gp_validated and pu < tau:
+            status_str: Literal["excluded", "deprioritised", "open"] = "excluded"
+            reason = (
+                f"Excluded at {int(ctx.confidence * 100)}% confidence under conformal-validated Evidence GP: "
+                f"p_upper ({pu:.3f}) < threshold ({tau})."
+            )
+        elif ph < tau:
+            status_str = "deprioritised"
+            reason = f"Deprioritised under Evidence GP: p_hat ({ph:.3f}) < threshold ({tau})."
+        else:
+            status_str = "open"
+            reason = f"Viable under Evidence GP: p_hat = {ph:.1%} (p_upper = {pu:.3f})."
+
+        verdicts[i] = FilterVerdict(
+            status=status_str,
+            filter="evidence_gp",
+            p_hat=round(ph, 4),
+            p_upper=round(pu, 4),
+            reason=reason,
+            details={"gp_outcomes": gp_details, "p_hat": round(ph, 4), "p_upper": round(pu, 4)},
+        )
+
+
 # Ordered list of screening filters matching §4.5
 PIPELINE_FILTERS: list[FilterFn] = [
     override_filter,          # Step 1: Override
     evidence_filter,          # Step 2: Tested evidence match
     constraint_filter,        # Steps 3 & 4: Hard/soft constraints + errors
-    model_simulation_filter,  # Step 5: Active Flow Model simulation
+    model_simulation_filter,  # Step 5a: Active Flow Model simulation
+    evidence_gp_filter,       # Step 5b: Evidence GP surrogate (when >= 8 valid rows & no flow model)
+    dominance_filter,         # Step 6: Pareto dominance deprioritisation
     fallback_open_filter,     # Step 8: Open fallback
 ]
 
@@ -520,7 +698,17 @@ def run_screening_pipeline(
             evidence_by_cand_id.setdefault(er["candidate_id"], []).append(rec)
         evidence_by_hash.setdefault(val_hash, []).append(rec)
 
+    fingerprint = compute_evidence_fingerprint(conn, study_id)
     active_model = models_repo.get_latest_model_version(conn, study_id)
+    if (
+        active_model
+        and active_model.validation_status == "validated"
+        and active_model.validation_json
+        and active_model.validation_json.get("evidence_fingerprint")
+        and active_model.validation_json.get("evidence_fingerprint") != fingerprint
+    ):
+        active_model = active_model.model_copy(update={"validation_status": "unvalidated"})
+
     uncertain_params = [p for p in params if p.role == "uncertain"]
     has_valid_model = bool(
         active_model
@@ -545,7 +733,9 @@ def run_screening_pipeline(
         rng_seed=study.rng_seed,
         exclusion_threshold=study.exclusion_threshold,
         confidence=study.confidence,
-        mc_draws=int(settings.get("mc_draws", 5)),
+        mc_draws=int(settings.get("mc_draws", 60)),
+        adaptive=bool(settings.get("adaptive", True)),
+        enable_dominance=bool(settings.get("enable_dominance", False)),
     )
 
     total_candidates = cset.count
@@ -553,7 +743,6 @@ def run_screening_pipeline(
 
     run_id = new_id("run")
     now = datetime.now(UTC).isoformat()
-    fingerprint = compute_evidence_fingerprint(conn, study_id)
 
     # Stream candidates in chunks of batch_size
     cursor = conn.execute(
@@ -629,10 +818,10 @@ def run_screening_pipeline(
 
     excluded_by_constraints = filter_counts.get("constraint", 0)
     after_constraints = max(0, total_candidates - excluded_by_constraints)
-    excluded_statistical = (
-        status_counts.get("tested_fail", 0)
-        + sum(1 for d in decision_rows if d[2] == "excluded" and d[3] in ("model", "evidence"))
+    stat_excl_count = sum(
+        1 for d in decision_rows if d[2] == "excluded" and d[3] in ("model", "evidence", "evidence_gp", "hybrid")
     )
+    excluded_statistical = status_counts.get("tested_fail", 0) + stat_excl_count
     after_statistical = max(0, after_constraints - excluded_statistical)
     deprioritised = status_counts.get("deprioritised", 0)
     after_deprioritised = max(0, after_statistical - deprioritised)
@@ -646,12 +835,17 @@ def run_screening_pipeline(
         recommended=recommended,
     )
 
+    delta = 1.0 - study.confidence
+    expected_false_exclusions_bound = (
+        round(delta * after_constraints, 4) if stat_excl_count > 0 else 0.0
+    )
+
     summary = ScreeningSummary(
         total_candidates=total_candidates,
         funnel=funnel,
         counts_by_status=dict(status_counts),
         counts_by_filter=dict(filter_counts),
-        expected_false_exclusions_bound=0.0,
+        expected_false_exclusions_bound=expected_false_exclusions_bound,
     )
 
     # Persist in DB

@@ -1,24 +1,16 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Printer,
   Download,
-  Calendar,
   CheckSquare,
-  FileSpreadsheet,
-  RefreshCw,
   Plus,
-  UserCheck,
-  ShieldCheck,
-  Thermometer,
-  Gauge,
-  Info,
+  Wrench,
 } from "lucide-react";
 import { apiGet, apiPost } from "../api/client";
 import { useApi } from "../api/hooks";
 import type {
   Study,
   RunSheet,
-  RunSheetCreate,
   Parameter,
   Outcome,
 } from "../api/types";
@@ -30,43 +22,66 @@ interface LabProtocolSheetProps {
   outcomes?: Outcome[];
 }
 
+interface RunSheetWithRows extends Omit<RunSheet, "rows" | "hardware_changeovers" | "saved_changeovers"> {
+  rows?: Array<{
+    run_order: number;
+    run_id: string;
+    candidate_id: string;
+    replicate: number;
+    values: Record<string, unknown>;
+    label?: string | null;
+    block_id?: number;
+    hardware_changeover?: boolean;
+  }>;
+  hardware_changeovers?: number;
+  saved_changeovers?: number;
+}
+
 export function LabProtocolSheet({
   study,
   parameters = [],
   outcomes = [],
 }: LabProtocolSheetProps) {
-  const [replicates, setReplicates] = useState<number>(1);
+  const [replicates, setReplicates] = useState<number>(3);
   const [candidateStatus, setCandidateStatus] = useState<"recommended" | "open">("recommended");
+  const [hardToChangeKeys, setHardToChangeKeys] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // Calibration Checklist State
-  const [checkThermocouple, setCheckThermocouple] = useState<boolean>(true);
-  const [checkFlowMeter, setCheckFlowMeter] = useState<boolean>(true);
-  const [checkPressureTransducer, setCheckPressureTransducer] = useState<boolean>(true);
-  const [checkThermalGrease, setCheckThermalGrease] = useState<boolean>(true);
+  const [checkRangeVerified, setCheckRangeVerified] = useState<boolean>(true);
+  const [checkSensorsZeroed, setCheckSensorsZeroed] = useState<boolean>(true);
+  const [checkAmbientLogged, setCheckAmbientLogged] = useState<boolean>(true);
+  const [checkRandomizedOrder, setCheckRandomizedOrder] = useState<boolean>(true);
 
-  // Fetch Run Sheets for study
   const {
     data: runSheets,
-    loading,
     refresh,
-  } = useApi<RunSheet[]>(`run-sheets-${study.id}`, () =>
-    apiGet<RunSheet[]>(`/studies/${study.id}/run-sheets`)
+  } = useApi<RunSheetWithRows[]>(`run-sheets-${study.id}`, () =>
+    apiGet<RunSheetWithRows[]>(`/studies/${study.id}/run-sheets`)
   );
 
   const activeRunSheet = runSheets && runSheets.length > 0 ? runSheets[0] : null;
+  const rows = activeRunSheet?.rows || [];
+
+  const controlledParams = parameters.filter((p) => p.role === "controlled");
+  const uncertainParams = parameters.filter((p) => p.role === "uncertain");
+
+  const toggleHardKey = (key: string) => {
+    setHardToChangeKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
 
   const handleGenerateRunSheet = async () => {
     setIsGenerating(true);
     setGenerateError(null);
     try {
-      const payload: RunSheetCreate = {
+      await apiPost(`/studies/${study.id}/run-sheets`, {
         candidate_status: candidateStatus,
         replicates,
         seed: study.rng_seed || 42,
-      };
-      await apiPost(`/studies/${study.id}/run-sheets`, payload);
+        hard_to_change_keys: hardToChangeKeys,
+      });
       refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -79,8 +94,6 @@ export function LabProtocolSheet({
   const handlePrint = () => {
     window.print();
   };
-
-  const controlledParams = parameters.filter((p) => p.role === "controlled");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -120,15 +133,60 @@ export function LabProtocolSheet({
             </h4>
             <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
               {tr(
-                "რანდომიზებული რიგითობა, ინსტრუმენტული კალიბრაციის ჩეკლისტი და ხარისხის დადასტურება.",
-                "Randomized execution order, calibration checklist, and sign-off verification."
+                "რანდომიზებული ან სპლიტ-პლოტ რიგითობა, ინსტრუმენტული კალიბრაციის ჩეკლისტი და ხარისხის დადასტურება.",
+                "Randomized or Split-Plot hardware-grouped execution order, QA checklist, and sign-off."
               )}
             </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {activeRunSheet ? (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ fontSize: 12, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>{tr("სტატუსი:", "Pool:")}</span>
+            <select
+              value={candidateStatus}
+              onChange={(e) => setCandidateStatus(e.target.value as "recommended" | "open")}
+              style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+            >
+              <option value="recommended">Recommended (or Open fallback)</option>
+              <option value="open">All Open Viable Candidates</option>
+            </select>
+          </label>
+
+          <label style={{ fontSize: 12, color: "#475569", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>{tr("გამეორებები (Replicates):", "Replicates:")}</span>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={replicates}
+              onChange={(e) => setReplicates(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              style={{ width: 54, padding: "4px 6px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+            />
+          </label>
+
+          <button
+            onClick={handleGenerateRunSheet}
+            disabled={isGenerating}
+            className="btn-primary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            <Plus size={13} />
+            <span>
+              {isGenerating
+                ? tr("გენერირდება...", "Generating...")
+                : tr("რანდომიზებული ფურცლის გენერირება", "Generate Run Sheet")}
+            </span>
+          </button>
+
+          {activeRunSheet && (
             <>
               <a
                 href={`/api/v1/run-sheets/${activeRunSheet.id}.csv`}
@@ -150,7 +208,7 @@ export function LabProtocolSheet({
 
               <button
                 onClick={handlePrint}
-                className="btn-primary"
+                className="btn-secondary"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -161,33 +219,81 @@ export function LabProtocolSheet({
                 }}
               >
                 <Printer size={13} />
-                <span>{tr("პროტოკოლის ბეჭდვა (A4 / PDF)", "Print Protocol (A4 / PDF)")}</span>
+                <span>{tr("ბეჭდვა (A4 / PDF)", "Print (A4 / PDF)")}</span>
               </button>
             </>
-          ) : (
-            <button
-              onClick={handleGenerateRunSheet}
-              disabled={isGenerating}
-              className="btn-primary"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              <Plus size={13} />
-              <span>
-                {isGenerating
-                  ? tr("გენერირდება...", "Generating...")
-                  : tr("ახალი პროტოკოლის გენერირება", "Generate Run Sheet")}
-              </span>
-            </button>
           )}
         </div>
       </div>
+
+      {/* Split-Plot Hardware-Changeover Selector */}
+      {controlledParams.length > 0 && (
+        <div
+          className="no-print"
+          style={{
+            padding: "10px 16px",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            fontSize: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <Wrench size={14} color="#0284c7" />
+            <strong style={{ color: "#1e293b" }}>
+              {tr("რთულად შესაცვლელი აპარატურული პარამეტრები (Split-Plot Grouping):", "Hard-to-Change Hardware Factors (Split-Plot Grouping):")}
+            </strong>
+            {controlledParams.map((p) => {
+              const checked = hardToChangeKeys.includes(p.key);
+              return (
+                <label
+                  key={p.key}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: checked ? "#e0f2fe" : "#ffffff",
+                    border: `1px solid ${checked ? "#0284c7" : "#cbd5e1"}`,
+                    color: checked ? "#0369a1" : "#475569",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleHardKey(p.key)}
+                    style={{ margin: 0 }}
+                  />
+                  <span>{p.label || p.key}</span>
+                </label>
+              );
+            })}
+          </div>
+          {activeRunSheet && (activeRunSheet.hardware_changeovers ?? 0) > 0 && (
+            <span
+              style={{
+                padding: "3px 10px",
+                borderRadius: 999,
+                background: "#dcfce7",
+                color: "#166534",
+                fontWeight: 600,
+              }}
+            >
+              Split-Plot Active: {activeRunSheet.hardware_changeovers} rig setup blocks
+              {activeRunSheet.saved_changeovers
+                ? ` (${activeRunSheet.saved_changeovers} changeovers saved)`
+                : ""}
+            </span>
+          )}
+        </div>
+      )}
 
       {generateError && (
         <div
@@ -215,7 +321,7 @@ export function LabProtocolSheet({
           padding: "36px 40px",
           color: "#0f172a",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          maxWidth: 900,
+          maxWidth: 940,
           margin: "0 auto",
           width: "100%",
         }}
@@ -239,7 +345,7 @@ export function LabProtocolSheet({
               {study.name}
             </h1>
             <div style={{ fontSize: 12, color: "#475569" }}>
-              <strong>Study ID:</strong> <code>{study.id}</code> • <strong>Domain:</strong> {study.domain || "Physics / Thermal"}
+              <strong>Study ID:</strong> <code>{study.id}</code> • <strong>Domain:</strong> {study.domain || "General Science"}
             </div>
           </div>
 
@@ -248,17 +354,17 @@ export function LabProtocolSheet({
               <strong>Date:</strong> {new Date().toLocaleDateString()}
             </div>
             <div>
-              <strong>RNG Seed:</strong> {study.rng_seed || 42}
+              <strong>RNG Seed:</strong> {activeRunSheet?.seed ?? study.rng_seed ?? 42}
             </div>
             {activeRunSheet && (
               <div>
-                <strong>Sheet ID:</strong> <code>{activeRunSheet.id}</code>
+                <strong>Sheet ID:</strong> <code>{activeRunSheet.id}</code> ({activeRunSheet.count} runs)
               </div>
             )}
           </div>
         </div>
 
-        {/* Pre-Test Instrument Calibration Checklist */}
+        {/* Dynamic Pre-Test QA Checklist */}
         <div
           style={{
             background: "#f8fafc",
@@ -270,141 +376,183 @@ export function LabProtocolSheet({
         >
           <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
             <CheckSquare size={14} color="#0284c7" />
-            <span>{tr("ტესტირებისწინა ინსტრუმენტული კალიბრაციის ჩეკლისტი (Pre-Test QA Checklist)", "Pre-Test Instrument Calibration Checklist")}</span>
+            <span>{tr("ტესტირებისწინა ხარისხისა და კალიბრაციის ჩეკლისტი (Pre-Run QA Checklist)", "Pre-Run Calibration & QA Checklist")}</span>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11, color: "#334155" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input
                 type="checkbox"
-                checked={checkThermocouple}
-                onChange={(e) => setCheckThermocouple(e.target.checked)}
+                checked={checkRangeVerified}
+                onChange={(e) => setCheckRangeVerified(e.target.checked)}
               />
-              <span>{tr("თერმოწყვილების კალიბრაცია (±0.1°C ყინულის წერტილზე)", "Thermocouple calibrated (±0.1°C ice bath)")}</span>
+              <span>
+                Verify controlled parameter actuators ({controlledParams.map((p) => p.key).join(", ") || "all"})
+              </span>
             </label>
 
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input
                 type="checkbox"
-                checked={checkFlowMeter}
-                onChange={(e) => setCheckFlowMeter(e.target.checked)}
+                checked={checkSensorsZeroed}
+                onChange={(e) => setCheckSensorsZeroed(e.target.checked)}
               />
-              <span>{tr("ხარჯმზომის ტარირება (Coriolis Flow Meter Zeroed)", "Coriolis Flow Meter Zeroed & Tared")}</span>
+              <span>
+                Zero & tare outcome instruments ({outcomes.map((o) => `${o.key} [${o.unit || "-"}]`).join(", ") || "all"})
+              </span>
             </label>
 
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input
                 type="checkbox"
-                checked={checkPressureTransducer}
-                onChange={(e) => setCheckPressureTransducer(e.target.checked)}
+                checked={checkAmbientLogged}
+                onChange={(e) => setCheckAmbientLogged(e.target.checked)}
               />
-              <span>{tr("დიფერენციალური წნევის სენსორის ნულირება (Differential ΔP zeroed)", "Differential ΔP transducer zero checked")}</span>
+              <span>
+                Record ambient / uncertain conditions ({uncertainParams.map((p) => p.key).join(", ") || "baseline"})
+              </span>
             </label>
 
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input
                 type="checkbox"
-                checked={checkThermalGrease}
-                onChange={(e) => setCheckThermalGrease(e.target.checked)}
+                checked={checkRandomizedOrder}
+                onChange={(e) => setCheckRandomizedOrder(e.target.checked)}
               />
-              <span>{tr("თერმოპასტის ერთგვაროვანი ფენა (50µm TIM applied)", "Thermal interface material (TIM 50µm applied)")}</span>
+              <span>
+                Execute runs strictly in randomized sequence (seed #{activeRunSheet?.seed ?? study.rng_seed ?? 42})
+              </span>
             </label>
           </div>
         </div>
 
-        {/* Environmental Conditions */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 12,
-            marginBottom: 20,
-            fontSize: 11,
-          }}
-        >
-          <div style={{ padding: "8px 12px", border: "1px dashed #cbd5e1", borderRadius: 4 }}>
-            <span style={{ color: "#64748b" }}>{tr("გარემო ტემპერატურა:", "Ambient Temp:")}</span>
-            <div style={{ height: 16, borderBottom: "1px solid #94a3b8", marginTop: 4 }}>______ °C</div>
+        {/* Dynamic Uncertain / Ambient Conditions Log */}
+        {uncertainParams.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${Math.min(3, uncertainParams.length)}, 1fr)`,
+              gap: 12,
+              marginBottom: 20,
+              fontSize: 11,
+            }}
+          >
+            {uncertainParams.map((up) => (
+              <div key={up.id} style={{ padding: "8px 12px", border: "1px dashed #cbd5e1", borderRadius: 4 }}>
+                <span style={{ color: "#64748b" }}>{up.label || up.key} Measured:</span>
+                <div style={{ height: 16, borderBottom: "1px solid #94a3b8", marginTop: 4 }}>
+                  ______ {up.unit || ""}
+                </div>
+              </div>
+            ))}
           </div>
-          <div style={{ padding: "8px 12px", border: "1px dashed #cbd5e1", borderRadius: 4 }}>
-            <span style={{ color: "#64748b" }}>{tr("გამაგრილებლის საწყისი ტემპ.:", "Coolant Inlet Temp:")}</span>
-            <div style={{ height: 16, borderBottom: "1px solid #94a3b8", marginTop: 4 }}>______ °C</div>
-          </div>
-          <div style={{ padding: "8px 12px", border: "1px dashed #cbd5e1", borderRadius: 4 }}>
-            <span style={{ color: "#64748b" }}>{tr("გამათბობლის სიმძლავრე (Q):", "Heater Load (Q):")}</span>
-            <div style={{ height: 16, borderBottom: "1px solid #94a3b8", marginTop: 4 }}>______ W</div>
-          </div>
-        </div>
+        )}
 
         {/* Physical Run Order Table */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <strong style={{ fontSize: 13, color: "#0f172a" }}>
-              {tr("რანდომიზებული საგამოცდო რიგითობა (Randomized Test Order)", "Randomized Physical Test Matrix")}
+              {tr("რანდომიზებული საგამოცდო მატრიცა (Randomized Test Matrix)", "Randomized Physical Test Matrix")}
             </strong>
             <span style={{ fontSize: 11, color: "#64748b" }}>
-              {tr("დროითი დრიფტის პრევენცია • ფიშერ-იეითსის ალგორითმი", "Fisher-Yates shuffled to prevent systematic drift")}
+              {hardToChangeKeys.length > 0
+                ? `Split-Plot randomized by (${hardToChangeKeys.join(", ")})`
+                : "Fisher–Yates shuffled to prevent systematic temporal drift"}
             </span>
           </div>
 
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 11,
-              textAlign: "left",
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #cbd5e1" }}>
-                <th style={{ padding: "6px 8px", width: 60 }}>Run #</th>
-                <th style={{ padding: "6px 8px" }}>Candidate ID</th>
-                {controlledParams.slice(0, 3).map((p) => (
-                  <th key={p.id} style={{ padding: "6px 8px" }}>
-                    {p.label || p.key} ({p.unit || "-"})
-                  </th>
-                ))}
-                <th style={{ padding: "6px 8px", width: 90 }}>T_j Measured (°C)</th>
-                <th style={{ padding: "6px 8px", width: 90 }}>ΔP Measured (kPa)</th>
-                <th style={{ padding: "6px 8px", width: 80 }}>Tech Initials</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Illustrative sample randomized rows if activeRunSheet exists or mock */}
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((order) => {
-                const candId = `CAND-${100 + order * 3}`;
-                return (
+          {rows.length === 0 ? (
+            <div
+              style={{
+                padding: "28px 16px",
+                textAlign: "center",
+                background: "#f8fafc",
+                border: "1px dashed #cbd5e1",
+                borderRadius: 6,
+                color: "#64748b",
+                fontSize: 12,
+              }}
+            >
+              No run sheet generated yet for this study. Click <strong>"Generate Run Sheet"</strong> above after running screening to populate real candidate rows.
+            </div>
+          ) : (
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: 11,
+                textAlign: "left",
+              }}
+            >
+              <thead>
+                <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #cbd5e1" }}>
+                  <th style={{ padding: "6px 8px", width: 58 }}>Run #</th>
+                  <th style={{ padding: "6px 8px" }}>Candidate</th>
+                  <th style={{ padding: "6px 8px", width: 42 }}>Rep</th>
+                  {controlledParams.map((p) => (
+                    <th key={p.id} style={{ padding: "6px 8px" }}>
+                      {p.label || p.key} {p.unit ? `[${p.unit}]` : ""}
+                    </th>
+                  ))}
+                  {outcomes.map((o) => (
+                    <th key={o.id} style={{ padding: "6px 8px", width: 95 }}>
+                      {o.label || o.key} {o.unit ? `[${o.unit}]` : ""}
+                    </th>
+                  ))}
+                  <th style={{ padding: "6px 8px", width: 75 }}>Initials</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
                   <tr
-                    key={order}
+                    key={row.run_id}
                     style={{
                       borderBottom: "1px solid #e2e8f0",
+                      borderTop: row.hardware_changeover ? "2px solid #0284c7" : undefined,
+                      background: row.hardware_changeover ? "#f0f9ff" : undefined,
                       height: 28,
                     }}
                   >
-                    <td style={{ padding: "6px 8px", fontWeight: 700 }}>R{String(order).padStart(4, "0")}</td>
-                    <td style={{ padding: "6px 8px" }}><code>{candId}</code></td>
-                    {controlledParams.slice(0, 3).map((p, pIdx) => {
-                      const val = pIdx === 0 ? (0.2 + order * 0.05).toFixed(2) : (1.0 + order * 0.2).toFixed(1);
-                      return (
-                        <td key={p.id} style={{ padding: "6px 8px" }}>
-                          {val}
-                        </td>
-                      );
-                    })}
-                    <td style={{ padding: "6px 8px", borderRight: "1px solid #e2e8f0" }}>
-                      <div style={{ width: "100%", height: 16, borderBottom: "1px dashed #cbd5e1" }} />
+                    <td style={{ padding: "6px 8px", fontWeight: 700 }}>
+                      {row.run_id}
+                      {row.hardware_changeover && (
+                        <span
+                          title="Hardware changeover / block start"
+                          style={{
+                            marginLeft: 4,
+                            fontSize: 9,
+                            padding: "1px 4px",
+                            background: "#0284c7",
+                            color: "#fff",
+                            borderRadius: 3,
+                          }}
+                        >
+                          SETUP
+                        </span>
+                      )}
                     </td>
-                    <td style={{ padding: "6px 8px", borderRight: "1px solid #e2e8f0" }}>
-                      <div style={{ width: "100%", height: 16, borderBottom: "1px dashed #cbd5e1" }} />
+                    <td style={{ padding: "6px 8px" }}>
+                      <code>{row.label || row.candidate_id.slice(0, 10)}</code>
                     </td>
+                    <td style={{ padding: "6px 8px" }}>{row.replicate}</td>
+                    {controlledParams.map((p) => (
+                      <td key={p.id} style={{ padding: "6px 8px", fontFamily: "var(--mono)" }}>
+                        {row.values?.[p.key] !== undefined ? String(row.values[p.key]) : "—"}
+                      </td>
+                    ))}
+                    {outcomes.map((o) => (
+                      <td key={o.id} style={{ padding: "6px 8px", borderRight: "1px solid #e2e8f0" }}>
+                        <div style={{ width: "100%", height: 16, borderBottom: "1px dashed #cbd5e1" }} />
+                      </td>
+                    ))}
                     <td style={{ padding: "6px 8px" }}>
                       <div style={{ width: "100%", height: 16, borderBottom: "1px dashed #cbd5e1" }} />
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Quality Assurance & Sign-off Block */}
@@ -447,4 +595,3 @@ export function LabProtocolSheet({
     </div>
   );
 }
-

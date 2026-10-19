@@ -33,7 +33,7 @@ test("scripts/eval-batch.ts CLI processes rows over stdin/stdout and outputs don
     { id: "row3", values: { reduction: 90 } },
   ];
 
-  const child = spawn("npx", ["tsx", SCRIPT_PATH], {
+  const child = spawn(process.execPath, ["--import", "tsx", SCRIPT_PATH], {
     cwd: REPO_ROOT,
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -84,7 +84,7 @@ test("scripts/eval-batch.ts CLI processes rows over stdin/stdout and outputs don
 });
 
 test("scripts/eval-batch.ts CLI exits with code 2 on invalid header", async () => {
-  const child = spawn("npx", ["tsx", SCRIPT_PATH], {
+  const child = spawn(process.execPath, ["--import", "tsx", SCRIPT_PATH], {
     cwd: REPO_ROOT,
     stdio: ["pipe", "pipe", "pipe"],
   });

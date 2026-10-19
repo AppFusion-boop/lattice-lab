@@ -136,7 +136,7 @@ export function compileExpression(
             throw Error("Unknown variable: " + tok);
           }
         } else {
-          if (!["a", "b", "t", "pi", "e"].includes(tok))
+          if (!["a", "b", "c", "d", "t", "pi", "e"].includes(tok))
             throw Error("Unknown variable: " + tok + ". Use a, b or t.");
         }
         tree = { op: "variable", value: tok, args: [] };

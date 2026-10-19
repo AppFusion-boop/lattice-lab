@@ -12,7 +12,6 @@ from lattice_server.engine import bridge
 from lattice_server.errors import ApiHttpError
 from lattice_server.repo import candidates as candidates_repo
 from lattice_server.repo import models as models_repo
-from lattice_server.repo import outcomes as outcomes_repo
 from lattice_server.repo import parameters as parameters_repo
 from lattice_server.repo import studies as studies_repo
 from lattice_server.schemas import ParetoPointModel, ParetoResponse

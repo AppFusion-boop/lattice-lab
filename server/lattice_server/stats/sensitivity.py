@@ -139,7 +139,7 @@ def compute_sobol_sensitivity(
         boot = res.bootstrap(n_resamples=100)
         ci_low = boot.total_order.confidence_interval.low
         ci_high = boot.total_order.confidence_interval.high
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning("Bootstrap confidence interval calculation failed: %s", e)
         ci_low = np.maximum(0.0, res.total_order - 0.05)
         ci_high = np.minimum(1.0, res.total_order + 0.05)

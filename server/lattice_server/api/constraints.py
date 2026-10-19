@@ -49,10 +49,12 @@ def create_constraint(
     try:
         return constraints_repo.create_constraint(conn, study_id, constraint)
     except ValueError as exc:
+        msg = str(exc)
+        code = "uncertain_in_hard_constraint" if "Uncertain parameter" in msg else "invalid_constraint_expression"
         raise ApiHttpError(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            code="invalid_constraint_expression",
-            message=str(exc),
+            code=code,
+            message=msg,
             field="expression",
         ) from exc
 
@@ -74,10 +76,12 @@ def update_constraint(
     try:
         updated = constraints_repo.update_constraint(conn, constraint_id, update)
     except ValueError as exc:
+        msg = str(exc)
+        code = "uncertain_in_hard_constraint" if "Uncertain parameter" in msg else "invalid_constraint_expression"
         raise ApiHttpError(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            code="invalid_constraint_expression",
-            message=str(exc),
+            code=code,
+            message=msg,
             field="expression",
         ) from exc
 

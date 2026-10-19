@@ -166,18 +166,35 @@ const all: DataType[] = [
 const formulaEval = (c: EvalContext) => {
   const fn = compileExpression(s(c, "expression"));
   const a = c.inputs.a,
-    b = c.inputs.b;
+    b = c.inputs.b,
+    inC = c.inputs.c,
+    inD = c.inputs.d;
   const aa = a?.type === "signal" ? a.value : null,
-    bb = b?.type === "signal" ? b.value : null;
-  if (aa && bb) aligned(aa, bb);
-  const times = aa?.times || bb?.times;
+    bb = b?.type === "signal" ? b.value : null,
+    cc = inC?.type === "signal" ? inC.value : null,
+    dd = inD?.type === "signal" ? inD.value : null;
+  const sigs = [aa, bb, cc, dd].filter((x): x is NonNullable<typeof aa> => x !== null);
+  for (let i = 1; i < sigs.length; i++) aligned(sigs[0], sigs[i]);
+  const times = sigs[0]?.times;
+  const numVal = (pkt: Packet | undefined, fallbackKey?: string) =>
+    pkt?.type === "number"
+      ? pkt.value
+      : pkt?.type === "boolean"
+        ? pkt.value
+          ? 1
+          : 0
+        : fallbackKey
+          ? n(c, fallbackKey)
+          : 0;
   if (times)
     return {
       result: signal(
         times.map((t, i) =>
           fn({
-            a: aa ? aa.values[i] : a?.type === "number" ? a.value : n(c, "a"),
-            b: bb ? bb.values[i] : b?.type === "number" ? b.value : n(c, "b"),
+            a: aa ? aa.values[i] : numVal(a, "a"),
+            b: bb ? bb.values[i] : numVal(b, "b"),
+            c: cc ? cc.values[i] : numVal(inC),
+            d: dd ? dd.values[i] : numVal(inD),
             t,
           }),
         ),
@@ -190,8 +207,10 @@ const formulaEval = (c: EvalContext) => {
     result: {
       type: "number",
       value: fn({
-        a: a?.type === "number" ? a.value : n(c, "a"),
-        b: b?.type === "number" ? b.value : n(c, "b"),
+        a: numVal(a, "a"),
+        b: numVal(b, "b"),
+        c: numVal(inC),
+        d: numVal(inD),
         t: 0,
       }),
       unit: s(c, "unit"),
@@ -621,6 +640,8 @@ export const definitions: NodeDefinition[] = [
     inputs: [
       port("a", "a", ["number", "signal"], true),
       port("b", "b", ["number", "signal"], true),
+      port("c", "c", ["number", "signal"], true),
+      port("d", "d", ["number", "signal"], true),
     ],
     outputs: [port("result", "Result", ["number", "signal"])],
     fields: [
@@ -634,7 +655,7 @@ export const definitions: NodeDefinition[] = [
       num("b", "Fallback b", 0),
       txt("unit", "Output unit", "V"),
     ],
-    help: "Variables a, b and t (seconds); pi and e. Scalar inputs broadcast over signals. Supports arithmetic, comparisons, logical operators, trigonometry, min/max, clamp and if. Output units are explicitly declared, not inferred.",
+    help: "Variables a, b, c, d and t (seconds); pi and e. Scalar inputs broadcast over signals. Supports arithmetic, comparisons, logical operators, trigonometry, min/max, clamp and if. Output units are explicitly declared, not inferred.",
     evaluate: formulaEval,
   },
   {
@@ -1607,21 +1628,28 @@ export const definitions: NodeDefinition[] = [
       const scale = fIn.unit === "kN" ? 1000 : 1;
       let x = n(c, "x0") * 1e-3;
       let v = n(c, "v0");
+      let a = fIn.times.length > 0 ? (fIn.values[0] * scale - cd * v - k * x) / m : 0;
       const xVals: number[] = [];
       const vVals: number[] = [];
       const aVals: number[] = [];
       for (let i = 0; i < fIn.times.length; i++) {
-        const F = fIn.values[i] * scale;
-        const a = (F - cd * v - k * x) / m;
         xVals.push(x * 1000);
         vVals.push(v);
         aVals.push(a);
         if (i < fIn.times.length - 1) {
-          const dt = fIn.times[i + 1] - fIn.times[i];
-          x += v * dt + 0.5 * a * dt * dt;
+          const dt = Math.max(1e-9, fIn.times[i + 1] - fIn.times[i]);
+          const a0 = 1 / (0.25 * dt * dt);
+          const a1 = 0.5 / (0.25 * dt);
+          const a2 = 1 / (0.25 * dt);
+          const keff = k + a0 * m + a1 * cd;
           const Fnext = fIn.values[i + 1] * scale;
-          const anext = (Fnext - cd * v - k * x) / m;
-          v += 0.5 * (a + anext) * dt;
+          const feff = Fnext + m * (a0 * x + a2 * v + a) + cd * (a1 * x + v);
+          const xNext = feff / keff;
+          const aNext = a0 * (xNext - x) - a2 * v - a;
+          const vNext = v + 0.5 * dt * (a + aNext);
+          x = xNext;
+          v = vNext;
+          a = aNext;
         }
       }
       return {

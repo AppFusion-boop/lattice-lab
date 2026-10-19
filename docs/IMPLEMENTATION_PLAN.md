@@ -1018,21 +1018,21 @@ Agents: update the row when you start (`in progress`) and finish (`done`) a task
 | P3-2 | Node CLI eval-batch | done | 2026-10-15 | Streaming CLI over stdin/stdout, exit code 2 on invalid header, git engine version, 2 tests pass (46 total) |
 | P3-3 | Python engine bridge | done | 2026-10-15 | bridge.py chunking, ThreadPool parallel subprocesses, health smoke test, cancellation, 3 tests pass (62 total) |
 | P3-5 | Monte Carlo filter | done | 2026-10-15 | Clopper-Pearson bounds, truncnorm sampling, flow model simulation filter, Hard Rule 6 unvalidated deprioritisation, screening pipeline integration, unit tests pass |
-| P3-6 | Parametric water-mist model | todo | | |
-| P3-7 | Morris + Sobol | todo | | |
-| P3-8 | Model validation | todo | | |
-| P4-1 | GP surrogate | todo | | |
-| P4-2 | Surrogate validation + conformal | todo | | |
-| P4-3 | Hybrid model + calibration | todo | | |
-| P4-4 | Evidence/hybrid filters | todo | | |
-| P4-5 | TOST claims + multiple testing | todo | | |
-| P4-6 | Back-test | todo | | |
-| P5-1 | DoE generators | todo | | |
-| P5-2 | Acquisition batch selection | todo | | |
-| P5-3 | Power analysis | todo | | |
-| P5-4 | Pareto + cost | todo | | |
-| P5-5 | Plan tab UI | todo | | |
-| P6-1 | Study report | todo | | |
+| P3-6 | Parametric water-mist model | done | 2026-10-19 | Reference-normalized physical coupling (`waterMist`, `gasExplosion`, `fluidSprayer`, `gasCloud`) + `blastImpulseSensor` time integration + Newmark-β `sdofVibration` |
+| P3-7 | Morris + Sobol | done | 2026-10-19 | Morris EE & Saltelli Sobol indices (`stats/sensitivity.py`) + `AnalysisTab` UI |
+| P3-8 | Model validation | done | 2026-10-19 | Empirical validation against evidence, human sign-off (`accept`), stale `evidence_fingerprint` downgrade (`stats/validation.py`, `api/models.py`) |
+| P4-1 | GP surrogate | done | 2026-10-19 | Matérn 5/2 + WhiteKernel `GPSurrogate` with K-fold CV (`stats/surrogate.py`) |
+| P4-2 | Surrogate validation + conformal | done | 2026-10-19 | Split-conformal out-of-fold uncertainty scaling (`stats/conformal.py`) |
+| P4-3 | Hybrid model + calibration | done | 2026-10-19 | Kennedy–O'Hagan `HybridDiscrepancySurrogate` (`stats/surrogate.py`) + non-fabricated L-BFGS-B `api/calibration.py` |
+| P4-4 | Evidence/hybrid filters | done | 2026-10-19 | Conformal GP & hybrid screening filters in `screening/pipeline.py` |
+| P4-5 | TOST claims + multiple testing | done | 2026-10-19 | Welch's Two One-Sided Tests (`stats/tost.py`) + Holm–Bonferroni FWER adjustment |
+| P4-6 | Back-test | done | 2026-10-19 | K-fold leave-out empirical false-exclusion backtest (`stats/backtest.py`) |
+| P5-1 | DoE generators | done | 2026-10-19 | Grid, LHS, Sobol, Central Composite, Box–Behnken, Plackett–Burman + Split-Plot hardware-changeover ordering (`repo/run_sheets.py`) |
+| P5-2 | Acquisition batch selection | done | 2026-10-19 | `EI×PF`, Straddle (`1.96σ - |μ - T|`), VoI + Greedy Maximin batch diversity (`stats/acquisition.py`) |
+| P5-3 | Power analysis | done | 2026-10-19 | Two-sample t-test power & minimum replicates for MDE (`stats/power.py`) |
+| P5-4 | Pareto + cost | done | 2026-10-19 | `dominance_filter` in `screening/pipeline.py` + fixed `ParetoExplorer.tsx` comparator |
+| P5-5 | Plan tab UI | done | 2026-10-19 | `PlanTab.tsx`, `AnalysisTab.tsx`, and interactive 2D `PhaseDiagram2D.tsx` mounted in `StudyLayout.tsx` |
+| P6-1 | Study report | done | 2026-10-19 | Defensible scientific Markdown report generator (`reports/markdown.py`, `api/reports.py`, `ReportTab.tsx`) |
 | P6-2 | Domain packs | todo | | |
 | P6-3 | External simulator import | todo | | |
 | P6-4 | Full i18n refactor | todo | | |

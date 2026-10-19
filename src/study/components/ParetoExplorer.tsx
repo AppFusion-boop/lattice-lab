@@ -99,7 +99,7 @@ export function ParetoExplorer({
 
   // Build Pareto frontier polyline points sorted by x
   const sortedFrontier = [...frontierPoints].sort(
-    (a, b) => (a.outcomes[xKey] ?? 0) - (b.outcomes[yKey] ?? 0)
+    (a, b) => (a.outcomes[xKey] ?? 0) - (b.outcomes[xKey] ?? 0)
   );
   const frontierPolyline = sortedFrontier
     .map((p) => `${getSvgX(p.outcomes[xKey] ?? 0)},${getSvgY(p.outcomes[yKey] ?? 0)}`)

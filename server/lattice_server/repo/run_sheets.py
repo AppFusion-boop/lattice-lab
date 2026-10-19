@@ -29,12 +29,16 @@ from lattice_server.schemas import (
 
 def _row_to_run_sheet(row: sqlite3.Row) -> RunSheetResponse:
     items = json.loads(row["rows_json"]) if row["rows_json"] else []
+    hw_changeovers = sum(1 for it in items if it.get("hardware_changeover"))
     return RunSheetResponse(
         id=row["id"],
         study_id=row["study_id"],
         screening_run_id=row["screening_run_id"],
         seed=row["seed"],
         count=len(items),
+        rows=items,
+        hardware_changeovers=hw_changeovers,
+        saved_changeovers=0,
         created_at=row["created_at"],
     )
 
@@ -98,13 +102,51 @@ def create_run_sheet(
                 }
             )
 
-    # 3. Deterministic randomization
+    # 3. Deterministic randomization (standard or split-plot hardware-changeover-aware)
     study_row = conn.execute("SELECT rng_seed FROM studies WHERE id = ?", (study_id,)).fetchone()
     base_seed = study_row["rng_seed"] if study_row else 42
     seed = req.seed if req.seed is not None else (base_seed + 1000)
 
     rng = random.Random(seed)
-    rng.shuffle(items)
+    hardware_changeovers = 0
+    saved_changeovers = 0
+
+    if req.hard_to_change_keys:
+        # Compute how many changeovers naive shuffle would incur
+        naive_items = list(items)
+        naive_rng = random.Random(seed)
+        naive_rng.shuffle(naive_items)
+        naive_changeovers = 0
+        prev_key: tuple[Any, ...] | None = None
+        for it in naive_items:
+            cur_key = tuple(it["values"].get(k) for k in req.hard_to_change_keys)
+            if cur_key != prev_key:
+                naive_changeovers += 1
+                prev_key = cur_key
+
+        # Split-plot grouping: group by hard_to_change_keys, shuffle blocks, then shuffle within each block
+        blocks: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+        for it in items:
+            bkey = tuple(it["values"].get(k) for k in req.hard_to_change_keys)
+            blocks.setdefault(bkey, []).append(it)
+
+        block_keys = list(blocks.keys())
+        rng.shuffle(block_keys)
+
+        ordered_items: list[dict[str, Any]] = []
+        for b_idx, bkey in enumerate(block_keys, start=1):
+            b_items = blocks[bkey]
+            rng.shuffle(b_items)
+            for idx_in_block, it in enumerate(b_items):
+                it["block_id"] = b_idx
+                it["hardware_changeover"] = idx_in_block == 0
+                ordered_items.append(it)
+
+        items = ordered_items
+        hardware_changeovers = len(block_keys)
+        saved_changeovers = max(0, naive_changeovers - hardware_changeovers)
+    else:
+        rng.shuffle(items)
 
     for order, item in enumerate(items, start=1):
         item["run_order"] = order
@@ -135,6 +177,8 @@ def create_run_sheet(
                 "replicates": req.replicates,
                 "seed": seed,
                 "screening_run_id": run_id,
+                "hard_to_change_keys": req.hard_to_change_keys,
+                "hardware_changeovers": hardware_changeovers,
             },
             actor=actor,
         )
@@ -145,6 +189,9 @@ def create_run_sheet(
         screening_run_id=run_id,
         seed=seed,
         count=len(items),
+        rows=items,
+        hardware_changeovers=hardware_changeovers,
+        saved_changeovers=saved_changeovers,
         created_at=now,
     )
 

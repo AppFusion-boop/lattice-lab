@@ -40,6 +40,7 @@ export function ModelTab({ study }: ModelTabProps) {
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [showCalibrationWizard, setShowCalibrationWizard] = useState<boolean>(false);
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({});
+  const [draftProject, setDraftProject] = useState<Project | undefined>(undefined);
 
   const {
     data: models,
@@ -78,7 +79,29 @@ export function ModelTab({ study }: ModelTabProps) {
   // Resolve active project: saved project from latest model, or demo for physics / chemistry studies
   const activeProject = useMemo<Project | undefined>(() => {
     if (latestModel?.project && typeof latestModel.project === "object") {
-      return latestModel.project as Project;
+      const raw = latestModel.project as Record<string, unknown>;
+      const rawNodes = Array.isArray(raw.nodes) ? (raw.nodes as Record<string, unknown>[]) : [];
+      const normalizedNodes = rawNodes.map((n, idx) => {
+        const pos = n.position as { x?: number; y?: number } | undefined;
+        const x = typeof pos?.x === "number" ? pos.x : typeof n.x === "number" ? n.x : (idx % 3) * 260;
+        const y = typeof pos?.y === "number" ? pos.y : typeof n.y === "number" ? n.y : Math.floor(idx / 3) * 140;
+        return {
+          id: String(n.id ?? `node_${idx}`),
+          kind: String(n.kind ?? "formula"),
+          label: String(n.label ?? n.id ?? `Node ${idx + 1}`),
+          position: { x, y },
+          params: (n.params && typeof n.params === "object" ? n.params : {}) as Record<string, unknown>,
+        };
+      });
+      return {
+        version: 3,
+        name: String(raw.name ?? study.name),
+        duration: typeof raw.duration === "number" ? raw.duration : 5,
+        sampleRate: typeof raw.sampleRate === "number" ? raw.sampleRate : 100,
+        nodes: normalizedNodes,
+        edges: Array.isArray(raw.edges) ? (raw.edges as Project["edges"]) : [],
+        tools: Array.isArray(raw.tools) ? (raw.tools as Project["tools"]) : [],
+      };
     }
     if (
       study.name.toLowerCase().includes("microchannel") ||
@@ -247,6 +270,7 @@ export function ModelTab({ study }: ModelTabProps) {
             initialProject={activeProject}
             studyId={study.id}
             hideHeaderBrand={true}
+            onProjectChange={setDraftProject}
           />
         </div>
       )}
@@ -525,7 +549,7 @@ export function ModelTab({ study }: ModelTabProps) {
       {/* Binding Dialog Modal */}
       {showBindingDialog && (
         <BindingDialog
-          project={activeProject || (tunnelProject() as any)}
+          project={draftProject || activeProject || (tunnelProject() as any)}
           isOpen={showBindingDialog}
           onClose={() => setShowBindingDialog(false)}
           defaultStudyId={study.id}

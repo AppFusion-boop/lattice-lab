@@ -261,3 +261,90 @@ def test_screening_async_job_and_latest_endpoint(client: TestClient, db_conn: sq
     assert run_data["summary"]["total_candidates"] == 5
     assert run_data["summary"]["counts_by_status"]["open"] == 3
     assert run_data["summary"]["counts_by_status"]["excluded"] == 2
+
+
+def test_t1_3_uncertain_hard_constraint_soft_penalty_and_replicates(
+    client: TestClient, db_conn: sqlite3.Connection
+) -> None:
+    res_study = client.post("/api/v1/studies", json={"name": "T1-3 Test", "domain": "physics"})
+    sid = res_study.json()["id"]
+
+    client.post(
+        f"/api/v1/studies/{sid}/parameters",
+        json={
+            "key": "x",
+            "label": "X",
+            "unit": "m",
+            "kind": "continuous",
+            "role": "controlled",
+            "spec": {"min": 0.0, "max": 10.0, "values": [2.0, 8.0]},
+        },
+    )
+    client.post(
+        f"/api/v1/studies/{sid}/parameters",
+        json={
+            "key": "u",
+            "label": "Uncertain Temp",
+            "unit": "K",
+            "kind": "continuous",
+            "role": "uncertain",
+            "spec": {"min": 280.0, "max": 320.0},
+        },
+    )
+    client.post(
+        f"/api/v1/studies/{sid}/outcomes",
+        json={
+            "key": "yield",
+            "label": "Yield",
+            "unit": "%",
+            "kind": "continuous",
+            "direction": "maximize",
+            "criterion": {"op": ">=", "value": 80.0},
+        },
+    )
+
+    # 1. Hard constraint referencing uncertain parameter 'u' must fail with 422 uncertain_in_hard_constraint
+    res_bad = client.post(
+        f"/api/v1/studies/{sid}/constraints",
+        json={"expression": "x + u <= 300", "kind": "hard", "rationale": "invalid uncertain"},
+    )
+    assert res_bad.status_code == 422
+    assert res_bad.json()["detail"]["code"] == "uncertain_in_hard_constraint"
+
+    # 2. Soft constraint with penalty=4.5
+    res_soft = client.post(
+        f"/api/v1/studies/{sid}/constraints",
+        json={"expression": "x <= 5.0", "kind": "soft", "penalty": 4.5, "rationale": "prefer low x"},
+    )
+    assert res_soft.status_code == 201
+
+    client.post(f"/api/v1/studies/{sid}/candidate-sets", json={"method": "grid", "settings": {}})
+
+    # Add 2 replicates for x=2.0 (one exact, one within 0.5% span tolerance = 2.02)
+    r_ev1 = client.post(
+        f"/api/v1/studies/{sid}/evidence",
+        json={"kind": "lab", "values": {"x": 2.0}, "outcomes": {"yield": {"value": 85.0}}, "replicate": 1},
+    )
+    assert r_ev1.status_code == 201
+    r_ev2 = client.post(
+        f"/api/v1/studies/{sid}/evidence",
+        json={"kind": "lab", "values": {"x": 2.02}, "outcomes": {"yield": {"value": 90.0}}, "replicate": 2},
+    )
+    assert r_ev2.status_code == 201
+
+    run = run_screening_pipeline(conn=db_conn, study_id=sid)
+    assert run.summary.total_candidates == 2
+
+    cands = client.get(f"/api/v1/studies/{sid}/candidates?limit=10").json()["items"]
+    c2 = next(c for c in cands if c["values"]["x"] == 2.0)
+    c8 = next(c for c in cands if c["values"]["x"] == 8.0)
+
+    # x=2.0 matched both replicates (2.0 and 2.02)
+    assert c2["decision"]["status"] == "tested_pass"
+    assert c2["decision"]["details"]["replicates"] == 2
+    assert c2["decision"]["details"]["outcome_means"]["yield"] == 87.5
+
+    # x=8.0 violated soft constraint x <= 5.0 with penalty 4.5
+    assert c8["decision"]["status"] == "open"
+    assert c8["decision"]["details"]["soft_penalty"] == 4.5
+

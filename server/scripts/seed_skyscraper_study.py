@@ -3,21 +3,18 @@
 
 import json
 import subprocess
-from pathlib import Path
 
 from lattice_server import config, db
 from lattice_server.api.studies import create_from_template
-from lattice_server.ids import new_id
 from lattice_server.repo import candidates as candidates_repo
 from lattice_server.repo import evidence as evidence_repo
 from lattice_server.repo import models as models_repo
 from lattice_server.repo import parameters as parameters_repo
-from lattice_server.repo import studies as studies_repo
 from lattice_server.schemas import (
     EvidenceCreate,
     ModelVersionCreate,
-    ParameterBindingModel,
     OutcomeBindingModel,
+    ParameterBindingModel,
     TemplateCreateRequest,
 )
 from lattice_server.screening.pipeline import run_screening_pipeline

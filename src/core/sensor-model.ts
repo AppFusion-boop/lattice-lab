@@ -118,5 +118,15 @@ export function sampleSensor(c: EvalContext): Packet {
       previous === undefined ? value : previous + alpha * (value - previous);
     return previous;
   });
+  if (spec.id === "blastImpulseSensor") {
+    const integrated = new Array<number>(values.length).fill(0);
+    for (let i = 1; i < values.length; i++) {
+      const dt = Math.max(0, c.times[i] - c.times[i - 1]);
+      const p0 = Math.max(0, values[i - 1]);
+      const p1 = Math.max(0, values[i]);
+      integrated[i] = integrated[i - 1] + 0.5 * (p0 + p1) * dt;
+    }
+    return signal(integrated, c.times, spec.unit, c.node.label);
+  }
   return signal(values, c.times, spec.unit, c.node.label);
 }
