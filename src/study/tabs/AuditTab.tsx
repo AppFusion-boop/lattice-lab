@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Database, RefreshCw, ChevronLeft, ChevronRight, FileArchive } from "lucide-react";
+import { Database, RefreshCw, ChevronLeft, ChevronRight, FileArchive, Download } from "lucide-react";
 import { apiGet, apiPost } from "../api/client";
 import { useApi } from "../api/hooks";
 import type { AuditLog, Backup, Study } from "../api/types";
@@ -94,6 +94,16 @@ export function AuditTab({ study }: AuditTabProps) {
     document.body.removeChild(link);
   };
 
+  const handleExportLat = () => {
+    const slug = (study.name || "study").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[-\s]+/g, "_");
+    const link = document.createElement("a");
+    link.href = `/api/v1/studies/${study.id}/export.lat`;
+    link.setAttribute("download", `${slug || "study"}.lat`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const total = auditData?.total ?? 0;
   const items = auditData?.items ?? [];
   const totalPages = Math.ceil(total / limit) || 1;
@@ -125,12 +135,21 @@ export function AuditTab({ study }: AuditTabProps) {
             <span>{backingUp ? tr("იქმნება...", "Creating...") : tr("SQLite სარეზერვო ასლი", "Create Backup")}</span>
           </button>
           <button
-            className="btn-primary"
+            className="btn-secondary"
             onClick={handleExportZip}
-            title={tr("კვლევის მონაცემების ZIP არქივის ჩამოტვირთვა", "Export complete study archive as standalone ZIP")}
+            title={tr("კვლევის რეპორტების ZIP არქივის ჩამოტვირთვა", "Export complete study archive as standalone ZIP")}
           >
             <FileArchive size={14} />
-            <span>{tr("არქივის ექსპორტი (ZIP)", "Export ZIP")}</span>
+            <span>{tr("რეპორტების ZIP", "Reports ZIP")}</span>
+          </button>
+          <button
+            className="btn-primary"
+            onClick={handleExportLat}
+            title={tr("სრული კვლევის პორტაბელური პაკეტის ექსპორტი (.lat ფაილი 3D სცენებით, DoE-თა და ემპირიით)", "Export complete portable study package (.lat archive)")}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <Download size={14} />
+            <span>{tr("პაკეტის ექსპორტი (.lat)", "Export Package (.lat)")}</span>
           </button>
         </div>
       </div>

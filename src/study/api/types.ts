@@ -62,3 +62,5 @@ export type ParetoPoint = components["schemas"]["ParetoPointModel"];
 export type CalibrationRequest = components["schemas"]["CalibrationRequest"];
 export type CalibrationResponse = components["schemas"]["CalibrationResponse"];
 export type CalibrationApplyRequest = components["schemas"]["CalibrationApplyRequest"];
+
+export type StudyPackageInspect = components["schemas"]["StudyPackageInspectResponse"];

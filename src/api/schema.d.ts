@@ -979,6 +979,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/studies/{study_id}/export.lat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Study Lat
+         * @description Export complete study as a single portable .lat archive.
+         */
+        get: operations["export_study_lat_api_v1_studies__study_id__export_lat_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/package/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect Study Package Endpoint
+         * @description Inspect and preview metadata from a .lat package without importing.
+         */
+        post: operations["inspect_study_package_endpoint_api_v1_studies_package_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/package/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Study Package Endpoint
+         * @description Import a .lat package archive as a new fully restored study.
+         */
+        post: operations["import_study_package_endpoint_api_v1_studies_package_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -1055,6 +1115,18 @@ export interface components {
         };
         /** Body_import_run_sheet_results_api_v1_run_sheets__run_sheet_id__results_post */
         Body_import_run_sheet_results_api_v1_run_sheets__run_sheet_id__results_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_import_study_package_endpoint_api_v1_studies_package_import_post */
+        Body_import_study_package_endpoint_api_v1_studies_package_import_post: {
+            /** File */
+            file: string;
+            /** Name */
+            name?: string | null;
+        };
+        /** Body_inspect_study_package_endpoint_api_v1_studies_package_inspect_post */
+        Body_inspect_study_package_endpoint_api_v1_studies_package_inspect_post: {
             /** File */
             file: string;
         };
@@ -2085,6 +2157,45 @@ export interface components {
             };
             /** Rng Seed */
             rng_seed?: number | null;
+        };
+        /** StudyPackageInspectResponse */
+        StudyPackageInspectResponse: {
+            /** Manifest */
+            manifest: {
+                [key: string]: unknown;
+            };
+            /** Study Name */
+            study_name: string;
+            /** Description */
+            description: string;
+            /** Domain */
+            domain: string;
+            /** Parameters Count */
+            parameters_count: number;
+            /** Outcomes Count */
+            outcomes_count: number;
+            /** Constraints Count */
+            constraints_count: number;
+            /** Candidate Sets Count */
+            candidate_sets_count: number;
+            /** Candidates Count */
+            candidates_count: number;
+            /** Screening Runs Count */
+            screening_runs_count: number;
+            /** Decisions Count */
+            decisions_count: number;
+            /** Evidence Count */
+            evidence_count: number;
+            /** Analyses Count */
+            analyses_count: number;
+            /** Has 3D Models */
+            has_3d_models: boolean;
+            /** Mesh Files Count */
+            mesh_files_count: number;
+            /** Created At */
+            created_at: string;
+            /** Exported At */
+            exported_at: string;
         };
         /** StudyResponse */
         StudyResponse: {
@@ -4520,6 +4631,103 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_study_lat_api_v1_studies__study_id__export_lat_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inspect_study_package_endpoint_api_v1_studies_package_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_inspect_study_package_endpoint_api_v1_studies_package_inspect_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyPackageInspectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_study_package_endpoint_api_v1_studies_package_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_study_package_endpoint_api_v1_studies_package_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyResponse"];
                 };
             };
             /** @description Validation Error */

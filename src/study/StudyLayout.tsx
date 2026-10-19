@@ -1,4 +1,4 @@
-import { ChevronRight, ArrowLeft } from "lucide-react";
+import { ChevronRight, ArrowLeft, Download } from "lucide-react";
 import { apiGet } from "./api/client";
 import { useApi } from "./api/hooks";
 import type { Study } from "./api/types";
@@ -61,6 +61,17 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
     );
   }
 
+  const handleExportLat = () => {
+    if (!study) return;
+    const slug = (study.name || "study").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[-\s]+/g, "_");
+    const link = document.createElement("a");
+    link.href = `/api/v1/studies/${study.id}/export.lat`;
+    link.setAttribute("download", `${slug || "study"}.lat`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div className="study-container">
       <ServerStatusBanner />
@@ -77,6 +88,18 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
           {study.archived && (
             <span className="badge badge-status-deprioritised">{tr("დაარქივებული", "Archived")}</span>
           )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            className="btn-secondary"
+            onClick={handleExportLat}
+            title={tr("სრული კვლევის ექსპორტი (.lat არქივი 3D სცენებით, DoE-თა და ემპირიით)", "Export full study package (.lat archive with 3D scenes, DoE, and evidence)")}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <Download size={14} />
+            <span>{tr("ექსპორტი (.lat)", "Export (.lat)")}</span>
+          </button>
         </div>
       </header>
 

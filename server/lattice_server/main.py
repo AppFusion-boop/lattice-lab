@@ -30,6 +30,7 @@ from lattice_server.api.screening import router as screening_router
 from lattice_server.api.sensitivity import router as sensitivity_router
 from lattice_server.api.sources import router as sources_router
 from lattice_server.api.studies import router as studies_router
+from lattice_server.api.study_package import router as study_package_router
 from lattice_server.errors import (
     ApiHttpError,
     api_http_error_handler,
@@ -109,6 +110,7 @@ app.include_router(pareto_router, prefix="/api/v1")
 app.include_router(calibration_router, prefix="/api/v1")
 app.include_router(analyses_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
+app.include_router(study_package_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health")

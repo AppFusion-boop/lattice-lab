@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Plus, FlaskConical, Archive, ArrowRight, X, AlertCircle, FileText } from "lucide-react";
+import { Plus, FlaskConical, Archive, ArrowRight, X, AlertCircle, FileText, Upload, Download } from "lucide-react";
 import { apiGet, apiPost, ApiError } from "./api/client";
 import { useApi } from "./api/hooks";
 import type { Study, StudyCreate } from "./api/types";
 import { navigate } from "../app/router";
 import { tr } from "../i18n";
 import { ServerStatusBanner } from "./components/ServerStatusBanner";
+import { StudyImportModal } from "./components/StudyImportModal";
 import "./study.css";
 
 export function StudyList() {
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [createMode, setCreateMode] = useState<"blank" | "template">("blank");
   const [selectedTemplate, setSelectedTemplate] = useState<"tunnel_blast" | "drug_screen" | "microchannel_cold_plate" | "smart_cement_skyscraper">("smart_cement_skyscraper");
   const [formError, setFormError] = useState<string | null>(null);
@@ -78,6 +80,16 @@ export function StudyList() {
     }
   };
 
+  const handleExportLat = (study: Study) => {
+    const slug = (study.name || "study").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[-\s]+/g, "_");
+    const link = document.createElement("a");
+    link.href = `/api/v1/studies/${study.id}/export.lat`;
+    link.setAttribute("download", `${slug || "study"}.lat`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div className="study-container">
       <ServerStatusBanner />
@@ -90,10 +102,21 @@ export function StudyList() {
           <h2 className="study-title">{tr("სამეცნიერო კვლევები", "Scientific Studies")}</h2>
         </div>
 
-        <button className="btn-primary" onClick={() => { setFormError(null); setShowCreateModal(true); }}>
-          <Plus size={14} />
-          <span>{tr("ახალი კვლევა", "New Study")}</span>
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            className="btn-secondary"
+            onClick={() => setShowImportModal(true)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            title={tr("სრული კვლევის იმპორტი (.lat ფაილიდან)", "Import complete study package (.lat)")}
+          >
+            <Upload size={14} />
+            <span>{tr("კვლევის იმპორტი (.lat)", "Import Study (.lat)")}</span>
+          </button>
+          <button className="btn-primary" onClick={() => { setFormError(null); setShowCreateModal(true); }}>
+            <Plus size={14} />
+            <span>{tr("ახალი კვლევა", "New Study")}</span>
+          </button>
+        </div>
       </header>
 
       {/* View Tabs */}
@@ -149,15 +172,27 @@ export function StudyList() {
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <span className={`badge badge-${s.domain}`}>{s.domain}</span>
-                    {!s.archived && (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                       <button
-                        onClick={(e) => handleArchive(e, s)}
-                        style={{ color: "#84938b", padding: 4 }}
-                        title="Archive study"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExportLat(s);
+                        }}
+                        style={{ color: "#0284c7", padding: 4 }}
+                        title={tr("სრული კვლევის ექსპორტი (.lat)", "Export full study package (.lat)")}
                       >
-                        <Archive size={13} />
+                        <Download size={13} />
                       </button>
-                    )}
+                      {!s.archived && (
+                        <button
+                          onClick={(e) => handleArchive(e, s)}
+                          style={{ color: "#84938b", padding: 4 }}
+                          title={tr("არქივირება", "Archive study")}
+                        >
+                          <Archive size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <h4 style={{ margin: "0 0 6px 0", fontSize: 15, fontWeight: 650, color: "#1a2c26" }}>
                     {s.name}
@@ -411,6 +446,18 @@ export function StudyList() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Import Study Modal */}
+      {showImportModal && (
+        <StudyImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImportSuccess={(imported) => {
+            refresh();
+            navigate(`studies/${imported.id}/overview`);
+          }}
+        />
       )}
     </div>
   );

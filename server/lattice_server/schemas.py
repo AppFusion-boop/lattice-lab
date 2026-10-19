@@ -874,3 +874,27 @@ class CalibrationApplyRequest(BaseModel):
     parameter_key: str
     calibrated_value: float
     notes: str | None = None
+
+
+# --- Study Package Models (.lat format) ---
+
+
+class StudyPackageInspectResponse(BaseModel):
+    manifest: dict[str, Any]
+    study_name: str
+    description: str
+    domain: str
+    parameters_count: int
+    outcomes_count: int
+    constraints_count: int
+    candidate_sets_count: int
+    candidates_count: int
+    screening_runs_count: int
+    decisions_count: int
+    evidence_count: int
+    analyses_count: int
+    has_3d_models: bool
+    mesh_files_count: int
+    created_at: str
+    exported_at: str
+
