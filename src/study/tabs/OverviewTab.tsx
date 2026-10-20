@@ -11,12 +11,17 @@ import {
   ArrowRight,
   ShieldCheck,
   Target,
+  FlaskConical,
+  Database,
+  Scale,
 } from "lucide-react";
 import { apiPost, apiGet } from "../api/client";
 import { useApi, useJob } from "../api/hooks";
-import type { Study, ScreeningRun, Job, CandidateSet } from "../api/types";
+import type { Study, ScreeningRun, Job, CandidateSet, Parameter, Outcome, Evidence } from "../api/types";
 import { tr } from "../../i18n";
 import { navigate } from "../../app/router";
+import { RecordExperimentModal } from "../components/RecordExperimentModal";
+import { CalibrationWizard } from "../components/CalibrationWizard";
 
 interface OverviewTabProps {
   study: Study;
@@ -38,6 +43,20 @@ export function OverviewTab({ study }: OverviewTabProps) {
     `active-set-${study.id}`,
     () => apiGet<CandidateSet>(`/studies/${study.id}/candidate-sets/active`).catch(() => null as unknown as CandidateSet),
   );
+
+  const { data: parameters } = useApi<Parameter[]>(`params-${study.id}`, () =>
+    apiGet<Parameter[]>(`/studies/${study.id}/parameters`).catch(() => [])
+  );
+  const { data: outcomes } = useApi<Outcome[]>(`outcomes-${study.id}`, () =>
+    apiGet<Outcome[]>(`/studies/${study.id}/outcomes`).catch(() => [])
+  );
+  const { data: evidenceList, refresh: refreshEvidence } = useApi<Evidence[]>(
+    `evidence-${study.id}`,
+    () => apiGet<Evidence[]>(`/studies/${study.id}/evidence`).catch(() => [])
+  );
+
+  const [showRecordModal, setShowRecordModal] = useState<boolean>(false);
+  const [showCalibrationModal, setShowCalibrationModal] = useState<boolean>(false);
 
   const { job, loading: runningJob } = useJob(activeJobId, () => {
     refreshRun();
@@ -230,6 +249,20 @@ export function OverviewTab({ study }: OverviewTabProps) {
               </button>
 
               <button
+                className="btn-primary"
+                onClick={() => setShowRecordModal(true)}
+                style={{
+                  background: "#059669",
+                  borderColor: "#059669",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                <FlaskConical size={13} style={{ marginRight: 6 }} />
+                <span>{tr("რეალური ცდის აღრიცხვა", "Record Lab Run")}</span>
+              </button>
+
+              <button
                 className="btn-secondary"
                 onClick={() => navigate(`studies/${study.id}/flow`)}
               >
@@ -285,6 +318,93 @@ export function OverviewTab({ study }: OverviewTabProps) {
           <div className="stat-box-sub">
             {recommended > 0 ? `${recommendedPct}% ${tr("პრიორიტეტული სამიზნე", "acquisition target")}` : tr("მზადაა ტესტირებისთვის", "ready for testing")}
           </div>
+        </div>
+      </div>
+
+      {/* Empirical Ground Truth & Calibration Card */}
+      <div
+        className="study-card"
+        style={{
+          background: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          padding: "16px 20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 16,
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: "#dcfce7",
+              color: "#15803d",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <FlaskConical size={20} />
+          </div>
+          <div>
+            <h4 style={{ margin: "0 0 2px 0", fontSize: 14, fontWeight: 700, color: "#166534" }}>
+              {tr("ფიზიკური ემპირიული ჭეშმარიტება & კალიბრაცია", "Physical Ground Truth & Calibration")}
+            </h4>
+            <p style={{ margin: 0, fontSize: 12, color: "#15803d" }}>
+              {evidenceList && evidenceList.length > 0
+                ? tr(
+                    `ჩაწერილია ${evidenceList.filter((e) => e.status === "valid" && !e.retracted_at).length} ვალიდური ლაბორატორიული გაზომვა. მონაცემები ემსახურება მოდელის კალიბრაციას და კანდიდატთა გადამოწმებას.`,
+                    `${evidenceList.filter((e) => e.status === "valid" && !e.retracted_at).length} valid bench measurements logged as immutable ground truth.`,
+                  )
+                : tr(
+                    "შეიტანეთ რეალური ლაბორატორიული ან საველე გაზომვები, რათა პროგრამამ მოარგოს სიმულაციური მოდელი რეალობას (Zero-Guesswork).",
+                    "Input actual physical measurements from your test bench or field to anchor screening in physical reality.",
+                  )}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {evidenceList && evidenceList.filter((e) => e.status === "valid" && !e.retracted_at).length >= 3 && (
+            <button
+              className="btn-primary"
+              onClick={() => setShowCalibrationModal(true)}
+              style={{
+                background: "#0284c7",
+                borderColor: "#0284c7",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 14px",
+                fontSize: 12,
+              }}
+            >
+              <Sparkles size={13} />
+              <span>{tr("მოდელის კალიბრაცია", "Calibrate Model")}</span>
+            </button>
+          )}
+
+          <button
+            className="btn-primary"
+            onClick={() => setShowRecordModal(true)}
+            style={{
+              background: "#16a34a",
+              borderColor: "#16a34a",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 14px",
+              fontSize: 12,
+            }}
+          >
+            <FlaskConical size={13} />
+            <span>{tr("რეალური ცდის შეტანა", "Record Real Lab Run")}</span>
+          </button>
         </div>
       </div>
 
@@ -558,6 +678,41 @@ export function OverviewTab({ study }: OverviewTabProps) {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Record Real Physical Experiment Modal */}
+      {showRecordModal && (
+        <RecordExperimentModal
+          isOpen={showRecordModal}
+          onClose={() => setShowRecordModal(false)}
+          study={study}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          existingEvidenceCount={evidenceList?.filter((e) => e.status === "valid" && !e.retracted_at).length || 0}
+          onEvidenceRecorded={() => {
+            refreshRun();
+            refreshActiveSet();
+            refreshEvidence();
+          }}
+          onOpenCalibration={() => setShowCalibrationModal(true)}
+        />
+      )}
+
+      {/* Calibration Wizard Modal */}
+      {showCalibrationModal && (
+        <CalibrationWizard
+          isOpen={showCalibrationModal}
+          onClose={() => setShowCalibrationModal(false)}
+          study={study}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          evidence={evidenceList || []}
+          onModelUpgraded={() => {
+            refreshRun();
+            refreshActiveSet();
+            refreshEvidence();
+          }}
+        />
       )}
     </div>
   );

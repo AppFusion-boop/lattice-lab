@@ -1,7 +1,8 @@
-import { ChevronRight, ArrowLeft, Download } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, ArrowLeft, Download, FlaskConical } from "lucide-react";
 import { apiGet } from "./api/client";
 import { useApi } from "./api/hooks";
-import type { Study } from "./api/types";
+import type { Study, Parameter, Outcome, Evidence } from "./api/types";
 import { navigate } from "../app/router";
 import { tr } from "../i18n";
 import { ServerStatusBanner } from "./components/ServerStatusBanner";
@@ -16,6 +17,8 @@ import { AnalysisTab } from "./tabs/AnalysisTab";
 import { PlanTab } from "./tabs/PlanTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
+import { RecordExperimentModal } from "./components/RecordExperimentModal";
+import { CalibrationWizard } from "./components/CalibrationWizard";
 import "./study.css";
 
 interface StudyLayoutProps {
@@ -32,6 +35,20 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
     error,
     refresh,
   } = useApi<Study>(`study-${id}`, () => apiGet<Study>(`/studies/${id}`));
+
+  const { data: parameters } = useApi<Parameter[]>(`params-${id}`, () =>
+    apiGet<Parameter[]>(`/studies/${id}/parameters`).catch(() => [])
+  );
+  const { data: outcomes } = useApi<Outcome[]>(`outcomes-${id}`, () =>
+    apiGet<Outcome[]>(`/studies/${id}/outcomes`).catch(() => [])
+  );
+  const { data: evidenceList, refresh: refreshEvidence } = useApi<Evidence[]>(
+    `evidence-${id}`,
+    () => apiGet<Evidence[]>(`/studies/${id}/evidence`).catch(() => [])
+  );
+
+  const [showRecordModal, setShowRecordModal] = useState<boolean>(false);
+  const [showCalibrationModal, setShowCalibrationModal] = useState<boolean>(false);
 
   if (loading) {
     return (
@@ -91,6 +108,21 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            className="btn-primary"
+            onClick={() => setShowRecordModal(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "#059669",
+              borderColor: "#059669",
+            }}
+            title={tr("რეალური ექსპერიმენტის აღრიცხვა (Ground Truth)", "Record real experiment bench measurement")}
+          >
+            <FlaskConical size={14} />
+            <span>{tr("რეალური ცდის შეტანა", "Record Lab Run")}</span>
+          </button>
           <button
             className="btn-secondary"
             onClick={handleExportLat}
@@ -195,6 +227,39 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
         {currentTab === "report" && <ReportTab study={study} />}
         {currentTab === "audit" && <AuditTab study={study} />}
       </main>
+
+      {/* Global Record Real Experiment Modal */}
+      {showRecordModal && (
+        <RecordExperimentModal
+          isOpen={showRecordModal}
+          onClose={() => setShowRecordModal(false)}
+          study={study}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          existingEvidenceCount={evidenceList?.length || 0}
+          onEvidenceRecorded={() => {
+            refresh();
+            refreshEvidence();
+          }}
+          onOpenCalibration={() => setShowCalibrationModal(true)}
+        />
+      )}
+
+      {/* Global Calibration Wizard Modal */}
+      {showCalibrationModal && (
+        <CalibrationWizard
+          isOpen={showCalibrationModal}
+          onClose={() => setShowCalibrationModal(false)}
+          study={study}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          evidence={evidenceList || []}
+          onModelUpgraded={() => {
+            refresh();
+            refreshEvidence();
+          }}
+        />
+      )}
     </div>
   );
 }

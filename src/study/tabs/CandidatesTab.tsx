@@ -11,6 +11,8 @@ import {
   Database,
   Filter,
   TrendingUp,
+  FlaskConical,
+  CheckCircle2,
 } from "lucide-react";
 import { apiGet, apiPost, ApiError } from "../api/client";
 import { useApi } from "../api/hooks";
@@ -22,10 +24,13 @@ import type {
   Parameter,
   Outcome,
   OverrideCreate,
+  Evidence,
 } from "../api/types";
 import { tr } from "../../i18n";
 import { useRoute } from "../../app/router";
 import { ParetoExplorer } from "../components/ParetoExplorer";
+import { RecordExperimentModal } from "../components/RecordExperimentModal";
+import { CalibrationWizard } from "../components/CalibrationWizard";
 
 interface CandidatesTabProps {
   study: Study;
@@ -84,6 +89,15 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
   const { data: outcomes } = useApi<Outcome[]>(`outcomes-${study.id}`, () =>
     apiGet<Outcome[]>(`/studies/${study.id}/outcomes`)
   );
+
+  const { data: evidenceList, refresh: refreshEvidence } = useApi<Evidence[]>(
+    `evidence-${study.id}`,
+    () => apiGet<Evidence[]>(`/studies/${study.id}/evidence`).catch(() => [])
+  );
+
+  const [recordCandidate, setRecordCandidate] = useState<Candidate | null>(null);
+  const [showRecordModal, setShowRecordModal] = useState<boolean>(false);
+  const [showCalibrationModal, setShowCalibrationModal] = useState<boolean>(false);
 
   const controlledParams = parameters?.filter((p) => p.role === "controlled") || [];
 
@@ -262,6 +276,24 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
                   : tr("პარეტოს ფრონტირი", "Pareto Frontier")}
               </span>
             </button>
+            <button
+              className="btn-primary"
+              onClick={() => {
+                setRecordCandidate(null);
+                setShowRecordModal(true);
+              }}
+              style={{
+                background: "#059669",
+                borderColor: "#059669",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+              title={tr("რეალური ექსპერიმენტის აღრიცხვა (Ground Truth)", "Record real experiment bench data")}
+            >
+              <FlaskConical size={13} />
+              <span>{tr("რეალური ცდის შეტანა", "Record Real Run")}</span>
+            </button>
             <button className="btn-secondary" onClick={() => setShowImportModal(true)}>
               <Upload size={13} />
               <span>{tr("იმპორტი (CSV/XLSX)", "Import Table")}</span>
@@ -305,8 +337,10 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
               >
                 <option value="">{tr("ყველა სტატუსი", "All Statuses")}</option>
                 <option value="open">{tr("ღია (Open)", "Open")}</option>
-                <option value="excluded">{tr("გამორიცხული (Excluded)", "Excluded")}</option>
                 <option value="recommended">{tr("რეკომენდებული (Recommended)", "Recommended")}</option>
+                <option value="tested_pass">{tr("შემოწმებული: წარმატებული (Tested Pass)", "Tested Pass (Ground Truth)")}</option>
+                <option value="tested_fail">{tr("შემოწმებული: წარუმატებელი (Tested Fail)", "Tested Fail (Ground Truth)")}</option>
+                <option value="excluded">{tr("გამორიცხული (Excluded)", "Excluded")}</option>
                 <option value="deprioritised">{tr("დეპრიორიტეტიზებული", "Deprioritised")}</option>
               </select>
             </div>
@@ -382,9 +416,9 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
                     {p.label} {p.unit ? `(${p.unit})` : ""}
                   </th>
                 ))}
-                <th style={{ width: 120 }}>{tr("სტატუსი", "Decision")}</th>
+                <th style={{ width: 140 }}>{tr("სტატუსი", "Decision / Truth")}</th>
                 <th>{tr("მიზეზი / ფილტრი", "Filter / Reason")}</th>
-                <th style={{ width: 60, textAlign: "right" }}>{tr("Override", "Override")}</th>
+                <th style={{ width: 130, textAlign: "right" }}>{tr("მოქმედება", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -405,13 +439,54 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
                     ))}
 
                     <td>
-                      <span className={`badge badge-status-${status}`}>{status}</span>
+                      {status === "tested_pass" ? (
+                        <span
+                          className="badge badge-status-tested_pass"
+                          style={{
+                            background: "#ecfdf5",
+                            color: "#065f46",
+                            border: "1px solid #10b981",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: "3px 7px",
+                          }}
+                          title="Verified Physical Bench Evidence"
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>TESTED PASS</span>
+                        </span>
+                      ) : status === "tested_fail" ? (
+                        <span
+                          className="badge badge-status-tested_fail"
+                          style={{
+                            background: "#fef2f2",
+                            color: "#991b1b",
+                            border: "1px solid #ef4444",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: "3px 7px",
+                          }}
+                          title="Failed Physical Bench Evidence"
+                        >
+                          <AlertCircle size={11} />
+                          <span>TESTED FAIL</span>
+                        </span>
+                      ) : (
+                        <span className={`badge badge-status-${status}`}>{status}</span>
+                      )}
                     </td>
 
                     <td style={{ fontSize: 11, color: status === "excluded" ? "#991b1b" : "#475569" }}>
                       {dec ? (
                         <>
-                          <strong>[{dec.filter}]</strong> {dec.reason}
+                          <strong style={{ color: dec.filter === "evidence_match" ? "#047857" : undefined }}>
+                            [{dec.filter}]
+                          </strong>{" "}
+                          {dec.reason}
                         </>
                       ) : (
                         "—"
@@ -419,20 +494,44 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
                     </td>
 
                     <td style={{ textAlign: "right" }}>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => {
-                          setOverrideCandidate(cand);
-                          setOverrideStatus(status === "excluded" ? "recommended" : "excluded");
-                          setOverrideReason("");
-                          setOverrideError(null);
-                        }}
-                        style={{ padding: "2px 8px", fontSize: 10 }}
-                        title="Manual Human Override"
-                      >
-                        <Pin size={11} />
-                        <span>Pin</span>
-                      </button>
+                      <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => {
+                            setRecordCandidate(cand);
+                            setShowRecordModal(true);
+                          }}
+                          style={{
+                            padding: "2px 7px",
+                            fontSize: 10,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            background: "#f0fdf4",
+                            color: "#166534",
+                            borderColor: "#bbf7d0",
+                          }}
+                          title={tr("ამ კანდიდატისთვის რეალური ექსპერიმენტის აღრიცხვა", "Record real physical experiment for this candidate")}
+                        >
+                          <FlaskConical size={10} />
+                          <span>Log Run</span>
+                        </button>
+
+                        <button
+                          className="btn-secondary"
+                          onClick={() => {
+                            setOverrideCandidate(cand);
+                            setOverrideStatus(status === "excluded" ? "recommended" : "excluded");
+                            setOverrideReason("");
+                            setOverrideError(null);
+                          }}
+                          style={{ padding: "2px 6px", fontSize: 10 }}
+                          title="Manual Human Override"
+                        >
+                          <Pin size={10} />
+                          <span>Pin</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -686,6 +785,45 @@ export function CandidatesTab({ study, onCandidatesChanged }: CandidatesTabProps
             </form>
           </div>
         </div>
+      )}
+
+      {/* Record Real Physical Experiment Modal */}
+      {showRecordModal && (
+        <RecordExperimentModal
+          isOpen={showRecordModal}
+          onClose={() => {
+            setShowRecordModal(false);
+            setRecordCandidate(null);
+          }}
+          study={study}
+          candidate={recordCandidate}
+          candidates={candidatesData?.items || []}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          existingEvidenceCount={evidenceList?.length || 0}
+          onEvidenceRecorded={() => {
+            refreshCandidates();
+            refreshEvidence();
+            onCandidatesChanged?.();
+          }}
+          onOpenCalibration={() => setShowCalibrationModal(true)}
+        />
+      )}
+
+      {/* Calibration Wizard Modal */}
+      {showCalibrationModal && (
+        <CalibrationWizard
+          isOpen={showCalibrationModal}
+          onClose={() => setShowCalibrationModal(false)}
+          study={study}
+          parameters={parameters || []}
+          outcomes={outcomes || []}
+          evidence={evidenceList || []}
+          onModelUpgraded={() => {
+            refreshCandidates();
+            onCandidatesChanged?.();
+          }}
+        />
       )}
     </div>
   );

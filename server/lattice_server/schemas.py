@@ -898,3 +898,27 @@ class StudyPackageInspectResponse(BaseModel):
     created_at: str
     exported_at: str
 
+
+# --- Unit Conversion Models ---
+
+
+class UnitConvertRequest(BaseModel):
+    value: float
+    from_unit: str
+    to_unit: str
+
+
+class UnitConvertResponse(BaseModel):
+    value: float
+    from_unit: str
+    to_unit: str
+    converted_value: float
+    compatible: bool = True
+    message: str | None = None
+
+
+class CompatibleUnitsResponse(BaseModel):
+    unit: str
+    dimension: str
+    compatible: list[str]
+

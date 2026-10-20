@@ -1039,6 +1039,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/units/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert Physical Unit
+         * @description Convert numeric value between two physical units using authoritative Pint UnitRegistry.
+         */
+        post: operations["convert_physical_unit_api_v1_units_convert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/units/compatible": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compatible Units Endpoint
+         * @description Return compatible physical units sharing the same dimension.
+         */
+        get: operations["get_compatible_units_endpoint_api_v1_units_compatible_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -1247,6 +1287,15 @@ export interface components {
             active: boolean;
             /** Created At */
             created_at: string;
+        };
+        /** CompatibleUnitsResponse */
+        CompatibleUnitsResponse: {
+            /** Unit */
+            unit: string;
+            /** Dimension */
+            dimension: string;
+            /** Compatible */
+            compatible: string[];
         };
         /** ConstraintCreate */
         ConstraintCreate: {
@@ -2262,6 +2311,33 @@ export interface components {
             template: "tunnel_blast" | "drug_screen" | "microchannel_cold_plate" | "smart_cement_skyscraper";
             /** Name */
             name?: string | null;
+        };
+        /** UnitConvertRequest */
+        UnitConvertRequest: {
+            /** Value */
+            value: number;
+            /** From Unit */
+            from_unit: string;
+            /** To Unit */
+            to_unit: string;
+        };
+        /** UnitConvertResponse */
+        UnitConvertResponse: {
+            /** Value */
+            value: number;
+            /** From Unit */
+            from_unit: string;
+            /** To Unit */
+            to_unit: string;
+            /** Converted Value */
+            converted_value: number;
+            /**
+             * Compatible
+             * @default true
+             */
+            compatible: boolean;
+            /** Message */
+            message?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -4728,6 +4804,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_physical_unit_api_v1_units_convert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitConvertRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitConvertResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compatible_units_endpoint_api_v1_units_compatible_get: {
+        parameters: {
+            query: {
+                /** @description Target unit notation to find compatible alternatives for */
+                unit: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompatibleUnitsResponse"];
                 };
             };
             /** @description Validation Error */

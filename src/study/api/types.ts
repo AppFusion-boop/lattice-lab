@@ -63,4 +63,8 @@ export type CalibrationRequest = components["schemas"]["CalibrationRequest"];
 export type CalibrationResponse = components["schemas"]["CalibrationResponse"];
 export type CalibrationApplyRequest = components["schemas"]["CalibrationApplyRequest"];
 
+export type UnitConvertRequest = components["schemas"]["UnitConvertRequest"];
+export type UnitConvertResponse = components["schemas"]["UnitConvertResponse"];
+export type CompatibleUnitsResponse = components["schemas"]["CompatibleUnitsResponse"];
+
 export type StudyPackageInspect = components["schemas"]["StudyPackageInspectResponse"];

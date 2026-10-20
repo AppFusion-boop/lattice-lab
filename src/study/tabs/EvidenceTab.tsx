@@ -11,6 +11,8 @@ import {
   X,
   RefreshCw,
   Printer,
+  Sparkles,
+  FlaskConical,
 } from "lucide-react";
 import { apiGet, apiPost } from "../api/client";
 import { useApi } from "../api/hooks";
@@ -19,6 +21,8 @@ import { tr } from "../../i18n";
 import { ImportWizard } from "../components/ImportWizard";
 import { EvidenceScatterPlot } from "../components/EvidenceScatterPlot";
 import { LabProtocolSheet } from "../components/LabProtocolSheet";
+import { RecordExperimentModal } from "../components/RecordExperimentModal";
+import { CalibrationWizard } from "../components/CalibrationWizard";
 
 interface EvidenceTabProps {
   study: Study;
@@ -34,6 +38,8 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
 
   // Modals & Drawers
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showRecordModal, setShowRecordModal] = useState<boolean>(false);
+  const [showCalibrationModal, setShowCalibrationModal] = useState<boolean>(false);
   const [showImportWizard, setShowImportWizard] = useState<boolean>(false);
   const [detailEvidence, setDetailEvidence] = useState<Evidence | null>(null);
   const [supersedeTarget, setSupersedeTarget] = useState<Evidence | null>(null);
@@ -321,14 +327,42 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
             </button>
           </div>
 
+          {allEvidence.filter((e) => e.status === "valid" && !e.retracted_at).length >= 3 && (
+            <button
+              className="btn-primary"
+              onClick={() => setShowCalibrationModal(true)}
+              style={{
+                background: "#0284c7",
+                borderColor: "#0284c7",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+              title={tr("მოდელის კალიბრაცია ემპირიულ მონაცემებზე", "Calibrate model parameters against evidence")}
+            >
+              <Sparkles size={14} />
+              <span>{tr("მოდელის კალიბრაცია", "Calibrate Model")}</span>
+            </button>
+          )}
+
           <button className="btn-secondary" onClick={() => setShowImportWizard(true)}>
             <FileSpreadsheet size={14} />
             <span>{tr("იმპორტი (CSV/XLSX)", "Import CSV/XLSX")}</span>
           </button>
 
-          <button className="btn-primary" onClick={openAddModal}>
-            <Plus size={14} />
-            <span>{tr("მტკიცებულების დამატება", "Add Evidence")}</span>
+          <button
+            className="btn-primary"
+            onClick={() => setShowRecordModal(true)}
+            style={{
+              background: "#059669",
+              borderColor: "#059669",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <FlaskConical size={14} />
+            <span>{tr("რეალური ცდის აღრიცხვა", "Record Real Run")}</span>
           </button>
         </div>
       </div>
@@ -1022,6 +1056,37 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
             refreshEvidence();
           }}
           onCancel={() => setShowImportWizard(false)}
+        />
+      )}
+
+      {/* Record Real Physical Experiment Modal */}
+      {showRecordModal && (
+        <RecordExperimentModal
+          isOpen={showRecordModal}
+          onClose={() => setShowRecordModal(false)}
+          study={study}
+          parameters={parameters}
+          outcomes={outcomes}
+          existingEvidenceCount={allEvidence.filter((e) => e.status === "valid" && !e.retracted_at).length}
+          onEvidenceRecorded={() => {
+            refreshEvidence();
+          }}
+          onOpenCalibration={() => setShowCalibrationModal(true)}
+        />
+      )}
+
+      {/* Calibration Wizard Modal */}
+      {showCalibrationModal && (
+        <CalibrationWizard
+          isOpen={showCalibrationModal}
+          onClose={() => setShowCalibrationModal(false)}
+          study={study}
+          parameters={parameters}
+          outcomes={outcomes}
+          evidence={allEvidence}
+          onModelUpgraded={() => {
+            refreshEvidence();
+          }}
         />
       )}
     </div>
