@@ -11,7 +11,7 @@
     "server": "uv run --directory server uvicorn lattice_server.main:app --host 127.0.0.1 --port 8765 --reload",
     "dev:all": "concurrently -n web,api \"npm:dev\" \"npm:server\"",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test src/core/engine.test.ts src/core/expression.conformance.test.ts src/core/study/batch.test.ts src/core/study/eval-batch.test.ts",
+    "test": "tsx --test src/core/engine.test.ts src/core/expression.conformance.test.ts src/core/study/batch.test.ts src/core/study/eval-batch.test.ts src/core/microscope.test.ts",
     "test:server": "uv run --directory server pytest",
     "gen:api": "uv run --directory server python -c \"import json; from lattice_server.main import app; print(json.dumps(app.openapi()))\" > openapi.tmp.json && openapi-typescript openapi.tmp.json -o src/api/schema.d.ts && node -e \"fs.unlinkSync('openapi.tmp.json')\""
   },

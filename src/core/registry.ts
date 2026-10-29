@@ -17,8 +17,12 @@ import {
   type EvalContext,
   type CustomTool,
   type DataType,
+  type IlluminationMode,
+  type SpecimenSourceMode,
+  type MicrographFrame,
 } from "./types.ts";
 import { compileExpression } from "./expression.ts";
+import { simulateTransmissiveMicroscope } from "./microscope.ts";
 const port = (
   id: string,
   label: string,
@@ -1978,6 +1982,218 @@ export const definitions: NodeDefinition[] = [
       return {
         filtered: signal(yVals, sIn.times, sIn.unit, c.node.label),
       };
+    },
+  },
+  {
+    id: "transmissiveMicroscope",
+    title: "Transmissive microscope",
+    category: "Processing",
+    description:
+      "Simulate optical transmission, diffraction & DOF on a known surface",
+    icon: "Microscope",
+    inputs: [
+      port("surfaceTable", "Measured surface (CSV)", ["table"], true),
+      port("featureDiameter", "Feature diameter (µm)", ["number", "signal"], true),
+      port("volumeFraction", "Feature fraction (%)", ["number", "signal"], true),
+      port("thickness", "Specimen thickness (µm)", ["number", "signal"], true),
+      port("concentration", "Chromophore conc. (mol/m³)", ["number", "signal"], true),
+      port("focusOffset", "Focus offset Δz (µm)", ["number", "signal"], true),
+    ],
+    outputs: [
+      port("micrograph", "Micrograph", ["micrograph"]),
+      port("transmittance", "Mean transmittance", ["number"]),
+      port("opticalDensity", "Mean OD", ["number"]),
+      port("contrast", "Michelson contrast", ["number"]),
+      port("resolution", "Abbe limit", ["number"]),
+      port("lineProfile", "Centerline profile", ["signal"]),
+    ],
+    fields: [
+      sel("sourceMode", "Specimen data source", "Coupled Physical Inputs", [
+        "Coupled Physical Inputs",
+        "Measured Table (CSV)",
+        "Calibration Reticle (Ronchi / Step)",
+      ]),
+      sel("illuminationMode", "Illumination mode", "Brightfield", [
+        "Brightfield",
+        "Darkfield",
+        "Phase contrast",
+        "Optical density",
+      ]),
+      num("magnification", "Objective magnification", 40, 2, 100, "×", 1),
+      num("numericalAperture", "Numerical aperture (NA)", 0.65, 0.08, 1.45, "1", 0.01),
+      num("wavelengthNm", "Wavelength", 550, 380, 750, "nm", 5),
+      num("focusOffsetUm", "Focus offset Δz", 0, -200, 200, "µm", 0.5),
+      num("immersionIndex", "Immersion index n", 1.0, 1.0, 1.55, "1", 0.005),
+      num("exposure", "Lamp exposure", 1.0, 0.1, 4.0, "1", 0.05),
+      num("gridN", "Grid resolution", 80, 32, 128, "px", 8),
+      num("matrixThicknessUm", "Matrix thickness", 50, 0.5, 5000, "µm", 1),
+      num("matrixAttenInvUm", "Matrix attenuation", 0.003, 0, 2, "1/µm", 0.001),
+      num("featureAttenInvUm", "Feature attenuation", 0.045, 0, 5, "1/µm", 0.001),
+      num("matrixRefractiveIndex", "Matrix refractive index", 1.333, 1.0, 2.5, "1", 0.001),
+      num("featureRefractiveIndex", "Feature refractive index", 1.48, 1.0, 2.5, "1", 0.001),
+      num("featureDiameterUm", "Feature diameter", 28, 0.5, 1000, "µm", 0.5),
+      num("featureVolumeFractionPct", "Feature volume fraction", 18, 0, 85, "%", 0.5),
+      num("molarAbsorptivityM2Mol", "Molar absorptivity", 0, 0, 10000, "m²/mol", 1),
+      num("reticleFrequencyLpMm", "Reticle frequency", 40, 2, 500, "1/mm", 2),
+      num("seed", "Microstructure seed", 42, 1, 999999, "", 1),
+    ],
+    help: "Digital transmissive optical microscope. Evaluates Beer–Lambert attenuation, Zernike phase shift, Abbe diffraction PSF blur (0.61λ/NA) and Berek depth-of-field defocus across a known 2D specimen surface (from a measured CSV table, upstream coupled physical inputs, or an analytical calibration reticle).",
+    evaluate: (c) => {
+      const scalarFrom = (portId: string, fallback: number): number => {
+        const pkt = c.inputs[portId];
+        if (!pkt) return fallback;
+        if (pkt.type === "number") return pkt.value;
+        if (pkt.type === "signal" && pkt.value.values.length > 0) {
+          const sum = pkt.value.values.reduce((acc, v) => acc + v, 0);
+          return sum / pkt.value.values.length;
+        }
+        return fallback;
+      };
+
+      const tablePkt = c.inputs.surfaceTable;
+      const table = tablePkt?.type === "table" ? tablePkt.value : undefined;
+
+      const sourceMode = s(c, "sourceMode") as SpecimenSourceMode;
+      const illuminationMode = s(c, "illuminationMode") as IlluminationMode;
+
+      const sampleSignalAtTime = (portId: string, t: number, fallback: number): number => {
+        const pkt = c.inputs[portId];
+        if (!pkt) return fallback;
+        if (pkt.type === "number") return pkt.value;
+        if (pkt.type === "signal" && pkt.value.times.length > 0) {
+          const times = pkt.value.times;
+          const values = pkt.value.values;
+          let idx = 0;
+          for (let i = 0; i < times.length; i++) {
+            if (times[i] <= t) idx = i;
+            else break;
+          }
+          return values[idx] ?? fallback;
+        }
+        return fallback;
+      };
+
+      const signalPorts = ["featureDiameter", "volumeFraction", "thickness", "concentration", "focusOffset"];
+      const hasSignalInput = signalPorts.some((p) => c.inputs[p]?.type === "signal");
+
+      const { micrograph, lineProfileSignal } = simulateTransmissiveMicroscope({
+        sourceMode,
+        table,
+        gridN: n(c, "gridN"),
+        magnification: n(c, "magnification"),
+        numericalAperture: n(c, "numericalAperture"),
+        wavelengthNm: n(c, "wavelengthNm"),
+        focusOffsetUm: scalarFrom("focusOffset", n(c, "focusOffsetUm")),
+        immersionIndex: n(c, "immersionIndex"),
+        illuminationMode,
+        exposure: n(c, "exposure"),
+        matrixThicknessUm: scalarFrom("thickness", n(c, "matrixThicknessUm")),
+        matrixAttenInvUm: n(c, "matrixAttenInvUm"),
+        featureAttenInvUm: n(c, "featureAttenInvUm"),
+        matrixRefractiveIndex: n(c, "matrixRefractiveIndex"),
+        featureRefractiveIndex: n(c, "featureRefractiveIndex"),
+        featureDiameterUm: scalarFrom("featureDiameter", n(c, "featureDiameterUm")),
+        featureVolumeFractionPct: scalarFrom(
+          "volumeFraction",
+          n(c, "featureVolumeFractionPct"),
+        ),
+        chromophoreConcMolM3: scalarFrom("concentration", 0),
+        molarAbsorptivityM2Mol: n(c, "molarAbsorptivityM2Mol"),
+        reticleFrequencyLpMm: n(c, "reticleFrequencyLpMm"),
+        seed: n(c, "seed"),
+      });
+
+      // When dynamic signals are connected, generate smooth real-time animation keyframes
+      if (hasSignalInput && c.duration > 0) {
+        const numFrames = 25;
+        const frames: MicrographFrame[] = [];
+        for (let i = 0; i < numFrames; i++) {
+          const t = (i / (numFrames - 1)) * c.duration;
+          const sim = simulateTransmissiveMicroscope({
+            sourceMode,
+            table,
+            gridN: Math.min(64, n(c, "gridN")),
+            magnification: n(c, "magnification"),
+            numericalAperture: n(c, "numericalAperture"),
+            wavelengthNm: n(c, "wavelengthNm"),
+            focusOffsetUm: sampleSignalAtTime("focusOffset", t, n(c, "focusOffsetUm")),
+            immersionIndex: n(c, "immersionIndex"),
+            illuminationMode,
+            exposure: n(c, "exposure"),
+            matrixThicknessUm: sampleSignalAtTime("thickness", t, n(c, "matrixThicknessUm")),
+            matrixAttenInvUm: n(c, "matrixAttenInvUm"),
+            featureAttenInvUm: n(c, "featureAttenInvUm"),
+            matrixRefractiveIndex: n(c, "matrixRefractiveIndex"),
+            featureRefractiveIndex: n(c, "featureRefractiveIndex"),
+            featureDiameterUm: sampleSignalAtTime("featureDiameter", t, n(c, "featureDiameterUm")),
+            featureVolumeFractionPct: sampleSignalAtTime(
+              "volumeFraction",
+              t,
+              n(c, "featureVolumeFractionPct"),
+            ),
+            chromophoreConcMolM3: sampleSignalAtTime("concentration", t, 0),
+            molarAbsorptivityM2Mol: n(c, "molarAbsorptivityM2Mol"),
+            reticleFrequencyLpMm: n(c, "reticleFrequencyLpMm"),
+            seed: n(c, "seed"),
+          });
+          frames.push({
+            time: t,
+            intensityGrid: sim.micrograph.intensityGrid,
+            transmittanceGrid: sim.micrograph.transmittanceGrid,
+            opticalDensityGrid: sim.micrograph.opticalDensityGrid,
+            thicknessGridUm: sim.micrograph.thicknessGridUm,
+            profileIntensityPct: sim.micrograph.profileIntensityPct,
+            stats: sim.micrograph.stats,
+          });
+        }
+        micrograph.frames = frames;
+      }
+
+      return {
+        micrograph: { type: "micrograph", value: micrograph },
+        transmittance: {
+          type: "number",
+          value: micrograph.stats.meanTransmittancePct,
+          unit: "%",
+        },
+        opticalDensity: {
+          type: "number",
+          value: micrograph.stats.meanOpticalDensity,
+          unit: "OD",
+        },
+        contrast: {
+          type: "number",
+          value: micrograph.stats.michelsonContrast,
+          unit: "1",
+        },
+        resolution: {
+          type: "number",
+          value: micrograph.stats.abbeResolutionUm,
+          unit: "µm",
+        },
+        lineProfile: {
+          type: "signal",
+          value: lineProfileSignal,
+        },
+      };
+    },
+  },
+  {
+    id: "microscopeDisplay",
+    title: "Microscope display",
+    category: "Outputs",
+    description: "Inspect 2D transmissive micrographs and line profiles",
+    icon: "Microscope",
+    inputs: [port("micrograph", "Micrograph", ["micrograph"])],
+    outputs: [],
+    fields: [],
+    help: "Dedicated viewport for inspecting simulated 2D transmissive micrographs, optical resolution metadata, interactive pixel densitometry and cross-section line profiles.",
+    evaluate: (c) => {
+      const pkt = c.inputs.micrograph;
+      if (!pkt || pkt.type !== "micrograph") {
+        throw Error("Connect a micrograph");
+      }
+      return {};
     },
   },
 ];

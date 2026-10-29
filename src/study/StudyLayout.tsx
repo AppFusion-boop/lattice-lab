@@ -17,6 +17,7 @@ import { AnalysisTab } from "./tabs/AnalysisTab";
 import { PlanTab } from "./tabs/PlanTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
+import { MicrographTab } from "./tabs/MicrographTab";
 import { RecordExperimentModal } from "./components/RecordExperimentModal";
 import { CalibrationWizard } from "./components/CalibrationWizard";
 import "./study.css";
@@ -89,6 +90,13 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
     link.remove();
   };
 
+  const isMicroscopeStudy =
+    study.domain === "optical_microscopy" ||
+    study.name.toLowerCase().includes("microscop") ||
+    study.name.toLowerCase().includes("emulsion") ||
+    study.name.toLowerCase().includes("microcapsule") ||
+    (study.description && study.description.toLowerCase().includes("microscop"));
+
   return (
     <div className="study-container">
       <ServerStatusBanner />
@@ -155,6 +163,15 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
         >
           {tr("3D ფლოუ & სიმულაცია", "3D Flow & Simulation")}
         </button>
+        {isMicroscopeStudy && (
+          <button
+            className={`study-tab-btn ${currentTab === "micrograph" || currentTab === "microscope" ? "active" : ""}`}
+            onClick={() => navigate(`studies/${id}/micrograph`)}
+            style={{ color: "#059669", fontWeight: 650 }}
+          >
+            🔬 {tr("მიკროსკოპი (Micrograph)", "Micrograph")}
+          </button>
+        )}
         <button
           className={`study-tab-btn ${currentTab === "outcomes" ? "active" : ""}`}
           onClick={() => navigate(`studies/${id}/outcomes`)}
@@ -217,6 +234,9 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
         {currentTab === "parameters" && <ParametersTab study={study} />}
         {(currentTab === "flow" || currentTab === "models" || currentTab === "model") && (
           <ModelTab study={study} />
+        )}
+        {(currentTab === "micrograph" || currentTab === "microscope") && (
+          <MicrographTab study={study} />
         )}
         {currentTab === "outcomes" && <OutcomesTab study={study} />}
         {currentTab === "constraints" && <ConstraintsTab study={study} />}

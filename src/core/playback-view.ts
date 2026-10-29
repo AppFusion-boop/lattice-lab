@@ -17,6 +17,7 @@ export function runAtTime(
       (p) => inputPacket(project, run, node.id, p.id)?.type === "signal",
     );
     if (
+      node.kind !== "transmissiveMicroscope" &&
       hasHistoryInput &&
       outputs.some((p) =>
         ["number", "table", "boolean", "text", "vector3"].includes(p.type),
@@ -48,6 +49,36 @@ export function runAtTime(
     }
     if (packet.type === "event")
       return { ...packet, value: packet.value.filter((t) => t <= time) };
+    if (
+      packet.type === "micrograph" &&
+      packet.value.frames &&
+      packet.value.frames.length > 0
+    ) {
+      let bestFrame = packet.value.frames[0];
+      for (const f of packet.value.frames) {
+        if (f.time <= time) {
+          bestFrame = f;
+        } else {
+          break;
+        }
+      }
+      return {
+        ...packet,
+        value: {
+          ...packet.value,
+          intensityGrid: bestFrame.intensityGrid,
+          transmittanceGrid:
+            bestFrame.transmittanceGrid ?? packet.value.transmittanceGrid,
+          opticalDensityGrid:
+            bestFrame.opticalDensityGrid ?? packet.value.opticalDensityGrid,
+          thicknessGridUm:
+            bestFrame.thicknessGridUm ?? packet.value.thicknessGridUm,
+          profileIntensityPct:
+            bestFrame.profileIntensityPct ?? packet.value.profileIntensityPct,
+          stats: bestFrame.stats,
+        },
+      };
+    }
     return packet;
   };
   return {

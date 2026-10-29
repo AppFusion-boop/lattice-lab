@@ -59,7 +59,9 @@ export function AppShell() {
                     <span className="app-shell-crumb-tab">
                       {route.params.tab === "flow" || route.params.tab === "models"
                         ? tr("3D ფლოუ & სიმულაცია", "3D Flow & Simulation")
-                        : route.params.tab}
+                        : route.params.tab === "micrograph" || route.params.tab === "microscope"
+                          ? tr("მიკროსკოპი (Micrograph)", "Micrograph View")
+                          : route.params.tab}
                     </span>
                   </>
                 )}

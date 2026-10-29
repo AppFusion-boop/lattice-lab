@@ -10,6 +10,9 @@ ureg = pint.UnitRegistry()
 ureg.define("gpm = gallon / minute = gpm")
 ureg.define("cfs = foot**3 / second = cfs")
 ureg.define("thou = 0.001 * inch = mil = thou")
+ureg.define("OD = dimensionless = optical_density")
+ureg.define("magnification_x = dimensionless")
+ureg.define("pixel = dimensionless = px")
 
 UNIT_FAMILIES: dict[str, list[str]] = {
     "pressure": ["Pa", "kPa", "MPa", "GPa", "bar", "mbar", "psi", "atm", "torr"],
@@ -24,7 +27,8 @@ UNIT_FAMILIES: dict[str, list[str]] = {
     "angle": ["rad", "deg", "degree"],
     "energy": ["J", "kJ", "MJ", "cal", "kcal", "BTU", "Wh", "kWh"],
     "power": ["W", "kW", "MW", "mW", "hp"],
-    "dimensionless": ["", "%", "percent", "ppm"],
+    "optical_attenuation": ["1/µm", "1/um", "1/mm", "1/m"],
+    "dimensionless": ["", "%", "percent", "ppm", "OD", "×", "px", "1"],
 }
 
 
@@ -87,6 +91,14 @@ def normalize_unit(unit_str: str) -> str:
     s = s.replace("²", "**2")
     s = s.replace("³", "**3")
     s = s.replace("%", "percent")
+    if s == "1":
+        return ""
+    if s == "×":
+        return "magnification_x"
+    if s == "px":
+        return "pixel"
+    if s == "OD":
+        return "OD"
     return s
 
 

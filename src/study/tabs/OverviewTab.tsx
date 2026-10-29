@@ -14,6 +14,7 @@ import {
   FlaskConical,
   Database,
   Scale,
+  Microscope,
 } from "lucide-react";
 import { apiPost, apiGet } from "../api/client";
 import { useApi, useJob } from "../api/hooks";
@@ -94,6 +95,13 @@ export function OverviewTab({ study }: OverviewTabProps) {
     total > 0
       ? (((total - (recommended > 0 ? recommended : afterDeprioritised)) / total) * 100).toFixed(1)
       : "0";
+
+  const isMicroscopeStudy =
+    study.domain === "optical_microscopy" ||
+    study.name.toLowerCase().includes("microscop") ||
+    study.name.toLowerCase().includes("emulsion") ||
+    study.name.toLowerCase().includes("microcapsule") ||
+    Boolean(study.description && study.description.toLowerCase().includes("microscop"));
 
   return (
     <div className="overview-container">
@@ -180,6 +188,110 @@ export function OverviewTab({ study }: OverviewTabProps) {
         )}
       </div>
 
+      {/* Dedicated Micrograph Hero Card for Microscope Studies */}
+      {isMicroscopeStudy && (
+        <div
+          className="study-card"
+          style={{
+            background: "linear-gradient(135deg, #090e17 0%, #0d1b2a 100%)",
+            color: "#f8fafc",
+            border: "1px solid #1e293b",
+            padding: "16px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 16,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 8,
+                background: "rgba(5, 150, 105, 0.2)",
+                border: "1px solid #05966966",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Microscope size={24} color="#34d399" />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>
+                  {tr("ციფრული გამავალი მიკროსკოპის ხედი", "Digital Transmissive Micrograph View")}
+                </h4>
+                <span
+                  style={{
+                    fontSize: 10,
+                    background: "#05966933",
+                    color: "#34d399",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    border: "1px solid #05966966",
+                    fontWeight: 600,
+                  }}
+                >
+                  Live 2D Wave Optics
+                </span>
+              </div>
+              <p style={{ margin: "4px 0 0 0", color: "#94a3b8", fontSize: 12 }}>
+                {tr(
+                  "დაათვალიერეთ სიმულირებული მიკროგრაფი, აბეს დიფრაქციული გაბუნდოვნება (PSF), ლამბერტ-ბერის შთანთქმა და დენსიტომეტრიული ანალიზი.",
+                  "Inspect live simulated 2D micrograph, Abbe diffraction PSF blur, Beer–Lambert transmission, and optical densitometry.",
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={() => navigate(`studies/${study.id}/micrograph`)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#059669",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 16px",
+                fontSize: 12,
+                fontWeight: 650,
+                cursor: "pointer",
+              }}
+            >
+              <Microscope size={14} />
+              <span>{tr("მიკროსკოპის გახსნა (Open Micrograph)", "Open Micrograph View")}</span>
+              <ArrowRight size={13} />
+            </button>
+            <button
+              onClick={() => navigate(`studies/${study.id}/flow`)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "transparent",
+                color: "#94a3b8",
+                border: "1px solid #334155",
+                borderRadius: 6,
+                padding: "8px 14px",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              <Workflow size={13} />
+              <span>{tr("3D ფლოუ", "3D Flow")}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Scientific Executive Verdict Banner */}
       {latestRun && total > 0 && (
         <div className="verdict-banner">
@@ -261,6 +373,22 @@ export function OverviewTab({ study }: OverviewTabProps) {
                 <FlaskConical size={13} style={{ marginRight: 6 }} />
                 <span>{tr("რეალური ცდის აღრიცხვა", "Record Lab Run")}</span>
               </button>
+
+              {isMicroscopeStudy && (
+                <button
+                  className="btn-secondary"
+                  onClick={() => navigate(`studies/${study.id}/micrograph`)}
+                  style={{
+                    color: "#059669",
+                    borderColor: "#05966988",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Microscope size={13} style={{ marginRight: 6 }} />
+                  <span>{tr("მიკროსკოპის ხედი", "Micrograph View")}</span>
+                </button>
+              )}
 
               <button
                 className="btn-secondary"

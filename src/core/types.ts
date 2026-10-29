@@ -8,7 +8,8 @@ export type DataType =
   | "table"
   | "scene"
   | "sensor"
-  | "sceneEvent";
+  | "sceneEvent"
+  | "micrograph";
 export type Vec3 = { x: number; y: number; z: number };
 export type Object3D = {
   id: string;
@@ -41,6 +42,74 @@ export type Signal = {
   name: string;
 };
 export type Table = { columns: string[]; rows: (number | string)[][] };
+export type TableData = Table;
+
+export type IlluminationMode =
+  | "Brightfield"
+  | "Darkfield"
+  | "Phase contrast"
+  | "Optical density";
+
+export type SpecimenSourceMode =
+  | "Measured Table (CSV)"
+  | "Coupled Physical Inputs"
+  | "Calibration Reticle (Ronchi / Step)";
+
+export interface MicrographStats {
+  meanTransmittancePct: number;
+  minTransmittancePct: number;
+  maxTransmittancePct: number;
+  meanOpticalDensity: number;
+  maxOpticalDensity: number;
+  michelsonContrast: number;
+  rmsRoughnessUm: number;
+  abbeResolutionUm: number;
+  depthOfFieldUm: number;
+  featureAreaFractionPct: number;
+}
+
+export interface MicrographFrame {
+  time: number;
+  intensityGrid: number[];
+  transmittanceGrid?: number[];
+  opticalDensityGrid?: number[];
+  thicknessGridUm?: number[];
+  profileIntensityPct?: number[];
+  stats: MicrographStats;
+}
+
+export interface MicrographData {
+  width: number;
+  height: number;
+  fovUm: number;
+  pixelSizeUm: number;
+  wavelengthNm: number;
+  magnification: number;
+  numericalAperture: number;
+  immersionIndex: number;
+  focusOffsetUm: number;
+  illuminationMode: IlluminationMode;
+  sourceMode: SpecimenSourceMode;
+  provenanceLabel: string;
+  seed: number;
+  /** Row-major [height * width] rendered detector intensity in [0, 1] */
+  intensityGrid: number[];
+  /** Row-major [height * width] PSF-blurred transmittance in [0, 1] */
+  transmittanceGrid: number[];
+  /** Row-major [height * width] Optical Density (-log10 T) */
+  opticalDensityGrid: number[];
+  /** Row-major [height * width] known local specimen thickness in µm */
+  thicknessGridUm: number[];
+  /** Horizontal centerline x coordinates in µm [width] */
+  profileXUm: number[];
+  /** Horizontal centerline transmittance in % [width] */
+  profileTransmittancePct: number[];
+  /** Horizontal centerline rendered intensity in % [width] */
+  profileIntensityPct: number[];
+  stats: MicrographStats;
+  /** Optional sequence of time frames for dynamic in-situ real-time simulation */
+  frames?: MicrographFrame[];
+}
 export type SensorConfig = {
   id: string;
   label: string;
@@ -67,7 +136,8 @@ export type Packet =
   | { type: "table"; value: Table }
   | { type: "scene"; value: SceneData }
   | { type: "sensor"; value: SensorConfig }
-  | { type: "sceneEvent"; value: SceneEventConfig };
+  | { type: "sceneEvent"; value: SceneEventConfig }
+  | { type: "micrograph"; value: MicrographData };
 export type Port = {
   id: string;
   label: string;
@@ -162,6 +232,7 @@ export const typeColors: Record<DataType, string> = {
   scene: "#5e89c6",
   sensor: "#489c91",
   sceneEvent: "#cf8860",
+  micrograph: "#2dd4bf",
 };
 export const categories = [
   { id: "Scene events", ka: "სცენის მოვლენები", color: "#cf8860" },

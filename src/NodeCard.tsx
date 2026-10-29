@@ -46,6 +46,7 @@ import {
   Sliders,
   SunMedium,
   Wind,
+  Microscope,
 } from "lucide-react";
 const iconMap = {
   MousePointer2,
@@ -81,6 +82,7 @@ const iconMap = {
   Sliders,
   SunMedium,
   Wind,
+  Microscope,
 };
 import {
   getDefinition,
@@ -99,6 +101,7 @@ import {
   type DataType,
 } from "./core/types";
 import { SignalPlot, PacketView } from "./Plots";
+import { MicroscopeMini } from "./MicroscopeView";
 export type FlowNode = Node<{ node: LabNode }, "lab">;
 export const FlowContext = createContext<{
   project: Project;
@@ -239,6 +242,14 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
     d.category === "Outputs" && !scope
       ? inputPacket(project, run, n.id, d.inputs[0].id)
       : undefined;
+  const isMicroscope =
+    d.id === "transmissiveMicroscope" || d.id === "microscopeDisplay";
+  const micPacket =
+    first?.type === "micrograph"
+      ? first
+      : inspect?.type === "micrograph"
+        ? inspect
+        : undefined;
   return (
     <div
       className={
@@ -303,6 +314,50 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
           />
           <button className="nodrag" onClick={() => openResults(n.id)}>
             სიგნალების დათვალიერება
+            <ArrowUpRight size={11} />
+          </button>
+        </div>
+      ) : isMicroscope ? (
+        <div className="node-body microscope-node" style={{ padding: "6px 8px", background: "#090e17", borderRadius: 6 }}>
+          {micPacket?.value ? (
+            <MicroscopeMini
+              data={micPacket.value}
+              initialParams={n.params as any}
+              width={220}
+              height={110}
+            />
+          ) : (
+            <div style={{ textAlign: "center", padding: "10px 4px" }}>
+              <Microscope size={22} color="#10b981" style={{ margin: "0 auto 4px auto", display: "block" }} />
+              <span style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>
+                {d.id === "transmissiveMicroscope"
+                  ? `${n.params.magnification ?? 40}× / ${Number(n.params.numericalAperture ?? 0.65).toFixed(2)} NA`
+                  : "დააკავშირეთ მიკროსკოპის გამოსახულება"}
+              </span>
+            </div>
+          )}
+          <button
+            className="nodrag"
+            onClick={() => openResults(n.id)}
+            style={{
+              marginTop: 6,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              background: "#065f4633",
+              border: "1px solid #05966966",
+              color: "#34d399",
+              borderRadius: 4,
+              padding: "5px 8px",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <Microscope size={12} />
+            <span>მიკროსკოპის ხედი (View Micrograph)</span>
             <ArrowUpRight size={11} />
           </button>
         </div>

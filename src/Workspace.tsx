@@ -71,6 +71,7 @@ import {
   Link2,
   Code2,
   FlaskConical,
+  Microscope,
 } from "lucide-react";
 import { BindingDialog } from "./study/components/BindingDialog";
 import {
@@ -160,6 +161,22 @@ function exportPacket(packet: Packet, name: string) {
         packet.value.rows.map((r) => r.map(q).join(",")).join("\n"),
       "text/csv",
     );
+  } else if (packet.type === "micrograph") {
+    const m = packet.value;
+    const rows: string[] = [
+      "pixel_x,pixel_y,x_um,y_um,feature_thickness_um,transmittance_pct,optical_density,rendered_intensity",
+    ];
+    for (let y = 0; y < m.height; y++) {
+      for (let x = 0; x < m.width; x++) {
+        const idx = y * m.width + x;
+        const xUm = ((x + 0.5) * m.pixelSizeUm).toFixed(3);
+        const yUm = ((y + 0.5) * m.pixelSizeUm).toFixed(3);
+        rows.push(
+          `${x},${y},${xUm},${yUm},${m.thicknessGridUm[idx]},${(m.transmittanceGrid[idx] * 100).toFixed(3)},${m.opticalDensityGrid[idx]},${m.intensityGrid[idx]}`,
+        );
+      }
+    }
+    download(name + "-micrograph.csv", rows.join("\n"), "text/csv");
   } else download(name + ".json", JSON.stringify(packet, null, 2));
 }
 export interface WorkspaceProps {
@@ -777,10 +794,16 @@ export default function Workspace({
       </label>
     );
   };
-  const openResults = useCallback((id: string) => {
-    setOutputId(id);
-    setBottom("results");
-  }, []);
+  const openResults = useCallback(
+    (id: string) => {
+      setOutputId(id);
+      setBottom("results");
+      if (!fresh && !running) {
+        computeFlow(false);
+      }
+    },
+    [fresh, running],
+  );
   const nodeRuntime = useMemo(
     () => ({
       project: executionProject,
@@ -1240,6 +1263,35 @@ export default function Workspace({
                     <Workflow size={15} />
                     {t("ფლოუს რედაქტორი", "Workflow editor")}
                   </button>
+                  {project.nodes.some(
+                    (n) =>
+                      n.kind === "transmissiveMicroscope" ||
+                      n.kind === "microscopeDisplay",
+                  ) && (
+                    <button
+                      className={
+                        "canvas-tab " +
+                        (bottom === "results" &&
+                        (outNode?.kind === "transmissiveMicroscope" ||
+                          outNode?.kind === "microscopeDisplay")
+                          ? "active"
+                          : "")
+                      }
+                      onClick={() => {
+                        const m = project.nodes.find(
+                          (n) =>
+                            n.kind === "transmissiveMicroscope" ||
+                            n.kind === "microscopeDisplay",
+                        );
+                        if (m) openResults(m.id);
+                      }}
+                      title={t("მიკროსკოპის ხედი", "Micrograph View")}
+                      style={{ color: "#059669", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}
+                    >
+                      <Microscope size={14} />
+                      <span>{t("მიკროსკოპის ხედი", "Micrograph View")}</span>
+                    </button>
+                  )}
                   <button
                     className={"canvas-tab " + (simulation ? "active" : "")}
                     onClick={() => {
@@ -1543,6 +1595,33 @@ export default function Workspace({
                     <Code2 size={14} />
                     {t("ტიპები", "Types")}
                   </button>
+                  {project.nodes.some(
+                    (n) =>
+                      n.kind === "transmissiveMicroscope" ||
+                      n.kind === "microscopeDisplay",
+                  ) && (
+                    <button
+                      className={
+                        bottom === "results" &&
+                        (outNode?.kind === "transmissiveMicroscope" ||
+                          outNode?.kind === "microscopeDisplay")
+                          ? "active"
+                          : ""
+                      }
+                      onClick={() => {
+                        const m = project.nodes.find(
+                          (n) =>
+                            n.kind === "transmissiveMicroscope" ||
+                            n.kind === "microscopeDisplay",
+                        );
+                        if (m) openResults(m.id);
+                      }}
+                      style={{ color: "#059669", fontWeight: 600 }}
+                    >
+                      <Microscope size={14} />
+                      {t("მიკროსკოპი", "Micrograph")}
+                    </button>
+                  )}
                 </div>
                 <span>
                   {fresh

@@ -5,6 +5,7 @@ export const PlotClock = createContext<{
   duration: number;
 } | null>(null);
 import type { Packet, Signal } from "./core/types";
+import { MicroscopeView, MicroscopeMini } from "./MicroscopeView";
 export function SignalPlot({
   signals,
   small = false,
@@ -146,6 +147,20 @@ export function PacketView({
   compact?: boolean;
 }) {
   if (!packet) return <span className="no-data">მონაცემები ჯერ არ არის</span>;
+  if (packet.type === "micrograph") {
+    if (compact) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", width: "100%" }}>
+          <MicroscopeMini data={packet.value} width={200} height={110} />
+          <div className="scalar-value" style={{ fontSize: 11, padding: "2px 6px" }}>
+            {packet.value.magnification}× / {packet.value.numericalAperture} NA
+            <small>{packet.value.stats.meanTransmittancePct.toFixed(1)}% T</small>
+          </div>
+        </div>
+      );
+    }
+    return <MicroscopeView data={packet.value} />;
+  }
   if (packet.type === "signal")
     return <SignalPlot small={compact} signals={[packet.value]} />;
   if (packet.type === "number")

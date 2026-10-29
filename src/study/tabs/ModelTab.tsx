@@ -28,6 +28,8 @@ import { tunnelProject } from "../../core/tunnel-demo";
 import { molecularProject } from "../../core/molecule-demo";
 import { microchannelProject } from "../../core/microchannel-demo";
 import { skyscraperProject } from "../../core/skyscraper-demo";
+import { microscopeProject } from "../../core/microscope-demo";
+import { hairTribologyProject } from "../../core/hair-tribology-demo";
 import type { Project, Object3D } from "../../core/types";
 
 interface ModelTabProps {
@@ -102,6 +104,23 @@ export function ModelTab({ study }: ModelTabProps) {
         edges: Array.isArray(raw.edges) ? (raw.edges as Project["edges"]) : [],
         tools: Array.isArray(raw.tools) ? (raw.tools as Project["tools"]) : [],
       };
+    }
+    if (
+      study.name.toLowerCase().includes("hair") ||
+      study.name.toLowerCase().includes("cuticle") ||
+      study.name.toLowerCase().includes("tribology") ||
+      study.name.toLowerCase().includes("abrasion") ||
+      study.name.toLowerCase().includes("friction wear")
+    ) {
+      return hairTribologyProject();
+    }
+    if (
+      study.name.toLowerCase().includes("microscope") ||
+      study.name.toLowerCase().includes("emulsion") ||
+      study.name.toLowerCase().includes("microcapsule") ||
+      study.domain === "optical_microscopy"
+    ) {
+      return microscopeProject();
     }
     if (
       study.name.toLowerCase().includes("microchannel") ||

@@ -166,11 +166,36 @@ export const UNIT_DIMENSIONS: Record<string, UnitDimension> = {
       { symbol: "hp", label: "Mechanical Horsepower (hp)", factor: 745.6998715822702 },
     ],
   },
+  optical_attenuation: {
+    name: "Linear Optical Attenuation",
+    baseUnit: "1/µm",
+    units: [
+      { symbol: "1/µm", label: "Inverse Micrometers (1/µm)", factor: 1 },
+      { symbol: "1/um", label: "Inverse Microns (1/um)", factor: 1 },
+      { symbol: "1/mm", label: "Inverse Millimeters (1/mm)", factor: 1e-3 },
+      { symbol: "1/cm", label: "Inverse Centimeters (1/cm)", factor: 1e-4 },
+      { symbol: "1/m", label: "Inverse Meters (1/m)", factor: 1e-6 },
+    ],
+  },
+  molar_absorptivity: {
+    name: "Molar Absorptivity",
+    baseUnit: "m²/mol",
+    units: [
+      { symbol: "m²/mol", label: "Square meters per mole (m²/mol)", factor: 1 },
+      { symbol: "m^2/mol", label: "Square meters per mole (m^2/mol)", factor: 1 },
+      { symbol: "cm²/mol", label: "Square cm per mole (cm²/mol)", factor: 1e-4 },
+      { symbol: "L/(mol*cm)", label: "Molar attenuation (L/(mol·cm))", factor: 0.1 },
+    ],
+  },
   dimensionless: {
     name: "Dimensionless / Ratio",
     baseUnit: "",
     units: [
       { symbol: "", label: "Dimensionless (pure number)", factor: 1 },
+      { symbol: "1", label: "Pure scalar ratio", factor: 1 },
+      { symbol: "OD", label: "Optical Density (OD)", factor: 1 },
+      { symbol: "×", label: "Magnification (×)", factor: 1 },
+      { symbol: "px", label: "Pixels (px)", factor: 1 },
       { symbol: "%", label: "Percentage (%)", factor: 0.01 },
       { symbol: "percent", label: "Percentage", factor: 0.01 },
       { symbol: "ppm", label: "Parts per million (ppm)", factor: 1e-6 },
