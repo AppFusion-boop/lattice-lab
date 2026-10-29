@@ -318,7 +318,7 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
           </button>
         </div>
       ) : isMicroscope ? (
-        <div className="node-body microscope-node" style={{ padding: "6px 8px", background: "#090e17", borderRadius: 6 }}>
+        <div className="node-body microscope-node" style={{ padding: "8px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
           {micPacket?.value ? (
             <MicroscopeMini
               data={micPacket.value}
@@ -327,9 +327,9 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
               height={110}
             />
           ) : (
-            <div style={{ textAlign: "center", padding: "10px 4px" }}>
-              <Microscope size={22} color="#10b981" style={{ margin: "0 auto 4px auto", display: "block" }} />
-              <span style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>
+            <div style={{ textAlign: "center", padding: "12px 6px" }}>
+              <Microscope size={22} color="#059669" style={{ margin: "0 auto 4px auto", display: "block" }} />
+              <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>
                 {d.id === "transmissiveMicroscope"
                   ? `${n.params.magnification ?? 40}× / ${Number(n.params.numericalAperture ?? 0.65).toFixed(2)} NA`
                   : "დააკავშირეთ მიკროსკოპის გამოსახულება"}
@@ -340,20 +340,21 @@ export function LabNodeCard({ data, selected }: NodeProps<FlowNode>) {
             className="nodrag"
             onClick={() => openResults(n.id)}
             style={{
-              marginTop: 6,
+              marginTop: 8,
               width: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 6,
-              background: "#065f4633",
-              border: "1px solid #05966966",
-              color: "#34d399",
-              borderRadius: 4,
-              padding: "5px 8px",
+              background: "#ecfdf5",
+              border: "1px solid #a7f3d0",
+              color: "#065f46",
+              borderRadius: 6,
+              padding: "6px 10px",
               fontSize: 11,
               fontWeight: 600,
               cursor: "pointer",
+              transition: "all 0.15s ease",
             }}
           >
             <Microscope size={12} />

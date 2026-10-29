@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from lattice_server import config, db
+from lattice_server import config, db, examples
 from lattice_server.api.analyses import router as analyses_router
 from lattice_server.api.audit import router as audit_router
 from lattice_server.api.backup_export import router as backup_export_router
@@ -50,6 +50,8 @@ async def lifespan(app: FastAPI):
     db.migrate()
     conn = db.connect()
     try:
+        # First-run examples (idempotent, insert-only; disable with LATTICE_SEED_EXAMPLES=0)
+        examples.seed_example_studies(conn)
         backup_export_repo.auto_backup_if_needed(conn)
     finally:
         conn.close()

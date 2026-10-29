@@ -193,9 +193,9 @@ export function OverviewTab({ study }: OverviewTabProps) {
         <div
           className="study-card"
           style={{
-            background: "linear-gradient(135deg, #090e17 0%, #0d1b2a 100%)",
-            color: "#f8fafc",
-            border: "1px solid #1e293b",
+            background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)",
+            color: "#1a2c26",
+            border: "1px solid #bbf7d0",
             padding: "16px 20px",
             display: "flex",
             justifyContent: "space-between",
@@ -211,36 +211,37 @@ export function OverviewTab({ study }: OverviewTabProps) {
                 width: 44,
                 height: 44,
                 borderRadius: 8,
-                background: "rgba(5, 150, 105, 0.2)",
-                border: "1px solid #05966966",
+                background: "#d1fae5",
+                border: "1px solid #a7f3d0",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                color: "#065f46",
               }}
             >
-              <Microscope size={24} color="#34d399" />
+              <Microscope size={24} />
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#f1f5f9" }}>
+                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#065f46" }}>
                   {tr("ციფრული გამავალი მიკროსკოპის ხედი", "Digital Transmissive Micrograph View")}
                 </h4>
                 <span
                   style={{
                     fontSize: 10,
-                    background: "#05966933",
-                    color: "#34d399",
-                    padding: "2px 6px",
+                    background: "#dcfce7",
+                    color: "#166534",
+                    padding: "2px 7px",
                     borderRadius: 4,
-                    border: "1px solid #05966966",
-                    fontWeight: 600,
+                    border: "1px solid #86efac",
+                    fontWeight: 650,
                   }}
                 >
                   Live 2D Wave Optics
                 </span>
               </div>
-              <p style={{ margin: "4px 0 0 0", color: "#94a3b8", fontSize: 12 }}>
+              <p style={{ margin: "4px 0 0 0", color: "#4b5563", fontSize: 12 }}>
                 {tr(
                   "დაათვალიერეთ სიმულირებული მიკროგრაფი, აბეს დიფრაქციული გაბუნდოვნება (PSF), ლამბერტ-ბერის შთანთქმა და დენსიტომეტრიული ანალიზი.",
                   "Inspect live simulated 2D micrograph, Abbe diffraction PSF blur, Beer–Lambert transmission, and optical densitometry.",
@@ -276,12 +277,13 @@ export function OverviewTab({ study }: OverviewTabProps) {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                background: "transparent",
-                color: "#94a3b8",
-                border: "1px solid #334155",
+                background: "#ffffff",
+                color: "#374151",
+                border: "1px solid #cbd5e1",
                 borderRadius: 6,
                 padding: "8px 14px",
                 fontSize: 12,
+                fontWeight: 600,
                 cursor: "pointer",
               }}
             >

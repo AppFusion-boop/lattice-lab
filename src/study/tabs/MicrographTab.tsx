@@ -391,11 +391,11 @@ export function MicrographTab({ study }: MicrographTabProps) {
             {/* In-Situ Real-Time Friction & Abrasion Wear Simulation Transport */}
             <div
               style={{
-                marginBottom: 12,
+                marginBottom: 14,
                 padding: "10px 14px",
-                background: "#090e17",
-                borderRadius: 6,
-                border: "1px solid #1e293b",
+                background: "#f8fafc",
+                borderRadius: 8,
+                border: "1px solid #e2e8f0",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -413,11 +413,12 @@ export function MicrographTab({ study }: MicrographTabProps) {
                     background: isPlaying ? "#e11d48" : "#059669",
                     color: "#ffffff",
                     border: "none",
-                    borderRadius: 5,
-                    padding: "5px 12px",
+                    borderRadius: 6,
+                    padding: "6px 14px",
                     fontSize: 11,
                     fontWeight: 650,
                     cursor: "pointer",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
                   }}
                   title="Run real-time in-situ friction wear simulation over 5.0 seconds"
                 >
@@ -432,26 +433,28 @@ export function MicrographTab({ study }: MicrographTabProps) {
                     applyWearAtTime(0);
                   }}
                   style={{
-                    background: "#1e293b",
-                    color: "#94a3b8",
-                    border: "1px solid #334155",
-                    borderRadius: 5,
-                    padding: "4px 8px",
-                    fontSize: 10,
+                    background: "#ffffff",
+                    color: "#475569",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    padding: "5px 10px",
+                    fontSize: 11,
+                    fontWeight: 600,
                     cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}
                   title="Reset timeline to t=0s"
                 >
                   t=0s
                 </button>
 
-                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#34d399", fontWeight: 600 }}>
+                <span style={{ fontSize: 11, fontFamily: "var(--mono, monospace)", color: "#059669", fontWeight: 700 }}>
                   t = {playbackTime.toFixed(2)}s / 5.00s
                 </span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px", maxWidth: 320 }}>
-                <span style={{ fontSize: 9, color: "#94a3b8", whiteSpace: "nowrap" }}>Rough Cuticle (36%)</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px", maxWidth: 340 }}>
+                <span style={{ fontSize: 10, color: "#64748b", fontWeight: 550, whiteSpace: "nowrap" }}>Rough Cuticle (36%)</span>
                 <input
                   type="range"
                   min="0"
@@ -463,15 +466,20 @@ export function MicrographTab({ study }: MicrographTabProps) {
                     setPlaybackTime(t);
                     applyWearAtTime(t);
                   }}
-                  style={{ flex: 1, accentColor: "#10b981", height: 4 }}
+                  style={{ flex: 1, accentColor: "#059669", height: 5 }}
                 />
-                <span style={{ fontSize: 9, color: "#34d399", whiteSpace: "nowrap" }}>Sanded Smooth (6%)</span>
+                <span style={{ fontSize: 10, color: "#059669", fontWeight: 650, whiteSpace: "nowrap" }}>Sanded Smooth (6%)</span>
               </div>
             </div>
 
             <MicroscopeView
               data={simResult.micrograph}
               initialParams={micParams}
+              currentTime={playbackTime}
+              onTimeChange={(t) => {
+                setPlaybackTime(t);
+                applyWearAtTime(t);
+              }}
             />
           </div>
 

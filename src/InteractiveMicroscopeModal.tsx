@@ -10,13 +10,14 @@ import {
   Camera,
   Sun,
   Maximize2,
-  Sliders,
   Compass,
-  Layers,
-  Info,
-  Check,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Clock,
 } from "lucide-react";
-import type { MicrographData } from "./core/types";
+import type { MicrographData, MicrographFrame } from "./core/types";
 import {
   simulateTransmissiveMicroscope,
   type TransmissiveMicroscopeParams,
@@ -33,13 +34,17 @@ export interface InteractiveMicroscopeModalProps {
   onClose: () => void;
   data: MicrographData;
   initialParams?: Partial<TransmissiveMicroscopeParams>;
+  initialTime?: number;
+  onTimeChange?: (t: number) => void;
 }
 
 type InteractiveTool = "pan" | "caliper" | "probe";
 
 function chooseNiceScaleBarUm(fovUm: number): number {
   const target = fovUm * 0.22;
-  const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000, 2000];
+  const steps = [
+    0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000, 2000,
+  ];
   let best = steps[0];
   for (const s of steps) {
     if (s <= target * 1.35) best = s;
@@ -52,6 +57,8 @@ export function InteractiveMicroscopeModal({
   onClose,
   data,
   initialParams,
+  initialTime = 0.0,
+  onTimeChange,
 }: InteractiveMicroscopeModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -83,10 +90,30 @@ export function InteractiveMicroscopeModal({
     ...initialParams,
   }));
 
+  const isHairSpecimen = useMemo(() => {
+    return (
+      (Math.abs(params.matrixRefractiveIndex - 1.54) < 0.02 &&
+        Math.abs(params.featureRefractiveIndex - 1.51) < 0.02) ||
+      data.provenanceLabel.toLowerCase().includes("hair") ||
+      data.provenanceLabel.toLowerCase().includes("cuticle")
+    );
+  }, [params.matrixRefractiveIndex, params.featureRefractiveIndex, data.provenanceLabel]);
+
+  // Simulation Timeline State
+  const [simTime, setSimTime] = useState<number>(initialTime);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
+  const maxSimTime = useMemo(() => {
+    if (data.frames && data.frames.length > 0) {
+      return data.frames[data.frames.length - 1].time || 5.0;
+    }
+    return 5.0;
+  }, [data.frames]);
+
   // Visualization View Mode and Palettes
-  const [viewMode, setViewMode] = useState<"sem_topography" | "optical_transmission">(
-    "sem_topography",
-  );
+  const [viewMode, setViewMode] = useState<
+    "sem_topography" | "optical_transmission"
+  >("sem_topography");
   const [lut, setLut] = useState<ColorLut>("sem_topography");
   const [azimuthDeg, setAzimuthDeg] = useState<number>(315);
   const [elevationDeg, setElevationDeg] = useState<number>(45);
@@ -96,11 +123,17 @@ export function InteractiveMicroscopeModal({
   const [zoom, setZoom] = useState<number>(1.0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
   // Inspection Crosshair & Caliper
-  const [selectedRow, setSelectedRow] = useState<number>(() => Math.floor(data.height / 2));
-  const [profileMode, setProfileMode] = useState<"elevation" | "transmittance">("elevation");
+  const [selectedRow, setSelectedRow] = useState<number>(() =>
+    Math.floor(data.height / 2),
+  );
+  const [profileMode, setProfileMode] = useState<
+    "elevation" | "transmittance"
+  >("elevation");
   const [hoverInfo, setHoverInfo] = useState<{
     xUm: number;
     yUm: number;
@@ -111,12 +144,16 @@ export function InteractiveMicroscopeModal({
   } | null>(null);
 
   // Caliper Points in Specimen Space (µm)
-  const [caliperStart, setCaliperStart] = useState<{ xUm: number; yUm: number; zUm: number } | null>(
-    null,
-  );
-  const [caliperEnd, setCaliperEnd] = useState<{ xUm: number; yUm: number; zUm: number } | null>(
-    null,
-  );
+  const [caliperStart, setCaliperStart] = useState<{
+    xUm: number;
+    yUm: number;
+    zUm: number;
+  } | null>(null);
+  const [caliperEnd, setCaliperEnd] = useState<{
+    xUm: number;
+    yUm: number;
+    zUm: number;
+  } | null>(null);
   const [isMeasuring, setIsMeasuring] = useState<boolean>(false);
 
   // Close on Escape key
@@ -128,15 +165,95 @@ export function InteractiveMicroscopeModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  // Simulation Seek handler
+  const handleSeek = (t: number) => {
+    const clampedT = Math.max(0, Math.min(maxSimTime, t));
+    setSimTime(clampedT);
+    if (onTimeChange) {
+      onTimeChange(clampedT);
+    }
+
+    if (isHairSpecimen && (!data.frames || data.frames.length === 0)) {
+      // Archard wear model for rubbing hair cuticle surfaces:
+      // Scale roughness fraction erodes from 36% down toward 6%
+      const scaleFrac = Math.max(6.0, 36.0 - 6.0 * clampedT);
+      // Specimen cuticle thickness erodes from 32 µm to 18 µm
+      const thick = Math.max(18.0, 32.0 - 2.8 * clampedT);
+      // Micro-vibration stage drift
+      const drift = 0.25 * Math.sin(2 * Math.PI * 1.5 * clampedT);
+
+      setParams((prev) => ({
+        ...prev,
+        featureVolumeFractionPct: Number(scaleFrac.toFixed(1)),
+        matrixThicknessUm: Number(thick.toFixed(1)),
+        focusOffsetUm: Number(drift.toFixed(2)),
+      }));
+    }
+  };
+
+  // Real-time animation loop
+  useEffect(() => {
+    if (!isPlaying) return;
+    let last = performance.now();
+    let animId: number;
+
+    const step = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+
+      setSimTime((prev) => {
+        const next = prev + dt;
+        if (next >= maxSimTime) {
+          setIsPlaying(false);
+          handleSeek(maxSimTime);
+          return maxSimTime;
+        }
+        handleSeek(next);
+        return next;
+      });
+
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying, maxSimTime]);
+
+  // Find precomputed frame if available from workflow engine
+  const activeFrame: MicrographFrame | null = useMemo(() => {
+    if (!data.frames || data.frames.length === 0) return null;
+    let best = data.frames[0];
+    let minDiff = Math.abs(best.time - simTime);
+    for (let i = 1; i < data.frames.length; i++) {
+      const diff = Math.abs(data.frames[i].time - simTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        best = data.frames[i];
+      }
+    }
+    return best;
+  }, [data.frames, simTime]);
+
   // Re-run physical optics simulation on parameter change (deterministic, <2ms)
   const activeMicrograph = useMemo(() => {
+    if (activeFrame) {
+      return {
+        ...data,
+        intensityGrid: activeFrame.intensityGrid,
+        transmittanceGrid: activeFrame.transmittanceGrid || data.transmittanceGrid,
+        opticalDensityGrid: activeFrame.opticalDensityGrid || data.opticalDensityGrid,
+        thicknessGridUm: activeFrame.thicknessGridUm || data.thicknessGridUm,
+        profileIntensityPct: activeFrame.profileIntensityPct || data.profileIntensityPct,
+        stats: activeFrame.stats,
+      };
+    }
     try {
       const res = simulateTransmissiveMicroscope(params);
       return res.micrograph;
     } catch {
       return data;
     }
-  }, [params, data]);
+  }, [params, data, activeFrame]);
 
   // 3D SEM Topographic Relief Shading
   const topoGrid = useMemo(() => {
@@ -169,7 +286,10 @@ export function InteractiveMicroscopeModal({
 
   // Current visible FOV in µm and dynamic scale bar
   const visibleFovUm = (sW / N) * activeMicrograph.fovUm;
-  const dynamicScaleBarUm = useMemo(() => chooseNiceScaleBarUm(visibleFovUm), [visibleFovUm]);
+  const dynamicScaleBarUm = useMemo(
+    () => chooseNiceScaleBarUm(visibleFovUm),
+    [visibleFovUm],
+  );
 
   // Render main viewport canvas
   useEffect(() => {
@@ -185,10 +305,15 @@ export function InteractiveMicroscopeModal({
     const offCtx = offscreen.getContext("2d");
     if (!offCtx) return;
 
-    const activeGrid = viewMode === "sem_topography" ? topoGrid : activeMicrograph.intensityGrid;
+    const activeGrid =
+      viewMode === "sem_topography" ? topoGrid : activeMicrograph.intensityGrid;
     const imgData = offCtx.createImageData(N, M);
     for (let i = 0; i < N * M; i++) {
-      const [r, g, b] = mapLut(activeGrid[i] ?? 0, lut, activeMicrograph.wavelengthNm);
+      const [r, g, b] = mapLut(
+        activeGrid[i] ?? 0,
+        lut,
+        activeMicrograph.wavelengthNm,
+      );
       const p = i * 4;
       imgData.data[p] = r;
       imgData.data[p + 1] = g;
@@ -199,7 +324,7 @@ export function InteractiveMicroscopeModal({
 
     // 2. Clear & Draw zoomed/panned view on display canvas
     ctx.clearRect(0, 0, displaySize, displaySize);
-    ctx.imageSmoothingEnabled = zoom > 4 ? false : true;
+    ctx.imageSmoothingEnabled = zoom <= 4;
     ctx.drawImage(offscreen, sX, sY, sW, sH, 0, 0, displaySize, displaySize);
 
     // 3. Draw Selected Horizontal Scanline if within visible window
@@ -232,7 +357,6 @@ export function InteractiveMicroscopeModal({
       const p2 = caliperEnd ? toCanvas(caliperEnd) : p1;
 
       ctx.save();
-      // Glowing line
       ctx.strokeStyle = "#38bdf8";
       ctx.lineWidth = 2.0;
       ctx.shadowColor = "rgba(56, 189, 248, 0.6)";
@@ -242,14 +366,12 @@ export function InteractiveMicroscopeModal({
       ctx.lineTo(p2.cx, p2.cy);
       ctx.stroke();
 
-      // End Ticks & Circles
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.arc(p1.cx, p1.cy, 4, 0, Math.PI * 2);
       ctx.arc(p2.cx, p2.cy, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Measurement tag
       if (caliperEnd) {
         const dX = caliperEnd.xUm - caliperStart.xUm;
         const dY = caliperEnd.yUm - caliperStart.yUm;
@@ -309,10 +431,8 @@ export function InteractiveMicroscopeModal({
     ctx.lineWidth = 1;
     ctx.strokeRect(mmX, mmY, mmSize, mmSize);
 
-    // Miniature specimen
     ctx.drawImage(offscreen, mmX, mmY, mmSize, mmSize);
 
-    // Viewport locator box
     const boxX = mmX + (sX / N) * mmSize;
     const boxY = mmY + (sY / M) * mmSize;
     const boxW = Math.max(4, (sW / N) * mmSize);
@@ -380,7 +500,8 @@ export function InteractiveMicroscopeModal({
       ((activeMicrograph.thicknessGridUm[yp * N + px] ?? 0) -
         (activeMicrograph.thicknessGridUm[ym * N + px] ?? 0)) /
       dyUm;
-    const slopeDeg = (Math.atan(Math.sqrt(dzdx * dzdx + dzdy * dzdy)) * 180) / Math.PI;
+    const slopeDeg =
+      (Math.atan(Math.sqrt(dzdx * dzdx + dzdy * dzdy)) * 180) / Math.PI;
 
     return { gridX, gridY, px, py, xUm, yUm, zUm, slopeDeg, tPct, od };
   };
@@ -400,7 +521,6 @@ export function InteractiveMicroscopeModal({
         setIsMeasuring(false);
       }
     } else {
-      // Probe / scanline select
       setSelectedRow(coords.py);
     }
   };
@@ -437,10 +557,11 @@ export function InteractiveMicroscopeModal({
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.15 : 0.87;
-    setZoom((prev) => Math.max(1.0, Math.min(12.0, Number((prev * factor).toFixed(2)))));
+    setZoom((prev) =>
+      Math.max(1.0, Math.min(12.0, Number((prev * factor).toFixed(2)))),
+    );
   };
 
-  // Reset Stage & Pan/Zoom
   const handleResetStage = () => {
     setZoom(1.0);
     setPan({ x: 0, y: 0 });
@@ -449,18 +570,16 @@ export function InteractiveMicroscopeModal({
     setIsMeasuring(false);
   };
 
-  // Export Snapshot PNG with calibrated acquisition metadata
   const handleExportPng = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `micrograph-ocular-${params.magnification}x-${viewMode}-${Date.now()}.png`;
+    a.download = `micrograph-ocular-${params.magnification}x-${viewMode}-t${simTime.toFixed(2)}s.png`;
     a.click();
   };
 
-  // Objectives Switcher
   const handleObjectiveSelect = (mag: number, na: number, immersion = 1.0) => {
     setParams((prev) => ({
       ...prev,
@@ -470,7 +589,6 @@ export function InteractiveMicroscopeModal({
     }));
   };
 
-  // Selected row cross-section profile data
   const rowProfileT = useMemo(() => {
     const arr: number[] = [];
     const offset = selectedRow * N;
@@ -501,7 +619,8 @@ export function InteractiveMicroscopeModal({
   }, [rowProfileZ]);
 
   const isDefocused =
-    Math.abs(params.focusOffsetUm) > activeMicrograph.stats.depthOfFieldUm * 0.5;
+    Math.abs(params.focusOffsetUm) >
+    activeMicrograph.stats.depthOfFieldUm * 0.5;
 
   if (!isOpen) return null;
 
@@ -513,8 +632,8 @@ export function InteractiveMicroscopeModal({
         left: 0,
         right: 0,
         bottom: 0,
-        background: "rgba(3, 7, 18, 0.88)",
-        backdropFilter: "blur(6px)",
+        background: "rgba(15, 23, 42, 0.55)",
+        backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -525,16 +644,16 @@ export function InteractiveMicroscopeModal({
     >
       <div
         style={{
-          background: "#090e17",
-          color: "#f8fafc",
+          background: "#ffffff",
+          color: "#0f172a",
           borderRadius: 12,
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.75)",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           width: "100%",
-          maxWidth: 1080,
-          maxHeight: "94vh",
+          maxWidth: 1120,
+          maxHeight: "96vh",
           display: "flex",
           flexDirection: "column",
-          border: "1px solid #1e293b",
+          border: "1px solid #e2e8f0",
           overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -546,8 +665,8 @@ export function InteractiveMicroscopeModal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "14px 20px",
-            background: "#0d1524",
-            borderBottom: "1px solid #1e293b",
+            background: "#f8fafc",
+            borderBottom: "1px solid #e2e8f0",
             flexWrap: "wrap",
             gap: 12,
           }}
@@ -555,24 +674,36 @@ export function InteractiveMicroscopeModal({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 34,
+                height: 34,
                 borderRadius: 8,
-                background: "rgba(16, 185, 129, 0.15)",
+                background: "#ecfdf5",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "1px solid rgba(16, 185, 129, 0.35)",
+                border: "1px solid #a7f3d0",
+                color: "#059669",
               }}
             >
-              <Maximize2 size={16} color="#10b981" />
+              <Maximize2 size={16} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#f8fafc" }}>
-                {tr("ინტერაქტიული მიკროსკოპის ოკულარი", "Interactive Microscope Workstation")}
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "#0f172a",
+                }}
+              >
+                {tr(
+                  "ინტერაქტიული მიკროსკოპის ოკულარი",
+                  "Interactive Microscope Workstation",
+                )}
               </h3>
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                {data.provenanceLabel} · {params.magnification}× Objective · {activeMicrograph.numericalAperture.toFixed(2)} NA
+              <span style={{ fontSize: 12, color: "#64748b" }}>
+                {data.provenanceLabel} · {params.magnification}× Objective ·{" "}
+                {activeMicrograph.numericalAperture.toFixed(2)} NA
               </span>
             </div>
           </div>
@@ -583,10 +714,13 @@ export function InteractiveMicroscopeModal({
                 fontSize: 11,
                 padding: "3px 8px",
                 borderRadius: 4,
-                background: isDefocused ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                color: isDefocused ? "#fbbf24" : "#34d399",
-                border: `1px solid ${isDefocused ? "rgba(245, 158, 11, 0.35)" : "rgba(16, 185, 129, 0.35)"}`,
-                fontFamily: "monospace",
+                background: isDefocused
+                  ? "#fffbeb"
+                  : "#ecfdf5",
+                color: isDefocused ? "#92400e" : "#065f46",
+                border: `1px solid ${isDefocused ? "#fde68a" : "#a7f3d0"}`,
+                fontFamily: "var(--mono, monospace)",
+                fontWeight: 600,
               }}
             >
               {isDefocused
@@ -599,7 +733,7 @@ export function InteractiveMicroscopeModal({
               style={{
                 background: "transparent",
                 border: "none",
-                color: "#94a3b8",
+                color: "#64748b",
                 cursor: "pointer",
                 padding: 4,
                 display: "flex",
@@ -618,14 +752,200 @@ export function InteractiveMicroscopeModal({
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 380px",
-            gap: 16,
-            padding: 16,
+            gap: 14,
+            padding: 14,
             overflowY: "auto",
             flex: 1,
           }}
         >
-          {/* Left Column: Interactive Stage Viewport */}
+          {/* Left Column: Interactive Stage Viewport & Timeline */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Live Simulation Transport Bar */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                background: "#f8fafc",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #e2e8f0",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: isPlaying ? "#e11d48" : "#059669",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "5px 12px",
+                    fontSize: 11,
+                    fontWeight: 650,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                  }}
+                  title={
+                    isPlaying
+                      ? "Pause simulation"
+                      : "Run in-situ real-time simulation"
+                  }
+                >
+                  {isPlaying ? (
+                    <Pause size={11} fill="currentColor" />
+                  ) : (
+                    <Play size={11} fill="currentColor" />
+                  )}
+                  <span>{isPlaying ? "Pause" : "Run In-Situ"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlaying(false);
+                    handleSeek(0);
+                  }}
+                  style={{
+                    background: "#ffffff",
+                    color: "#475569",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 5,
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 3,
+                    fontWeight: 600,
+                  }}
+                  title="Reset timeline to start (t=0s)"
+                >
+                  <RotateCcw size={10} />
+                  <span>0s</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSeek(Math.max(0, simTime - 0.25))}
+                  style={{
+                    background: "#ffffff",
+                    color: "#475569",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 5,
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                  }}
+                  title="Step back 0.25s"
+                >
+                  <SkipBack size={10} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleSeek(Math.min(maxSimTime, simTime + 0.25))
+                  }
+                  style={{
+                    background: "#ffffff",
+                    color: "#475569",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 5,
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                  }}
+                  title="Step forward 0.25s"
+                >
+                  <SkipForward size={10} />
+                </button>
+
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "var(--mono, monospace)",
+                    color: "#059669",
+                    fontWeight: 700,
+                    minWidth: 88,
+                  }}
+                >
+                  t = {simTime.toFixed(2)}s / {maxSimTime.toFixed(2)}s
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flex: "1 1 180px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "#64748b",
+                    whiteSpace: "nowrap",
+                    fontWeight: 550,
+                  }}
+                >
+                  t=0s
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max={maxSimTime}
+                  step="0.05"
+                  value={simTime}
+                  onChange={(e) => handleSeek(Number(e.target.value))}
+                  style={{
+                    flex: 1,
+                    accentColor: "#059669",
+                    height: 5,
+                    cursor: "pointer",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "#64748b",
+                    whiteSpace: "nowrap",
+                    fontWeight: 550,
+                  }}
+                >
+                  {maxSimTime.toFixed(0)}s
+                </span>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 10,
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  background: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  color: "#1d4ed8",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontFamily: "var(--mono, monospace)",
+                  fontWeight: 600,
+                }}
+              >
+                <Clock size={11} />
+                <span>
+                  {isHairSpecimen
+                    ? `Step Δh: ${(0.85 * Math.max(0.06, (36.0 - 6.0 * simTime) / 36.0)).toFixed(2)} µm · φ: ${Math.max(6.0, 36.0 - 6.0 * simTime).toFixed(1)}%`
+                    : `Frame ${((simTime / maxSimTime) * 24 + 1).toFixed(0)}/25`}
+                </span>
+              </div>
+            </div>
+
             {/* Viewport Toolbar */}
             <div
               style={{
@@ -634,10 +954,10 @@ export function InteractiveMicroscopeModal({
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: 8,
-                background: "#0c1322",
+                background: "#f8fafc",
                 padding: "6px 10px",
                 borderRadius: 8,
-                border: "1px solid #1e293b",
+                border: "1px solid #e2e8f0",
               }}
             >
               {/* Mode Toggle */}
@@ -652,13 +972,18 @@ export function InteractiveMicroscopeModal({
                   style={{
                     fontSize: 11,
                     fontWeight: 650,
-                    padding: "4px 8px",
+                    padding: "4px 10px",
                     borderRadius: 5,
                     border: "1px solid",
                     cursor: "pointer",
-                    background: viewMode === "sem_topography" ? "#047857" : "#1e293b",
-                    color: viewMode === "sem_topography" ? "#ffffff" : "#94a3b8",
-                    borderColor: viewMode === "sem_topography" ? "#10b981" : "#334155",
+                    background:
+                      viewMode === "sem_topography" ? "#059669" : "#ffffff",
+                    color:
+                      viewMode === "sem_topography" ? "#ffffff" : "#475569",
+                    borderColor:
+                      viewMode === "sem_topography" ? "#059669" : "#cbd5e1",
+                    boxShadow:
+                      viewMode === "sem_topography" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
                   }}
                 >
                   ⛰️ SEM 3D Topography
@@ -673,13 +998,24 @@ export function InteractiveMicroscopeModal({
                   style={{
                     fontSize: 11,
                     fontWeight: 650,
-                    padding: "4px 8px",
+                    padding: "4px 10px",
                     borderRadius: 5,
                     border: "1px solid",
                     cursor: "pointer",
-                    background: viewMode === "optical_transmission" ? "#047857" : "#1e293b",
-                    color: viewMode === "optical_transmission" ? "#ffffff" : "#94a3b8",
-                    borderColor: viewMode === "optical_transmission" ? "#10b981" : "#334155",
+                    background:
+                      viewMode === "optical_transmission"
+                        ? "#059669"
+                        : "#ffffff",
+                    color:
+                      viewMode === "optical_transmission"
+                        ? "#ffffff"
+                        : "#475569",
+                    borderColor:
+                      viewMode === "optical_transmission"
+                        ? "#059669"
+                        : "#cbd5e1",
+                    boxShadow:
+                      viewMode === "optical_transmission" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
                   }}
                 >
                   🔬 Optical Transmission
@@ -696,13 +1032,16 @@ export function InteractiveMicroscopeModal({
                     alignItems: "center",
                     gap: 4,
                     fontSize: 11,
-                    padding: "4px 8px",
+                    padding: "4px 9px",
                     borderRadius: 5,
                     border: "1px solid",
                     cursor: "pointer",
-                    background: activeTool === "pan" ? "#1e293b" : "transparent",
-                    color: activeTool === "pan" ? "#38bdf8" : "#94a3b8",
-                    borderColor: activeTool === "pan" ? "#38bdf8" : "#334155",
+                    background:
+                      activeTool === "pan" ? "#e0f2fe" : "#ffffff",
+                    color: activeTool === "pan" ? "#0369a1" : "#475569",
+                    borderColor:
+                      activeTool === "pan" ? "#0284c7" : "#cbd5e1",
+                    fontWeight: activeTool === "pan" ? 650 : 500,
                   }}
                   title="Drag stage to pan view"
                 >
@@ -722,13 +1061,16 @@ export function InteractiveMicroscopeModal({
                     alignItems: "center",
                     gap: 4,
                     fontSize: 11,
-                    padding: "4px 8px",
+                    padding: "4px 9px",
                     borderRadius: 5,
                     border: "1px solid",
                     cursor: "pointer",
-                    background: activeTool === "caliper" ? "#1e293b" : "transparent",
-                    color: activeTool === "caliper" ? "#38bdf8" : "#94a3b8",
-                    borderColor: activeTool === "caliper" ? "#38bdf8" : "#334155",
+                    background:
+                      activeTool === "caliper" ? "#e0f2fe" : "#ffffff",
+                    color: activeTool === "caliper" ? "#0369a1" : "#475569",
+                    borderColor:
+                      activeTool === "caliper" ? "#0284c7" : "#cbd5e1",
+                    fontWeight: activeTool === "caliper" ? 650 : 500,
                   }}
                   title="Click two points on specimen to measure physical distance"
                 >
@@ -743,13 +1085,16 @@ export function InteractiveMicroscopeModal({
                     alignItems: "center",
                     gap: 4,
                     fontSize: 11,
-                    padding: "4px 8px",
+                    padding: "4px 9px",
                     borderRadius: 5,
                     border: "1px solid",
                     cursor: "pointer",
-                    background: activeTool === "probe" ? "#1e293b" : "transparent",
-                    color: activeTool === "probe" ? "#38bdf8" : "#94a3b8",
-                    borderColor: activeTool === "probe" ? "#38bdf8" : "#334155",
+                    background:
+                      activeTool === "probe" ? "#e0f2fe" : "#ffffff",
+                    color: activeTool === "probe" ? "#0369a1" : "#475569",
+                    borderColor:
+                      activeTool === "probe" ? "#0284c7" : "#cbd5e1",
+                    fontWeight: activeTool === "probe" ? 650 : 500,
                   }}
                   title="Inspect point densitometer & select scanline"
                 >
@@ -762,31 +1107,44 @@ export function InteractiveMicroscopeModal({
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <button
                   type="button"
-                  onClick={() => setZoom((z) => Math.max(1.0, Number((z / 1.25).toFixed(2))))}
+                  onClick={() =>
+                    setZoom((z) => Math.max(1.0, Number((z / 1.25).toFixed(2))))
+                  }
                   style={{
-                    padding: "4px 7px",
-                    background: "#1e293b",
-                    border: "1px solid #334155",
-                    color: "#f8fafc",
-                    borderRadius: 4,
+                    padding: "4px 8px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#334155",
+                    borderRadius: 5,
                     cursor: "pointer",
                   }}
                   title="Zoom Out"
                 >
                   <ZoomOut size={12} />
                 </button>
-                <span style={{ fontSize: 11, fontFamily: "monospace", minWidth: 38, textAlign: "center" }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "var(--mono, monospace)",
+                    fontWeight: 650,
+                    minWidth: 42,
+                    textAlign: "center",
+                    color: "#0f172a",
+                  }}
+                >
                   {zoom.toFixed(1)}×
                 </span>
                 <button
                   type="button"
-                  onClick={() => setZoom((z) => Math.min(12.0, Number((z * 1.25).toFixed(2))))}
+                  onClick={() =>
+                    setZoom((z) => Math.min(12.0, Number((z * 1.25).toFixed(2))))
+                  }
                   style={{
-                    padding: "4px 7px",
-                    background: "#1e293b",
-                    border: "1px solid #334155",
-                    color: "#f8fafc",
-                    borderRadius: 4,
+                    padding: "4px 8px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#334155",
+                    borderRadius: 5,
                     cursor: "pointer",
                   }}
                   title="Zoom In"
@@ -797,16 +1155,17 @@ export function InteractiveMicroscopeModal({
                   type="button"
                   onClick={handleResetStage}
                   style={{
-                    padding: "4px 7px",
-                    background: "#1e293b",
-                    border: "1px solid #334155",
-                    color: "#94a3b8",
-                    borderRadius: 4,
+                    padding: "4px 8px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#475569",
+                    borderRadius: 5,
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 3,
-                    fontSize: 10,
+                    fontSize: 10.5,
+                    fontWeight: 550,
                   }}
                   title="Reset Stage (1× zoom & center)"
                 >
@@ -824,12 +1183,14 @@ export function InteractiveMicroscopeModal({
                   alignItems: "center",
                   gap: 4,
                   fontSize: 11,
-                  padding: "4px 8px",
-                  background: "#047857",
-                  border: "1px solid #10b981",
+                  padding: "5px 10px",
+                  background: "#059669",
+                  border: "1px solid #059669",
                   color: "#ffffff",
-                  borderRadius: 5,
+                  borderRadius: 6,
                   cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
                 }}
                 title="Download high-resolution micrograph snapshot"
               >
@@ -846,17 +1207,15 @@ export function InteractiveMicroscopeModal({
                 height: displaySize,
                 borderRadius: 8,
                 overflow: "hidden",
-                border: "1px solid #1e293b",
-                background: "#040711",
+                border: "1.5px solid #cbd5e1",
+                background: "#0b1120",
                 cursor:
                   activeTool === "pan"
                     ? isPanning
                       ? "grabbing"
                       : "grab"
-                    : activeTool === "caliper"
-                      ? "crosshair"
-                      : "crosshair",
-                boxShadow: "inset 0 0 40px rgba(0, 0, 0, 0.7)",
+                    : "crosshair",
+                boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
                 margin: "0 auto",
               }}
             >
@@ -877,31 +1236,35 @@ export function InteractiveMicroscopeModal({
                   position: "absolute",
                   top: 10,
                   right: 10,
-                  background: "rgba(9, 14, 23, 0.85)",
-                  border: "1px solid #1e293b",
+                  background: "rgba(15, 23, 42, 0.8)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
                   borderRadius: 5,
                   padding: "4px 8px",
                   fontSize: 10,
-                  color: "#94a3b8",
-                  fontFamily: "monospace",
+                  color: "#f8fafc",
+                  fontFamily: "var(--mono, monospace)",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
                 }}
               >
-                <span>FOV: {visibleFovUm.toFixed(1)} × {visibleFovUm.toFixed(1)} µm</span>
+                <span>
+                  FOV: {visibleFovUm.toFixed(1)} × {visibleFovUm.toFixed(1)} µm
+                </span>
                 <span>·</span>
-                <span style={{ color: "#34d399" }}>{(params.magnification * zoom).toFixed(0)}× Total Mag</span>
+                <span style={{ color: "#34d399", fontWeight: 700 }}>
+                  {(params.magnification * zoom).toFixed(0)}× Total Mag
+                </span>
               </div>
             </div>
 
             {/* Horizontal Line Cross-Section Profile */}
             <div
               style={{
-                background: "#0c1322",
-                border: "1px solid #1e293b",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
                 borderRadius: 8,
-                padding: "8px 12px",
+                padding: "10px 14px",
               }}
             >
               <div
@@ -909,10 +1272,12 @@ export function InteractiveMicroscopeModal({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 6,
+                  marginBottom: 8,
                 }}
               >
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>
+                <span
+                  style={{ fontSize: 11.5, fontWeight: 650, color: "#0f172a" }}
+                >
                   {profileMode === "elevation"
                     ? `Surface Elevation z(x) Profile at y = ${((selectedRow + 0.5) * activeMicrograph.pixelSizeUm).toFixed(1)} µm`
                     : `Transmittance Profile T(x) at y = ${((selectedRow + 0.5) * activeMicrograph.pixelSizeUm).toFixed(1)} µm`}
@@ -923,13 +1288,17 @@ export function InteractiveMicroscopeModal({
                     onClick={() => setProfileMode("elevation")}
                     style={{
                       fontSize: 10,
-                      padding: "2px 6px",
-                      borderRadius: 4,
+                      padding: "3px 8px",
+                      borderRadius: 5,
                       border: "1px solid",
                       cursor: "pointer",
-                      background: profileMode === "elevation" ? "#047857" : "#1e293b",
-                      color: profileMode === "elevation" ? "#ffffff" : "#94a3b8",
-                      borderColor: profileMode === "elevation" ? "#10b981" : "#334155",
+                      background:
+                        profileMode === "elevation" ? "#059669" : "#ffffff",
+                      color:
+                        profileMode === "elevation" ? "#ffffff" : "#475569",
+                      borderColor:
+                        profileMode === "elevation" ? "#059669" : "#cbd5e1",
+                      fontWeight: 600,
                     }}
                   >
                     ⛰️ z(x) µm
@@ -939,13 +1308,17 @@ export function InteractiveMicroscopeModal({
                     onClick={() => setProfileMode("transmittance")}
                     style={{
                       fontSize: 10,
-                      padding: "2px 6px",
-                      borderRadius: 4,
+                      padding: "3px 8px",
+                      borderRadius: 5,
                       border: "1px solid",
                       cursor: "pointer",
-                      background: profileMode === "transmittance" ? "#047857" : "#1e293b",
-                      color: profileMode === "transmittance" ? "#ffffff" : "#94a3b8",
-                      borderColor: profileMode === "transmittance" ? "#10b981" : "#334155",
+                      background:
+                        profileMode === "transmittance" ? "#059669" : "#ffffff",
+                      color:
+                        profileMode === "transmittance" ? "#ffffff" : "#475569",
+                      borderColor:
+                        profileMode === "transmittance" ? "#059669" : "#cbd5e1",
+                      fontWeight: 600,
                     }}
                   >
                     🔬 T(x) %
@@ -956,11 +1329,25 @@ export function InteractiveMicroscopeModal({
               {profileMode === "elevation" ? (
                 <svg
                   viewBox="0 0 530 68"
-                  style={{ width: "100%", height: 68, display: "block" }}
+                  style={{ width: "100%", height: 68, display: "block", background: "#ffffff", borderRadius: 6, border: "1px solid #e2e8f0" }}
                 >
-                  <line x1="38" y1="8" x2="520" y2="8" stroke="#1e293b" strokeDasharray="2 2" />
-                  <line x1="38" y1="34" x2="520" y2="34" stroke="#1e293b" strokeDasharray="2 2" />
-                  <line x1="38" y1="60" x2="520" y2="60" stroke="#1e293b" />
+                  <line
+                    x1="38"
+                    y1="8"
+                    x2="520"
+                    y2="8"
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <line
+                    x1="38"
+                    y1="34"
+                    x2="520"
+                    y2="34"
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <line x1="38" y1="60" x2="520" y2="60" stroke="#cbd5e1" />
                   <text x="2" y="11" fill="#64748b" fontSize="8.5">
                     {zStatsRow.maxZ.toFixed(2)}µm
                   </text>
@@ -972,14 +1359,17 @@ export function InteractiveMicroscopeModal({
                   </text>
                   <polyline
                     fill="none"
-                    stroke="#34d399"
-                    strokeWidth="1.75"
+                    stroke="#059669"
+                    strokeWidth="2.0"
                     points={rowProfileZ
                       .map((zVal, i) => {
-                        const px = 38 + (i / Math.max(1, rowProfileZ.length - 1)) * 482;
+                        const px =
+                          38 + (i / Math.max(1, rowProfileZ.length - 1)) * 482;
                         const py =
                           60 -
-                          ((zVal - zStatsRow.minZ) / (zStatsRow.maxZ - zStatsRow.minZ)) * 52;
+                          ((zVal - zStatsRow.minZ) /
+                            (zStatsRow.maxZ - zStatsRow.minZ)) *
+                            52;
                         return `${px.toFixed(1)},${py.toFixed(1)}`;
                       })
                       .join(" ")}
@@ -988,22 +1378,44 @@ export function InteractiveMicroscopeModal({
               ) : (
                 <svg
                   viewBox="0 0 530 68"
-                  style={{ width: "100%", height: 68, display: "block" }}
+                  style={{ width: "100%", height: 68, display: "block", background: "#ffffff", borderRadius: 6, border: "1px solid #e2e8f0" }}
                 >
-                  <line x1="28" y1="8" x2="520" y2="8" stroke="#1e293b" strokeDasharray="2 2" />
-                  <line x1="28" y1="34" x2="520" y2="34" stroke="#1e293b" strokeDasharray="2 2" />
-                  <line x1="28" y1="60" x2="520" y2="60" stroke="#1e293b" />
-                  <text x="4" y="11" fill="#64748b" fontSize="9">100%</text>
-                  <text x="8" y="37" fill="#64748b" fontSize="9">50%</text>
-                  <text x="12" y="63" fill="#64748b" fontSize="9">0%</text>
+                  <line
+                    x1="28"
+                    y1="8"
+                    x2="520"
+                    y2="8"
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <line
+                    x1="28"
+                    y1="34"
+                    x2="520"
+                    y2="34"
+                    stroke="#e2e8f0"
+                    strokeDasharray="2 2"
+                  />
+                  <line x1="28" y1="60" x2="520" y2="60" stroke="#cbd5e1" />
+                  <text x="4" y="11" fill="#64748b" fontSize="9">
+                    100%
+                  </text>
+                  <text x="8" y="37" fill="#64748b" fontSize="9">
+                    50%
+                  </text>
+                  <text x="12" y="63" fill="#64748b" fontSize="9">
+                    0%
+                  </text>
                   <polyline
                     fill="none"
-                    stroke="#2dd4bf"
-                    strokeWidth="1.5"
+                    stroke="#0284c7"
+                    strokeWidth="1.75"
                     points={rowProfileT
                       .map((tPct, i) => {
-                        const px = 28 + (i / Math.max(1, rowProfileT.length - 1)) * 492;
-                        const py = 60 - (Math.max(0, Math.min(100, tPct)) / 100) * 52;
+                        const px =
+                          28 + (i / Math.max(1, rowProfileT.length - 1)) * 492;
+                        const py =
+                          60 - (Math.max(0, Math.min(100, tPct)) / 100) * 52;
                         return `${px.toFixed(1)},${py.toFixed(1)}`;
                       })
                       .join(" ")}
@@ -1018,80 +1430,149 @@ export function InteractiveMicroscopeModal({
             {/* Objective Turret */}
             <div
               style={{
-                background: "#0c1322",
-                border: "1px solid #1e293b",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
                 borderRadius: 8,
-                padding: "10px 12px",
+                padding: "12px 14px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                <Compass size={14} color="#10b981" />
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>
-                  {tr("ობიექტივის რევოლვერი (Objective Turret)", "Objective Revolver")}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
+                <Compass size={14} color="#059669" />
+                <span
+                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                >
+                  {tr(
+                    "ობიექტივის რევოლვერი (Objective Turret)",
+                    "Objective Revolver",
+                  )}
                 </span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gap: 5,
+                }}
+              >
                 {[
                   { mag: 10, na: 0.25, label: "10×", sub: "0.25 NA" },
                   { mag: 20, na: 0.4, label: "20×", sub: "0.40 NA" },
                   { mag: 40, na: 0.65, label: "40×", sub: "0.65 NA" },
                   { mag: 60, na: 0.85, label: "60×", sub: "0.85 NA" },
-                  { mag: 100, na: 1.25, label: "100×", sub: "Oil 1.25", oil: 1.518 },
+                  {
+                    mag: 100,
+                    na: 1.25,
+                    label: "100×",
+                    sub: "Oil 1.25",
+                    oil: 1.518,
+                  },
                 ].map((obj) => {
                   const active = params.magnification === obj.mag;
                   return (
                     <button
                       key={obj.mag}
                       type="button"
-                      onClick={() => handleObjectiveSelect(obj.mag, obj.na, obj.oil ?? 1.0)}
+                      onClick={() =>
+                        handleObjectiveSelect(obj.mag, obj.na, obj.oil ?? 1.0)
+                      }
                       style={{
                         padding: "6px 2px",
                         textAlign: "center",
                         borderRadius: 6,
                         border: "1px solid",
                         cursor: "pointer",
-                        background: active ? "#047857" : "#172033",
-                        color: active ? "#ffffff" : "#94a3b8",
-                        borderColor: active ? "#10b981" : "#334155",
+                        background: active ? "#ecfdf5" : "#ffffff",
+                        color: active ? "#065f46" : "#475569",
+                        borderColor: active ? "#059669" : "#cbd5e1",
+                        boxShadow: active ? "0 1px 3px rgba(5,150,105,0.15)" : "none",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      <div style={{ fontSize: 11, fontWeight: 700 }}>{obj.label}</div>
-                      <div style={{ fontSize: 8.5, color: active ? "#d1fae5" : "#64748b" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700 }}>
+                        {obj.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 8.5,
+                          fontWeight: active ? 600 : 400,
+                          color: active ? "#059669" : "#64748b",
+                        }}
+                      >
                         {obj.sub}
                       </div>
                     </button>
                   );
                 })}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 10, color: "#94a3b8" }}>
-                <span>Abbe Limit: {activeMicrograph.stats.abbeResolutionUm.toFixed(3)} µm</span>
-                <span>FOV: {activeMicrograph.fovUm.toFixed(0)} µm</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                  fontSize: 10.5,
+                  color: "#64748b",
+                }}
+              >
+                <span>
+                  Abbe Limit:{" "}
+                  <strong style={{ color: "#0f172a" }}>
+                    {activeMicrograph.stats.abbeResolutionUm.toFixed(3)} µm
+                  </strong>
+                </span>
+                <span>
+                  FOV:{" "}
+                  <strong style={{ color: "#0f172a" }}>
+                    {activeMicrograph.fovUm.toFixed(0)} µm
+                  </strong>
+                </span>
               </div>
             </div>
 
             {/* Focus Control (Fine & Coarse Z-Stage) */}
             <div
               style={{
-                background: "#0c1322",
-                border: "1px solid #1e293b",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
                 borderRadius: 8,
-                padding: "10px 12px",
+                padding: "12px 14px",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>
-                  {tr("ფოკუსირების მექანიზმი (Z-Stage Focus)", "Z-Stage Focus Adjustment")}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
+              >
+                <span
+                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                >
+                  {tr(
+                    "ფოკუსირების მექანიზმი (Z-Stage Focus)",
+                    "Z-Stage Focus Adjustment",
+                  )}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setParams((p) => ({ ...p, focusOffsetUm: 0.0 }))}
+                  onClick={() =>
+                    setParams((p) => ({ ...p, focusOffsetUm: 0.0 }))
+                  }
                   style={{
-                    fontSize: 10,
-                    padding: "2px 6px",
-                    background: "#1e293b",
-                    border: "1px solid #334155",
-                    color: "#34d399",
-                    borderRadius: 4,
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    padding: "3px 8px",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    color: "#059669",
+                    borderRadius: 5,
                     cursor: "pointer",
                   }}
                   title="Snap directly to in-focus focal plane"
@@ -1101,7 +1582,7 @@ export function InteractiveMicroscopeModal({
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 10, color: "#64748b" }}>-10µm</span>
+                <span style={{ fontSize: 10, color: "#64748b", fontWeight: 550 }}>-10µm</span>
                 <input
                   type="range"
                   min="-10.0"
@@ -1109,20 +1590,37 @@ export function InteractiveMicroscopeModal({
                   step="0.1"
                   value={params.focusOffsetUm}
                   onChange={(e) =>
-                    setParams((p) => ({ ...p, focusOffsetUm: Number(e.target.value) }))
+                    setParams((p) => ({
+                      ...p,
+                      focusOffsetUm: Number(e.target.value),
+                    }))
                   }
-                  style={{ flex: 1, accentColor: "#10b981" }}
+                  style={{ flex: 1, accentColor: "#059669", height: 5 }}
                 />
-                <span style={{ fontSize: 10, color: "#64748b" }}>+10µm</span>
+                <span style={{ fontSize: 10, color: "#64748b", fontWeight: 550 }}>+10µm</span>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10 }}>
-                <span style={{ fontFamily: "monospace", color: isDefocused ? "#fbbf24" : "#34d399" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: 6,
+                  fontSize: 10.5,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--mono, monospace)",
+                    fontWeight: 650,
+                    color: isDefocused ? "#b45309" : "#065f46",
+                  }}
+                >
                   Δz = {params.focusOffsetUm >= 0 ? "+" : ""}
                   {params.focusOffsetUm.toFixed(1)} µm
                 </span>
-                <span style={{ color: "#94a3b8" }}>
-                  Berek DOF: ±{(activeMicrograph.stats.depthOfFieldUm * 0.5).toFixed(2)} µm
+                <span style={{ color: "#64748b" }}>
+                  Berek DOF: ±
+                  {(activeMicrograph.stats.depthOfFieldUm * 0.5).toFixed(2)} µm
                 </span>
               </div>
             </div>
@@ -1130,17 +1628,34 @@ export function InteractiveMicroscopeModal({
             {/* Illumination & Condenser Mode */}
             <div
               style={{
-                background: "#0c1322",
-                border: "1px solid #1e293b",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
                 borderRadius: 8,
-                padding: "10px 12px",
+                padding: "12px 14px",
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#f8fafc", marginBottom: 8 }}>
-                {tr("განათება და კონდენსორი (Illumination Mode)", "Illumination & Contrast Mode")}
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#0f172a",
+                  marginBottom: 8,
+                }}
+              >
+                {tr(
+                  "განათება და კონდენსორი (Illumination Mode)",
+                  "Illumination & Contrast Mode",
+                )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6, marginBottom: 8 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
                 {[
                   { mode: "Brightfield", label: "Brightfield" },
                   { mode: "Darkfield", label: "Darkfield" },
@@ -1153,19 +1668,34 @@ export function InteractiveMicroscopeModal({
                     onClick={() =>
                       setParams((p) => ({
                         ...p,
-                        illuminationMode: m.mode as TransmissiveMicroscopeParams["illuminationMode"],
+                        illuminationMode:
+                          m.mode as TransmissiveMicroscopeParams["illuminationMode"],
                       }))
                     }
                     style={{
                       fontSize: 10.5,
                       fontWeight: 600,
-                      padding: "5px 8px",
+                      padding: "6px 8px",
                       borderRadius: 5,
                       border: "1px solid",
                       cursor: "pointer",
-                      background: params.illuminationMode === m.mode ? "#047857" : "#172033",
-                      color: params.illuminationMode === m.mode ? "#ffffff" : "#94a3b8",
-                      borderColor: params.illuminationMode === m.mode ? "#10b981" : "#334155",
+                      background:
+                        params.illuminationMode === m.mode
+                          ? "#ecfdf5"
+                          : "#ffffff",
+                      color:
+                        params.illuminationMode === m.mode
+                          ? "#065f46"
+                          : "#475569",
+                      borderColor:
+                        params.illuminationMode === m.mode
+                          ? "#059669"
+                          : "#cbd5e1",
+                      boxShadow:
+                        params.illuminationMode === m.mode
+                          ? "0 1px 2px rgba(5,150,105,0.15)"
+                          : "none",
+                      transition: "all 0.15s ease",
                     }}
                   >
                     {m.label}
@@ -1173,38 +1703,68 @@ export function InteractiveMicroscopeModal({
                 ))}
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8" }}>
-                  <span>Wavelength λ</span>
-                  <span style={{ fontFamily: "monospace", color: "#38bdf8" }}>{params.wavelengthNm} nm</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 10.5,
+                      color: "#64748b",
+                      marginBottom: 2,
+                    }}
+                  >
+                    <span>Wavelength λ</span>
+                    <span style={{ fontFamily: "var(--mono, monospace)", color: "#0284c7", fontWeight: 650 }}>
+                      {params.wavelengthNm} nm
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="400"
+                    max="700"
+                    step="5"
+                    value={params.wavelengthNm}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        wavelengthNm: Number(e.target.value),
+                      }))
+                    }
+                    style={{ width: "100%", accentColor: "#0284c7", height: 5 }}
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="400"
-                  max="700"
-                  step="5"
-                  value={params.wavelengthNm}
-                  onChange={(e) =>
-                    setParams((p) => ({ ...p, wavelengthNm: Number(e.target.value) }))
-                  }
-                  style={{ width: "100%", accentColor: "#38bdf8" }}
-                />
 
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8" }}>
-                  <span>Lamp Exposure</span>
-                  <span style={{ fontFamily: "monospace", color: "#f8fafc" }}>{params.exposure.toFixed(1)}×</span>
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 10.5,
+                      color: "#64748b",
+                      marginBottom: 2,
+                    }}
+                  >
+                    <span>Lamp Exposure</span>
+                    <span style={{ fontFamily: "var(--mono, monospace)", color: "#0f172a", fontWeight: 650 }}>
+                      {params.exposure.toFixed(1)}×
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="3.0"
+                    step="0.1"
+                    value={params.exposure}
+                    onChange={(e) =>
+                      setParams((p) => ({
+                        ...p,
+                        exposure: Number(e.target.value),
+                      }))
+                    }
+                    style={{ width: "100%", accentColor: "#059669", height: 5 }}
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="0.2"
-                  max="3.0"
-                  step="0.1"
-                  value={params.exposure}
-                  onChange={(e) =>
-                    setParams((p) => ({ ...p, exposure: Number(e.target.value) }))
-                  }
-                  style={{ width: "100%", accentColor: "#f8fafc" }}
-                />
               </div>
             </div>
 
@@ -1212,66 +1772,118 @@ export function InteractiveMicroscopeModal({
             {viewMode === "sem_topography" && (
               <div
                 style={{
-                  background: "#0c1322",
-                  border: "1px solid #1e293b",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
                   borderRadius: 8,
-                  padding: "10px 12px",
+                  padding: "12px 14px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <Sun size={14} color="#f59e0b" />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>
-                    {tr("SEM დეტექტორის კუთხეები (Detector Lighting)", "SEM Virtual Illumination")}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Sun size={14} color="#d97706" />
+                  <span
+                    style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                  >
+                    {tr(
+                      "SEM დეტექტორის კუთხეები (Detector Lighting)",
+                      "SEM Virtual Illumination",
+                    )}
                   </span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8" }}>
-                    <span>Azimuth Light Angle</span>
-                    <span style={{ fontFamily: "monospace", color: "#f59e0b" }}>{azimuthDeg}° (NW)</span>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 10.5,
+                        color: "#64748b",
+                        marginBottom: 2,
+                      }}
+                    >
+                      <span>Azimuth Light Angle</span>
+                      <span style={{ fontFamily: "var(--mono, monospace)", color: "#b45309", fontWeight: 650 }}>
+                        {azimuthDeg}° (NW)
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="360"
+                      step="5"
+                      value={azimuthDeg}
+                      onChange={(e) => setAzimuthDeg(Number(e.target.value))}
+                      style={{ width: "100%", accentColor: "#d97706", height: 5 }}
+                      title="Rotate illumination around the surface features"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    step="5"
-                    value={azimuthDeg}
-                    onChange={(e) => setAzimuthDeg(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: "#f59e0b" }}
-                    title="Rotate illumination around the surface features"
-                  />
 
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8" }}>
-                    <span>Elevation Angle</span>
-                    <span style={{ fontFamily: "monospace", color: "#f59e0b" }}>{elevationDeg}°</span>
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 10.5,
+                        color: "#64748b",
+                        marginBottom: 2,
+                      }}
+                    >
+                      <span>Elevation Angle</span>
+                      <span style={{ fontFamily: "var(--mono, monospace)", color: "#b45309", fontWeight: 650 }}>
+                        {elevationDeg}°
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="15"
+                      max="75"
+                      step="2"
+                      value={elevationDeg}
+                      onChange={(e) => setElevationDeg(Number(e.target.value))}
+                      style={{ width: "100%", accentColor: "#d97706", height: 5 }}
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min="15"
-                    max="75"
-                    step="2"
-                    value={elevationDeg}
-                    onChange={(e) => setElevationDeg(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: "#f59e0b" }}
-                  />
 
-                  <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, color: "#94a3b8", marginTop: 4 }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 11,
+                      color: "#475569",
+                      marginTop: 4,
+                    }}
+                  >
                     <span>Palette LUT:</span>
                     <select
                       value={lut}
                       onChange={(e) => setLut(e.target.value as ColorLut)}
                       style={{
-                        background: "#1e293b",
-                        color: "#f8fafc",
-                        border: "1px solid #334155",
-                        borderRadius: 4,
-                        fontSize: 10,
-                        padding: "2px 6px",
+                        background: "#ffffff",
+                        color: "#0f172a",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 5,
+                        fontSize: 11,
+                        padding: "3px 8px",
+                        outline: "none",
                       }}
                     >
-                      <option value="sem_topography">SEM Platinum Monochrome</option>
+                      <option value="sem_topography">
+                        SEM Platinum Monochrome
+                      </option>
                       <option value="grayscale">Monochrome Grayscale</option>
-                      <option value="viridis">Viridis False-Color Elevation</option>
+                      <option value="viridis">
+                        Viridis False-Color Elevation
+                      </option>
                       <option value="inferno">Inferno Thermal Emission</option>
                     </select>
                   </label>
@@ -1282,61 +1894,108 @@ export function InteractiveMicroscopeModal({
             {/* Live Point Densitometer & Caliper Readouts */}
             <div
               style={{
-                background: "#0c1322",
-                border: "1px solid #1e293b",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
                 borderRadius: 8,
-                padding: "10px 12px",
+                padding: "12px 14px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                <Crosshair size={14} color="#38bdf8" />
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>
-                  {tr("წერტილოვანი ზონდი (Live Optical Probe)", "Live Point Probe & Caliper")}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
+                <Crosshair size={14} color="#0284c7" />
+                <span
+                  style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}
+                >
+                  {tr(
+                    "წერტილოვანი ზონდი (Live Optical Probe)",
+                    "Live Point Probe & Caliper",
+                  )}
                 </span>
               </div>
 
               {hoverInfo ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", fontSize: 10 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px 12px",
+                    fontSize: 10.5,
+                  }}
+                >
                   <div>
-                    <span style={{ color: "#64748b", display: "block" }}>Elevation z(x,y)</span>
-                    <strong style={{ color: "#34d399", fontSize: 12 }}>{hoverInfo.zUm.toFixed(2)} µm</strong>
+                    <span style={{ color: "#64748b", display: "block" }}>
+                      Elevation z(x,y)
+                    </span>
+                    <strong style={{ color: "#059669", fontSize: 12, fontFamily: "var(--mono, monospace)" }}>
+                      {hoverInfo.zUm.toFixed(2)} µm
+                    </strong>
                   </div>
                   <div>
-                    <span style={{ color: "#64748b", display: "block" }}>Slope Angle θ</span>
-                    <strong style={{ color: "#f8fafc", fontSize: 12 }}>{hoverInfo.slopeDeg.toFixed(1)}°</strong>
+                    <span style={{ color: "#64748b", display: "block" }}>
+                      Slope Angle θ
+                    </span>
+                    <strong style={{ color: "#0f172a", fontSize: 12, fontFamily: "var(--mono, monospace)" }}>
+                      {hoverInfo.slopeDeg.toFixed(1)}°
+                    </strong>
                   </div>
                   <div>
-                    <span style={{ color: "#64748b", display: "block" }}>Transmittance T</span>
-                    <strong style={{ color: "#38bdf8" }}>{hoverInfo.tPct.toFixed(1)}%</strong>
+                    <span style={{ color: "#64748b", display: "block" }}>
+                      Transmittance T
+                    </span>
+                    <strong style={{ color: "#0284c7", fontFamily: "var(--mono, monospace)" }}>
+                      {hoverInfo.tPct.toFixed(1)}%
+                    </strong>
                   </div>
                   <div>
-                    <span style={{ color: "#64748b", display: "block" }}>Optical Density</span>
-                    <strong style={{ color: "#f8fafc" }}>{hoverInfo.od.toFixed(3)} OD</strong>
+                    <span style={{ color: "#64748b", display: "block" }}>
+                      Optical Density
+                    </span>
+                    <strong style={{ color: "#0f172a", fontFamily: "var(--mono, monospace)" }}>
+                      {hoverInfo.od.toFixed(3)} OD
+                    </strong>
                   </div>
-                  <div style={{ gridColumn: "span 2", color: "#94a3b8", fontFamily: "monospace", fontSize: 9.5 }}>
-                    Position: ({hoverInfo.xUm.toFixed(1)} µm, {hoverInfo.yUm.toFixed(1)} µm)
+                  <div
+                    style={{
+                      gridColumn: "span 2",
+                      color: "#64748b",
+                      fontFamily: "var(--mono, monospace)",
+                      fontSize: 10,
+                    }}
+                  >
+                    Position: ({hoverInfo.xUm.toFixed(1)} µm,{" "}
+                    {hoverInfo.yUm.toFixed(1)} µm)
                   </div>
                 </div>
               ) : (
-                <span style={{ fontSize: 10, color: "#64748b" }}>
-                  Move cursor over specimen to probe local height, slope, and optical density.
+                <span style={{ fontSize: 11, color: "#64748b" }}>
+                  Move cursor over specimen to probe local height, slope, and
+                  optical density.
                 </span>
               )}
 
               {caliperStart && caliperEnd && (
                 <div
                   style={{
-                    marginTop: 8,
-                    paddingTop: 8,
-                    borderTop: "1px solid #1e293b",
-                    fontSize: 10.5,
+                    marginTop: 10,
+                    padding: "8px 10px",
+                    background: "#f0f9ff",
+                    border: "1px solid #bae6fd",
+                    borderRadius: 6,
+                    fontSize: 11,
                     display: "flex",
                     justifyContent: "space-between",
-                    color: "#38bdf8",
+                    alignItems: "center",
+                    color: "#0369a1",
                   }}
                 >
-                  <span>Measured Distance:</span>
-                  <strong style={{ fontFamily: "monospace", fontSize: 12 }}>
+                  <span style={{ fontWeight: 600 }}>Measured Distance:</span>
+                  <strong style={{ fontFamily: "var(--mono, monospace)", fontSize: 12 }}>
                     {Math.sqrt(
                       Math.pow(caliperEnd.xUm - caliperStart.xUm, 2) +
                         Math.pow(caliperEnd.yUm - caliperStart.yUm, 2),
@@ -1352,4 +2011,3 @@ export function InteractiveMicroscopeModal({
     </div>
   );
 }
-

@@ -198,9 +198,13 @@ function chooseNiceScaleBarUm(fovUm: number): number {
 export function MicroscopeView({
   data,
   initialParams,
+  currentTime = 0.0,
+  onTimeChange,
 }: {
   data: MicrographData;
   initialParams?: Partial<TransmissiveMicroscopeParams>;
+  currentTime?: number;
+  onTimeChange?: (t: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -451,15 +455,15 @@ export function MicroscopeView({
             display: "inline-flex",
             alignItems: "center",
             gap: 5,
-            padding: "4px 10px",
-            background: "#047857",
-            border: "1px solid #10b981",
+            padding: "5px 12px",
+            background: "#059669",
+            border: "1px solid #059669",
             color: "#ffffff",
-            borderRadius: 5,
+            borderRadius: 6,
             fontSize: 11,
             fontWeight: 650,
             cursor: "pointer",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
           }}
           title="Open interactive microscope workstation: pan, zoom, focus stage, caliper measurements"
         >
@@ -477,10 +481,10 @@ export function MicroscopeView({
               alignItems: "center",
               gap: 8,
               marginBottom: 8,
-              padding: "4px 8px",
-              background: "#090e17",
+              padding: "5px 10px",
+              background: "#f8fafc",
               borderRadius: 6,
-              border: "1px solid #1e293b",
+              border: "1px solid #e2e8f0",
             }}
           >
             <span
@@ -511,11 +515,13 @@ export function MicroscopeView({
                 cursor: "pointer",
                 border: "1px solid",
                 background:
-                  viewMode === "sem_topography" ? "#047857" : "#1e293b",
+                  viewMode === "sem_topography" ? "#059669" : "#ffffff",
                 color:
-                  viewMode === "sem_topography" ? "#ffffff" : "#94a3b8",
+                  viewMode === "sem_topography" ? "#ffffff" : "#475569",
                 borderColor:
-                  viewMode === "sem_topography" ? "#10b981" : "#334155",
+                  viewMode === "sem_topography" ? "#059669" : "#cbd5e1",
+                boxShadow:
+                  viewMode === "sem_topography" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
               }}
               title="Render true 3D physical surface relief, hills, valleys and edges (SEM physics)"
             >
@@ -543,11 +549,13 @@ export function MicroscopeView({
                 cursor: "pointer",
                 border: "1px solid",
                 background:
-                  viewMode === "optical_transmission" ? "#047857" : "#1e293b",
+                  viewMode === "optical_transmission" ? "#059669" : "#ffffff",
                 color:
-                  viewMode === "optical_transmission" ? "#ffffff" : "#94a3b8",
+                  viewMode === "optical_transmission" ? "#ffffff" : "#475569",
                 borderColor:
-                  viewMode === "optical_transmission" ? "#10b981" : "#334155",
+                  viewMode === "optical_transmission" ? "#059669" : "#cbd5e1",
+                boxShadow:
+                  viewMode === "optical_transmission" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
               }}
               title="Render 2D transmissive optical absorption through specimen (Beer–Lambert)"
             >
@@ -645,7 +653,7 @@ export function MicroscopeView({
             <div className="microscope-kv-grid">
               <div>
                 <small>Surface Elevation z(x,y)</small>
-                <strong style={{ color: "#34d399" }}>
+                <strong style={{ color: "#059669" }}>
                   {activeThicknessUm.toFixed(2)} µm
                 </strong>
               </div>
@@ -684,7 +692,7 @@ export function MicroscopeView({
             <div className="microscope-kv-grid">
               <div>
                 <small>Surface Roughness Ra</small>
-                <strong style={{ color: "#38bdf8" }}>
+                <strong style={{ color: "#0284c7" }}>
                   {data.stats.rmsRoughnessUm.toFixed(3)} µm
                 </strong>
               </div>
@@ -731,14 +739,17 @@ export function MicroscopeView({
                   type="button"
                   style={{
                     fontSize: 10,
-                    padding: "2px 7px",
+                    padding: "3px 8px",
                     background:
-                      profileMode === "elevation" ? "#047857" : "#1e293b",
+                      profileMode === "elevation" ? "#059669" : "#ffffff",
                     color:
-                      profileMode === "elevation" ? "#ffffff" : "#94a3b8",
-                    border: "1px solid #334155",
-                    borderRadius: 4,
+                      profileMode === "elevation" ? "#ffffff" : "#475569",
+                    border: "1px solid",
+                    borderColor:
+                      profileMode === "elevation" ? "#059669" : "#cbd5e1",
+                    borderRadius: 5,
                     cursor: "pointer",
+                    fontWeight: 600,
                   }}
                   onClick={() => setProfileMode("elevation")}
                   title="Plot physical cross-sectional elevation z(x)"
@@ -749,14 +760,17 @@ export function MicroscopeView({
                   type="button"
                   style={{
                     fontSize: 10,
-                    padding: "2px 7px",
+                    padding: "3px 8px",
                     background:
-                      profileMode === "transmittance" ? "#047857" : "#1e293b",
+                      profileMode === "transmittance" ? "#059669" : "#ffffff",
                     color:
-                      profileMode === "transmittance" ? "#ffffff" : "#94a3b8",
-                    border: "1px solid #334155",
-                    borderRadius: 4,
+                      profileMode === "transmittance" ? "#ffffff" : "#475569",
+                    border: "1px solid",
+                    borderColor:
+                      profileMode === "transmittance" ? "#059669" : "#cbd5e1",
+                    borderRadius: 5,
                     cursor: "pointer",
+                    fontWeight: 600,
                   }}
                   onClick={() => setProfileMode("transmittance")}
                   title="Plot optical transmittance T(x)"
@@ -778,7 +792,7 @@ export function MicroscopeView({
                   y1="10"
                   x2="350"
                   y2="10"
-                  stroke="#263244"
+                  stroke="#e2e8f0"
                   strokeDasharray="2 2"
                 />
                 <line
@@ -786,22 +800,22 @@ export function MicroscopeView({
                   y1="45"
                   x2="350"
                   y2="45"
-                  stroke="#263244"
+                  stroke="#e2e8f0"
                   strokeDasharray="2 2"
                 />
-                <line x1="38" y1="80" x2="350" y2="80" stroke="#263244" />
-                <text x="2" y="14" fill="#8fa3b8" fontSize="8.5">
+                <line x1="38" y1="80" x2="350" y2="80" stroke="#cbd5e1" />
+                <text x="2" y="14" fill="#64748b" fontSize="8.5">
                   {zStatsRow.maxZ.toFixed(2)}µm
                 </text>
-                <text x="2" y="48" fill="#8fa3b8" fontSize="8.5">
+                <text x="2" y="48" fill="#64748b" fontSize="8.5">
                   {((zStatsRow.maxZ + zStatsRow.minZ) / 2).toFixed(2)}µm
                 </text>
-                <text x="2" y="83" fill="#8fa3b8" fontSize="8.5">
+                <text x="2" y="83" fill="#64748b" fontSize="8.5">
                   {zStatsRow.minZ.toFixed(2)}µm
                 </text>
                 <polyline
                   fill="none"
-                  stroke="#34d399"
+                  stroke="#059669"
                   strokeWidth="2.0"
                   points={rowProfileZ
                     .map((zVal, i) => {
@@ -829,7 +843,7 @@ export function MicroscopeView({
                   y1="10"
                   x2="350"
                   y2="10"
-                  stroke="#263244"
+                  stroke="#e2e8f0"
                   strokeDasharray="2 2"
                 />
                 <line
@@ -837,22 +851,22 @@ export function MicroscopeView({
                   y1="45"
                   x2="350"
                   y2="45"
-                  stroke="#263244"
+                  stroke="#e2e8f0"
                   strokeDasharray="2 2"
                 />
-                <line x1="28" y1="80" x2="350" y2="80" stroke="#263244" />
-                <text x="4" y="14" fill="#8fa3b8" fontSize="9">
+                <line x1="28" y1="80" x2="350" y2="80" stroke="#cbd5e1" />
+                <text x="4" y="14" fill="#64748b" fontSize="9">
                   100%
                 </text>
-                <text x="8" y="48" fill="#8fa3b8" fontSize="9">
+                <text x="8" y="48" fill="#64748b" fontSize="9">
                   50%
                 </text>
-                <text x="12" y="83" fill="#8fa3b8" fontSize="9">
+                <text x="12" y="83" fill="#64748b" fontSize="9">
                   0%
                 </text>
                 <polyline
                   fill="none"
-                  stroke="#2dd4bf"
+                  stroke="#0284c7"
                   strokeWidth="1.75"
                   points={rowProfileT
                     .map((tPct, i) => {
@@ -876,6 +890,8 @@ export function MicroscopeView({
           onClose={() => setIsModalOpen(false)}
           data={data}
           initialParams={initialParams}
+          initialTime={currentTime}
+          onTimeChange={onTimeChange}
         />
       )}
     </div>
@@ -892,12 +908,16 @@ export function MicroscopeMini({
   width = 210,
   height = 110,
   interactive = true,
+  currentTime = 0.0,
+  onTimeChange,
 }: {
   data: MicrographData;
   initialParams?: Partial<TransmissiveMicroscopeParams>;
   width?: number;
   height?: number;
   interactive?: boolean;
+  currentTime?: number;
+  onTimeChange?: (t: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -986,11 +1006,11 @@ export function MicroscopeMini({
           position: "relative",
           borderRadius: 6,
           overflow: "hidden",
-          border: isHovered ? "1px solid #10b981" : "1px solid #26354d",
-          background: "#080c14",
+          border: isHovered ? "1.5px solid #059669" : "1px solid #cbd5e1",
+          background: "#0b1120",
           boxShadow: isHovered
-            ? "0 4px 14px rgba(16, 185, 129, 0.25)"
-            : "0 2px 6px rgba(0,0,0,0.35)",
+            ? "0 4px 14px rgba(5, 150, 105, 0.2)"
+            : "0 1px 3px rgba(0, 0, 0, 0.08)",
           margin: "0 auto",
           cursor: interactive ? "pointer" : "default",
           transition: "all 0.15s ease",
@@ -1014,8 +1034,8 @@ export function MicroscopeMini({
               bottom: 4,
               left: 5,
               background: isHovered
-                ? "rgba(4, 120, 87, 0.95)"
-                : "rgba(15, 23, 42, 0.8)",
+                ? "#059669"
+                : "rgba(15, 23, 42, 0.75)",
               color: "#ffffff",
               borderRadius: 4,
               padding: "2px 5px",
@@ -1024,7 +1044,7 @@ export function MicroscopeMini({
               display: "flex",
               alignItems: "center",
               gap: 3,
-              border: "1px solid rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.2)",
               pointerEvents: "none",
               transition: "all 0.15s ease",
             }}
@@ -1041,6 +1061,8 @@ export function MicroscopeMini({
           onClose={() => setIsModalOpen(false)}
           data={data}
           initialParams={initialParams}
+          initialTime={currentTime}
+          onTimeChange={onTimeChange}
         />
       )}
     </>

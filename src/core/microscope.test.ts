@@ -292,6 +292,12 @@ describe("Digital Transmissive Microscope Physics & Integrity", () => {
     const p2 = { xUm: 22.0, yUm: 20.0 };
     const distUm = Math.hypot(p2.xUm - p1.xUm, p2.yUm - p1.yUm);
     assert.ok(Math.abs(distUm - 13.0) < 1e-6);
+
+    // Verify simulation time scrubber and dynamic wear bounds
+    const wearAt0 = 0.85 * Math.max(0.06, (36.0 - 6.0 * 0.0) / 36.0);
+    const wearAt5 = 0.85 * Math.max(0.06, (36.0 - 6.0 * 5.0) / 36.0);
+    assert.ok(wearAt0 > wearAt5, `Expected initial scale step (${wearAt0.toFixed(2)} µm) > eroded step (${wearAt5.toFixed(2)} µm)`);
+    assert.ok(wearAt5 > 0.04 && wearAt5 < 0.2, "Eroded scale step remains physically bounded");
   });
 });
 

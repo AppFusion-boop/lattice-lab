@@ -13,6 +13,8 @@ def temp_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[Path,
     data_dir = tmp_path / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("LATTICE_DATA_DIR", str(data_dir))
+    # Keep every test database empty unless a test opts in to the bundled examples.
+    monkeypatch.setenv("LATTICE_SEED_EXAMPLES", "0")
 
     from lattice_server import config
 

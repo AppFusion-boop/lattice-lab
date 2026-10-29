@@ -1038,3 +1038,4 @@ Agents: update the row when you start (`in progress`) and finish (`done`) a task
 | P6-4 | Full i18n refactor | todo | | |
 | P6-5 | Multi-user (optional) | todo | | |
 | P6-6 | Performance + packaging | todo | | |
+| P6-7 | Bundled example studies (first-run seed) | done | 2026-10-29 | 5 curated examples applied on startup by `server/lattice_server/examples.py` from generated `seeds/example_studies.sql` (`scripts/export_example_seed.py`). Deliberately **not** a schema migration: idempotent insert-only seeder with fixed IDs, skips existing studies, opt-out `LATTICE_SEED_EXAMPLES=0`; tests disable it by default. Curation: latest run only; Skyscraper run recomputed (was stale); one stress-test evidence row (water_binder_ratio=1.1e10) excluded; descriptions/evidence notes labelled illustrative (Rule 1). 12 new tests (108 total). |
