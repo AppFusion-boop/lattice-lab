@@ -276,94 +276,113 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
   return (
     <div>
       {/* Top action header */}
-      <div
-        className="study-card"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-          padding: "16px 20px",
-        }}
-      >
-        <div>
-          <h3 style={{ margin: "0 0 4px 0", fontSize: 16 }}>
-            {tr("მტკიცებულებათა ბაზა (Evidence Store)", "Evidence Store")}
-          </h3>
-          <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
-            {tr(
-              "ექსპერიმენტული, სალაბორატორიო და ლიტერატურული მონაცემები. შეუცვლელი ჩანაწერები (§4.2, §6).",
-              "Physical, experimental, and literature evidence. Immutable records matching study parameters."
-            )}
-          </p>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {/* View toggle */}
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 6 }}>
-            <button
-              className={`study-tab-btn ${viewMode === "table" ? "active" : ""}`}
-              onClick={() => setViewMode("table")}
-              style={{ padding: "4px 10px", fontSize: 12, border: "none" }}
-            >
-              <TableIcon size={14} style={{ marginRight: 4 }} />
-              <span>{tr("ცხრილი", "Table")}</span>
-            </button>
-            <button
-              className={`study-tab-btn ${viewMode === "plot" ? "active" : ""}`}
-              onClick={() => setViewMode("plot")}
-              style={{ padding: "4px 10px", fontSize: 12, border: "none" }}
-            >
-              <BarChart2 size={14} style={{ marginRight: 4 }} />
-              <span>{tr("დიაგრამა", "Scatter Plot")}</span>
-            </button>
-            <button
-              className={`study-tab-btn ${viewMode === "protocol" ? "active" : ""}`}
-              onClick={() => setViewMode("protocol")}
-              style={{ padding: "4px 10px", fontSize: 12, border: "none" }}
-            >
-              <Printer size={14} style={{ marginRight: 4 }} />
-              <span>{tr("საგამოცდო პროტოკოლი", "Bench Protocol")}</span>
-            </button>
+      <div className="study-card" style={{ marginBottom: 14 }}>
+        <div className="study-card-header" style={{ marginBottom: 0 }}>
+          <div>
+            <h3 className="study-card-title">
+              <FlaskConical size={18} color="var(--ll-emerald)" />
+              <span>{tr("მტკიცებულებათა ბაზა (Evidence Store)", "Evidence Store")}</span>
+            </h3>
+            <p className="study-card-sub">
+              {tr(
+                "ექსპერიმენტული, სალაბორატორიო და ლიტერატურული მონაცემები. შეუცვლელი ჩანაწერები (§4.2, §6).",
+                "Physical, experimental, and literature evidence. Immutable records matching study parameters."
+              )}
+            </p>
           </div>
 
-          {allEvidence.filter((e) => e.status === "valid" && !e.retracted_at).length >= 3 && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {/* View toggle */}
+            <div style={{ display: "inline-flex", background: "var(--ll-border-subtle)", padding: 2, borderRadius: "var(--ll-radius-full)", border: "1px solid var(--ll-border)" }}>
+              <button
+                className={`segmented-pill ${viewMode === "table" ? "active" : ""}`}
+                onClick={() => setViewMode("table")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 12px",
+                  fontSize: 12,
+                  fontWeight: viewMode === "table" ? 600 : 500,
+                  background: viewMode === "table" ? "var(--ll-surface)" : "transparent",
+                  color: viewMode === "table" ? "var(--ll-emerald)" : "var(--ll-text-secondary)",
+                  border: "none",
+                  borderRadius: "var(--ll-radius-full)",
+                  cursor: "pointer",
+                  boxShadow: viewMode === "table" ? "var(--ll-shadow-xs)" : "none",
+                }}
+              >
+                <TableIcon size={13} />
+                <span>{tr("ცხრილი", "Table")}</span>
+              </button>
+              <button
+                className={`segmented-pill ${viewMode === "plot" ? "active" : ""}`}
+                onClick={() => setViewMode("plot")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 12px",
+                  fontSize: 12,
+                  fontWeight: viewMode === "plot" ? 600 : 500,
+                  background: viewMode === "plot" ? "var(--ll-surface)" : "transparent",
+                  color: viewMode === "plot" ? "var(--ll-emerald)" : "var(--ll-text-secondary)",
+                  border: "none",
+                  borderRadius: "var(--ll-radius-full)",
+                  cursor: "pointer",
+                  boxShadow: viewMode === "plot" ? "var(--ll-shadow-xs)" : "none",
+                }}
+              >
+                <BarChart2 size={13} />
+                <span>{tr("დიაგრამა", "Scatter Plot")}</span>
+              </button>
+              <button
+                className={`segmented-pill ${viewMode === "protocol" ? "active" : ""}`}
+                onClick={() => setViewMode("protocol")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 12px",
+                  fontSize: 12,
+                  fontWeight: viewMode === "protocol" ? 600 : 500,
+                  background: viewMode === "protocol" ? "var(--ll-surface)" : "transparent",
+                  color: viewMode === "protocol" ? "var(--ll-emerald)" : "var(--ll-text-secondary)",
+                  border: "none",
+                  borderRadius: "var(--ll-radius-full)",
+                  cursor: "pointer",
+                  boxShadow: viewMode === "protocol" ? "var(--ll-shadow-xs)" : "none",
+                }}
+              >
+                <Printer size={13} />
+                <span>{tr("საგამოცდო პროტოკოლი", "Bench Protocol")}</span>
+              </button>
+            </div>
+
+            {allEvidence.filter((e) => e.status === "valid" && !e.retracted_at).length >= 3 && (
+              <button
+                className="btn-secondary"
+                onClick={() => setShowCalibrationModal(true)}
+                title={tr("მოდელის კალიბრაცია ემპირიულ მონაცემებზე", "Calibrate model parameters against evidence")}
+              >
+                <Sparkles size={13} color="var(--ll-blue)" />
+                <span>{tr("მოდელის კალიბრაცია", "Calibrate Model")}</span>
+              </button>
+            )}
+
+            <button className="btn-secondary" onClick={() => setShowImportWizard(true)}>
+              <FileSpreadsheet size={13} />
+              <span>{tr("იმპორტი", "Import CSV/XLSX")}</span>
+            </button>
+
             <button
               className="btn-primary"
-              onClick={() => setShowCalibrationModal(true)}
-              style={{
-                background: "#0284c7",
-                borderColor: "#0284c7",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-              title={tr("მოდელის კალიბრაცია ემპირიულ მონაცემებზე", "Calibrate model parameters against evidence")}
+              onClick={() => setShowRecordModal(true)}
             >
-              <Sparkles size={14} />
-              <span>{tr("მოდელის კალიბრაცია", "Calibrate Model")}</span>
+              <FlaskConical size={13} />
+              <span>{tr("რეალური ცდის აღრიცხვა", "Record Real Run")}</span>
             </button>
-          )}
-
-          <button className="btn-secondary" onClick={() => setShowImportWizard(true)}>
-            <FileSpreadsheet size={14} />
-            <span>{tr("იმპორტი (CSV/XLSX)", "Import CSV/XLSX")}</span>
-          </button>
-
-          <button
-            className="btn-primary"
-            onClick={() => setShowRecordModal(true)}
-            style={{
-              background: "#059669",
-              borderColor: "#059669",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <FlaskConical size={14} />
-            <span>{tr("რეალური ცდის აღრიცხვა", "Record Real Run")}</span>
-          </button>
+          </div>
         </div>
       </div>
 
@@ -371,28 +390,28 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
       <div
         className="study-card"
         style={{
-          padding: "12px 16px",
-          marginBottom: 16,
+          padding: "10px 16px",
+          marginBottom: 14,
           display: "flex",
-          gap: 12,
+          gap: 10,
           alignItems: "center",
           flexWrap: "wrap",
         }}
       >
-        <Filter size={14} color="#64748b" />
+        <Filter size={13} color="var(--ll-text-muted)" />
 
         <input
           type="text"
           placeholder={tr("ძიება ID, წყარო, მნიშვნელობა...", "Search ID, citation, values...")}
-          className="study-form-input"
-          style={{ width: 220 }}
+          className="form-input"
+          style={{ width: 220, fontSize: 12 }}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
 
         <select
-          className="study-form-input"
-          style={{ width: 140 }}
+          className="form-select"
+          style={{ width: 130, fontSize: 12 }}
           value={kindFilter}
           onChange={(e) => setKindFilter(e.target.value)}
         >
@@ -405,8 +424,8 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
         </select>
 
         <select
-          className="study-form-input"
-          style={{ width: 150 }}
+          className="form-select"
+          style={{ width: 140, fontSize: 12 }}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -417,8 +436,8 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
         </select>
 
         <select
-          className="study-form-input"
-          style={{ maxWidth: 200 }}
+          className="form-select"
+          style={{ maxWidth: 200, fontSize: 12 }}
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
         >
@@ -430,29 +449,29 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
           ))}
         </select>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", color: "#475569" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer", color: "var(--ll-text-secondary)" }}>
           <input
             type="checkbox"
             checked={includeRetracted}
             onChange={(e) => setIncludeRetracted(e.target.checked)}
           />
-          {tr("გაწვეულების ჩვენება", "Show retracted")}
+          <span>{tr("გაწვეულების ჩვენება", "Show retracted")}</span>
         </label>
 
         <button
-          className="btn-secondary"
+          className="btn-ghost"
           onClick={() => {
             refreshEvidence();
             refreshSources();
           }}
           title={tr("განახლება", "Refresh")}
-          style={{ padding: "6px 10px", marginLeft: "auto" }}
+          style={{ padding: "5px 8px", marginLeft: "auto" }}
         >
           <RefreshCw size={13} />
         </button>
 
-        <span style={{ fontSize: 13, color: "#64748b" }}>
-          {tr(`${filteredEvidence.length} ჩანაწერი`, `${filteredEvidence.length} records`)}
+        <span className="badge badge-generic" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {filteredEvidence.length} {tr("ჩანაწერი", "records")}
         </span>
       </div>
 
@@ -570,13 +589,8 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
                             {Object.entries(ev.values).map(([k, v]) => (
                               <span
                                 key={k}
-                                style={{
-                                  fontSize: 11,
-                                  background: "#f1f5f9",
-                                  padding: "2px 6px",
-                                  borderRadius: 4,
-                                  fontFamily: "var(--font-mono, monospace)",
-                                }}
+                                className="variable-chip"
+                                style={{ fontSize: 11 }}
                               >
                                 {k}: {typeof v === "number" ? v.toFixed(2) : String(v)}
                               </span>
@@ -598,14 +612,8 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
                               return (
                                 <span
                                   key={k}
-                                  style={{
-                                    fontSize: 11,
-                                    background: "#ecfdf5",
-                                    color: "#065f46",
-                                    padding: "2px 6px",
-                                    borderRadius: 4,
-                                    fontFamily: "var(--font-mono, monospace)",
-                                  }}
+                                  className="variable-chip variable-chip-uncertain"
+                                  style={{ fontSize: 11 }}
                                 >
                                   {k}: {text}
                                 </span>
@@ -613,40 +621,40 @@ export function EvidenceTab({ study }: EvidenceTabProps) {
                             })}
                           </div>
                         </td>
-                        <td style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
+                        <td style={{ fontSize: 11, color: "var(--ll-text-muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                           {ev.recorded_at || ev.created_at.slice(0, 10)}
                         </td>
                         <td style={{ textAlign: "right" }}>
                           <div style={{ display: "inline-flex", gap: 4 }}>
                             <button
-                              className="btn-secondary"
+                              className="btn-ghost"
                               onClick={() => setDetailEvidence(ev)}
                               title={tr("დეტალები", "View Details")}
                               style={{ padding: "4px 6px" }}
                             >
-                              <Eye size={12} />
+                              <Eye size={13} />
                             </button>
                             {!isRetracted && (
                               <>
                                 <button
-                                  className="btn-secondary"
+                                  className="btn-ghost"
                                   onClick={() => openSupersedeModal(ev)}
                                   title={tr("ჩანაცვლება / შესწორება", "Supersede with updated values")}
                                   style={{ padding: "4px 6px" }}
                                 >
-                                  <RotateCcw size={12} />
+                                  <RotateCcw size={13} />
                                 </button>
                                 <button
-                                  className="btn-secondary"
+                                  className="btn-ghost"
                                   onClick={() => {
                                     setRetractTarget(ev);
                                     setRetractReason("");
                                     setRetractError(null);
                                   }}
                                   title={tr("გაწვევა", "Retract record")}
-                                  style={{ padding: "4px 6px", color: "#dc2626" }}
+                                  style={{ padding: "4px 6px", color: "var(--ll-rose)" }}
                                 >
-                                  <AlertOctagon size={12} />
+                                  <AlertOctagon size={13} />
                                 </button>
                               </>
                             )}

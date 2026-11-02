@@ -103,12 +103,13 @@ export function PhaseDiagram2D({
         }}
       >
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <strong>X Axis:</strong>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ll-text-secondary)" }}>
+            <span style={{ fontWeight: 600 }}>{tr("X ღერძი:", "X Axis:")}</span>
             <select
+              className="form-select"
               value={activeX}
               onChange={(e) => setXKey(e.target.value)}
-              style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+              style={{ padding: "4px 8px", fontSize: 12 }}
             >
               {controlled.map((p) => (
                 <option key={p.key} value={p.key}>
@@ -118,12 +119,13 @@ export function PhaseDiagram2D({
             </select>
           </label>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <strong>Y Axis:</strong>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ll-text-secondary)" }}>
+            <span style={{ fontWeight: 600 }}>{tr("Y ღერძი:", "Y Axis:")}</span>
             <select
+              className="form-select"
               value={activeY}
               onChange={(e) => setYKey(e.target.value)}
-              style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+              style={{ padding: "4px 8px", fontSize: 12 }}
             >
               {controlled.map((p) => (
                 <option key={p.key} value={p.key}>
@@ -136,11 +138,11 @@ export function PhaseDiagram2D({
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11 }}>
           {Object.entries(STATUS_COLORS).map(([key, cfg]) => (
-            <span key={key} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#475569" }}>
+            <span key={key} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--ll-text-secondary)" }}>
               <span
                 style={{
-                  width: 10,
-                  height: 10,
+                  width: 9,
+                  height: 9,
                   borderRadius: "50%",
                   background: cfg.fill,
                   border: `1.5px solid ${cfg.stroke}`,
@@ -156,11 +158,11 @@ export function PhaseDiagram2D({
         viewBox={`0 0 ${width} ${height}`}
         style={{
           width: "100%",
-          maxWidth: width,
+          maxWidth: 880,
           height: "auto",
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: 8,
+          background: "var(--ll-surface-subtle)",
+          border: "1px solid var(--ll-border)",
+          borderRadius: "var(--ll-radius-md)",
         }}
       >
         {/* Grid lines */}

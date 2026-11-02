@@ -1,109 +1,501 @@
-/* Study Workbench Styles matching Lattice Lab design system */
+/* ==========================================================================
+   Lattice Lab — Modern Minimalist Scientific Design System
+   Designed for scientific rigor, visual harmony, high clarity & low cognitive fatigue.
+   ========================================================================== */
+
+:root {
+  /* Surface & Canvas System — Clean Laboratory White / Zinc Palette */
+  --ll-canvas: #fafbfc;
+  --ll-surface: #ffffff;
+  --ll-surface-subtle: #f4f4f5;
+  --ll-surface-elevated: #ffffff;
+  --ll-surface-hover: #f4f4f5;
+  --ll-surface-active: #e4e4e7;
+
+  /* Border & Boundary System — Hairline 1px Precision */
+  --ll-border-subtle: #f4f4f5;
+  --ll-border: #e4e4e7;
+  --ll-border-strong: #d4d4d8;
+  --ll-border-focus: #0f766e;
+
+  /* Typography Colors — High-Legibility Obsidian & Neutral Grays */
+  --ll-text-primary: #09090b;
+  --ll-text-secondary: #52525b;
+  --ll-text-muted: #a1a1aa;
+  --ll-text-inverse: #ffffff;
+
+  /* Scientific Teal / Emerald (Primary Action & Verification) */
+  --ll-emerald: #0f766e;
+  --ll-emerald-hover: #115e59;
+  --ll-emerald-active: #134e4a;
+  --ll-emerald-soft: #f0fdfa;
+  --ll-emerald-border: #99f6e4;
+  --ll-emerald-text: #0f766e;
+
+  /* Scientific Sky Blue (Exploration, Information, Outcomes) */
+  --ll-blue: #0284c7;
+  --ll-blue-hover: #0369a1;
+  --ll-blue-soft: #f0f9ff;
+  --ll-blue-border: #bae6fd;
+  --ll-blue-text: #0369a1;
+
+  /* Caution / Deprioritised / Attention (Warm Amber) */
+  --ll-amber: #d97706;
+  --ll-amber-hover: #b45309;
+  --ll-amber-soft: #fffbeb;
+  --ll-amber-border: #fde68a;
+  --ll-amber-text: #92400e;
+
+  /* Exclusion / Hard Constraint Violation (Crisp Crimson) */
+  --ll-rose: #e11d48;
+  --ll-rose-hover: #be123c;
+  --ll-rose-soft: #fff1f2;
+  --ll-rose-border: #fecdd3;
+  --ll-rose-text: #9f1239;
+
+  /* Indigo / Mathematics / Theory */
+  --ll-indigo: #4f46e5;
+  --ll-indigo-soft: #eef2ff;
+  --ll-indigo-border: #c7d2fe;
+  --ll-indigo-text: #3730a3;
+
+  /* Geometry & Layout */
+  --ll-radius-xs: 3px;
+  --ll-radius-sm: 4px;
+  --ll-radius-md: 6px;
+  --ll-radius-lg: 8px;
+  --ll-radius-xl: 12px;
+  --ll-radius-full: 9999px;
+
+  /* Elevation Shadows (Ultra-Refined, Never Harsh) */
+  --ll-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ll-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+  --ll-shadow-hover: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --ll-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+
+  /* Fonts */
+  --ll-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Georgian", sans-serif;
+  --ll-font-mono: "JetBrains Mono", "IBM Plex Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Legacy variable mappings for backward compatibility */
+  --line: var(--ll-border);
+  --muted: var(--ll-text-muted);
+  --green: var(--ll-emerald);
+  --mono: var(--ll-font-mono);
+}
+
+/* ==========================================================================
+   Root Layout Container
+   ========================================================================== */
+/* ==========================================================================
+   Scientific Workbench: Split Sidebar & Monolithic Viewport Architecture
+   ========================================================================== */
+.study-workbench {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+  background: var(--ll-canvas);
+  overflow: hidden;
+  position: relative;
+}
+
+.study-sidebar {
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  height: 100%;
+  background: var(--ll-surface);
+  border-right: 1px solid var(--ll-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  z-index: 20;
+  user-select: none;
+}
+
+.study-sidebar-header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--ll-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--ll-surface);
+}
+
+.study-sidebar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ll-text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.study-sidebar-back:hover {
+  color: var(--ll-emerald);
+}
+
+.study-sidebar-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.study-sidebar-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ll-text-primary);
+  line-height: 1.35;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.study-sidebar-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.study-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav-heading {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ll-text-muted);
+  padding: 4px 10px;
+  margin-bottom: 2px;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: var(--ll-radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ll-text-secondary);
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-nav-item:hover {
+  background: var(--ll-surface-hover);
+  color: var(--ll-text-primary);
+}
+
+.sidebar-nav-item.active {
+  background: var(--ll-emerald-soft);
+  color: var(--ll-emerald-text);
+  font-weight: 600;
+  border-color: var(--ll-emerald-border);
+}
+
+.sidebar-nav-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sidebar-nav-item-left span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav-item-badge {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--ll-font-mono);
+  padding: 1px 6px;
+  border-radius: var(--ll-radius-full);
+  background: var(--ll-border-subtle);
+  color: var(--ll-text-secondary);
+  flex-shrink: 0;
+}
+
+.sidebar-nav-item.active .sidebar-nav-item-badge {
+  background: var(--ll-emerald);
+  color: #ffffff;
+}
+
+.study-sidebar-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--ll-border);
+  background: var(--ll-surface-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.study-main-viewport {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--ll-canvas);
+}
+
+.study-main-viewport.viewport-flow {
+  overflow: hidden;
+  padding: 0;
+}
+
+.study-viewport-content {
+  flex: 1;
+  padding: 20px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+/* ==========================================================================
+   Monolithic KPI Ribbon System
+   ========================================================================== */
+.kpi-ribbon {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--ll-shadow-card);
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .kpi-ribbon {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.kpi-block {
+  padding: 14px 18px;
+  border-right: 1px solid var(--ll-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.kpi-block:last-child {
+  border-right: none;
+}
+
+.kpi-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ll-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kpi-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ll-text-primary);
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.kpi-sub {
+  font-size: 11.5px;
+  color: var(--ll-text-secondary);
+}
 
 .study-container {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #f7f8f5;
-  color: #283e37;
+  width: 100%;
+  background: var(--ll-canvas);
+  color: var(--ll-text-primary);
+  font-family: var(--ll-font-sans);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ==========================================================================
+   Workbench Header Bar
+   ========================================================================== */
 .study-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 24px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line, #e3e8e2);
+  padding: 10px 20px;
+  background: var(--ll-surface);
+  border-bottom: 1px solid var(--ll-border);
+  flex-shrink: 0;
+  gap: 16px;
+  min-height: 48px;
+  box-sizing: border-box;
 }
 
 .study-title-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .study-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 650;
-  color: #1a2c26;
+  color: var(--ll-text-primary);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
 }
 
 .study-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--muted, #84938b);
-  cursor: pointer;
-}
-
-.study-breadcrumb:hover {
-  color: var(--green, #247861);
-}
-
-.badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 550;
-  text-transform: capitalize;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ll-text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--ll-radius-sm);
+  transition: all 0.15s ease;
 }
 
-.badge-physics { background: #e0f2fe; color: #0369a1; }
-.badge-chemistry { background: #fef3c7; color: #92400e; }
-.badge-biology { background: #dcfce7; color: #15803d; }
-.badge-engineering { background: #f3e8ff; color: #6b21a8; }
-.badge-generic { background: #f1f5f9; color: #475569; }
+.study-breadcrumb:hover {
+  color: var(--ll-emerald);
+  background: var(--ll-surface-hover);
+}
 
-.badge-status-open { background: #e0f2fe; color: #0369a1; }
-.badge-status-excluded { background: #fee2e2; color: #991b1b; }
-.badge-status-recommended { background: #dcfce7; color: #166534; font-weight: 600; }
-.badge-status-deprioritised { background: #fef3c7; color: #854d0e; }
-.badge-status-tested_pass { background: #d1fae5; color: #065f46; }
-.badge-status-tested_fail { background: #ffe4e6; color: #9f1239; }
-
+/* ==========================================================================
+   Streamlined Tab Navigation with Scientific Workflow Grouping
+   ========================================================================== */
 .study-nav-tabs {
   display: flex;
+  align-items: center;
   gap: 2px;
-  padding: 0 24px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line, #e3e8e2);
+  padding: 0 16px;
+  background: var(--ll-surface);
+  border-bottom: 1px solid var(--ll-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.study-nav-tabs::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.study-nav-group-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--ll-border);
+  margin: 0 6px;
+  flex-shrink: 0;
 }
 
 .study-tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 14px;
+  padding: 10px 12px;
   font-size: 12px;
-  font-weight: 550;
-  color: #586b62;
+  font-weight: 500;
+  color: var(--ll-text-secondary);
+  border: none;
   border-bottom: 2px solid transparent;
-  background: none;
+  background: transparent;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.15s ease;
+  user-select: none;
+  border-radius: var(--ll-radius-sm) var(--ll-radius-sm) 0 0;
 }
 
 .study-tab-btn:hover {
-  color: #1a2c26;
-  background: #f8faf8;
+  color: var(--ll-text-primary);
+  background: var(--ll-surface-hover);
 }
 
 .study-tab-btn.active {
-  color: var(--green, #247861);
-  border-bottom-color: var(--green, #247861);
+  color: var(--ll-emerald);
+  font-weight: 600;
+  border-bottom-color: var(--ll-emerald);
+  background: transparent;
 }
 
+.study-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--ll-font-mono);
+  background: var(--ll-border-subtle);
+  color: var(--ll-text-secondary);
+  border-radius: var(--ll-radius-full);
+  line-height: 1.2;
+}
+
+.study-tab-btn.active .study-tab-badge {
+  background: var(--ll-emerald-soft);
+  color: var(--ll-emerald-text);
+}
+
+/* ==========================================================================
+   Content Viewport Area
+   ========================================================================== */
 .study-content {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px 24px 40px;
+  min-height: 0;
 }
 
 .study-content.study-content-flow {
@@ -114,27 +506,48 @@
   min-height: 0;
 }
 
+/* ==========================================================================
+   Card System (Minimalist, Crisp, Calm)
+   ========================================================================== */
 .study-card {
-  background: #ffffff;
-  border: 1px solid var(--line, #e3e8e2);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--ll-shadow-card);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.study-card:hover {
+  border-color: var(--ll-border-strong);
 }
 
 .study-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .study-card-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a2c26;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ll-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.1px;
+}
+
+.study-card-sub {
+  margin: 3px 0 0 0;
+  font-size: 12px;
+  color: var(--ll-text-secondary);
+  line-height: 1.4;
 }
 
 .study-grid-cards {
@@ -144,401 +557,231 @@
 }
 
 .study-clickable-card {
-  background: #ffffff;
-  border: 1px solid var(--line, #e3e8e2);
-  border-radius: 8px;
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
   padding: 18px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  box-shadow: var(--ll-shadow-card);
+  position: relative;
 }
 
 .study-clickable-card:hover {
-  border-color: #92b8a7;
-  box-shadow: 0 4px 12px rgba(36, 120, 97, 0.06);
-  transform: translateY(-1px);
+  border-color: var(--ll-emerald);
+  box-shadow: var(--ll-shadow-hover);
+  transform: translateY(-2px);
 }
 
+/* ==========================================================================
+   Button System
+   ========================================================================== */
 .btn-primary {
-  background: var(--green, #247861);
-  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--ll-emerald);
+  color: #ffffff !important;
   font-weight: 600;
   font-size: 12px;
-  padding: 7px 14px;
-  border-radius: 6px;
-  border: none;
+  padding: 6px 14px;
+  border-radius: var(--ll-radius-md);
+  border: 1px solid var(--ll-emerald);
   cursor: pointer;
+  box-shadow: var(--ll-shadow-xs);
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1c624f;
+  background: var(--ll-emerald-hover);
+  border-color: var(--ll-emerald-hover);
+  filter: none;
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--ll-emerald-active);
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-secondary {
-  background: #ffffff;
-  color: #354a41;
-  font-weight: 550;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--ll-surface);
+  color: var(--ll-text-secondary) !important;
+  font-weight: 500;
   font-size: 12px;
-  padding: 7px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--line, #e3e8e2);
+  padding: 6px 12px;
+  border-radius: var(--ll-radius-md);
+  border: 1px solid var(--ll-border);
   cursor: pointer;
+  box-shadow: var(--ll-shadow-xs);
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #f4f6f3;
-  border-color: #ccd4cc;
+  background: var(--ll-surface-hover);
+  color: var(--ll-text-primary) !important;
+  border-color: var(--ll-border-strong);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-danger {
-  background: #fee2e2;
-  color: #991b1b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--ll-rose-soft);
+  color: var(--ll-rose-text) !important;
   font-weight: 600;
   font-size: 12px;
-  padding: 7px 14px;
-  border-radius: 6px;
-  border: 1px solid #fca5a5;
+  padding: 6px 12px;
+  border-radius: var(--ll-radius-md);
+  border: 1px solid var(--ll-rose-border);
   cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #fecaca;
+  background: #ffe4e6;
+  border-color: #fda4af;
 }
 
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--ll-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--ll-radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--ll-surface-hover);
+  color: var(--ll-text-primary);
+}
+
+/* ==========================================================================
+   Scientific Badges & Status Indicators
+   ========================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--ll-radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* Scientific Domains */
+.badge-physics { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+.badge-chemistry { background: #fefce8; color: #854d0e; border-color: #fef08a; }
+.badge-biology { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }
+.badge-engineering { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+.badge-materials { background: #faf5ff; color: #7e22ce; border-color: #e9d5ff; }
+.badge-microscopy { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.badge-microfluidics { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }
+.badge-optical_microscopy { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.badge-biophysics_materials { background: #faf5ff; color: #7e22ce; border-color: #e9d5ff; }
+.badge-generic { background: #f4f4f5; color: #52525b; border-color: #e4e4e7; }
+
+/* Screening Decisions & Empirical States */
+.badge-status-open { background: #f0f9ff; color: #0284c7; border-color: #bae6fd; }
+.badge-status-recommended { background: #ecfdf5; color: #065f46; border-color: #86efac; font-weight: 700; }
+.badge-status-deprioritised { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.badge-status-excluded { background: #fff1f2; color: #9f1239; border-color: #fecdd3; }
+.badge-status-tested_pass { background: #d1fae5; color: #065f46; border-color: #34d399; font-weight: 700; }
+.badge-status-tested_fail { background: #ffe4e6; color: #9f1239; border-color: #f43f5e; font-weight: 700; }
+
+/* ==========================================================================
+   Scientific Data Tables (Compact, High Density, Tabular Figures)
+   ========================================================================== */
 .study-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 12px;
   text-align: left;
 }
 
 .study-table th {
-  padding: 10px 12px;
-  background: #f8faf8;
-  border-bottom: 1px solid var(--line, #e3e8e2);
-  color: #586b62;
+  padding: 8px 12px;
+  background: var(--ll-surface-subtle);
+  border-bottom: 1px solid var(--ll-border);
+  color: var(--ll-text-secondary);
   font-weight: 600;
-}
-
-.study-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--line, #e3e8e2);
-  color: #283e37;
-}
-
-.study-table tr:hover td {
-  background: #fafbfa;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 20, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.modal-dialog {
-  background: #ffffff;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 580px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--line, #e3e8e2);
-}
-
-.modal-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 650;
-  color: #1a2c26;
-}
-
-.modal-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--line, #e3e8e2);
-  background: #fbfcfb;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.form-label {
   font-size: 11px;
-  font-weight: 600;
-  color: #354a41;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-}
-
-.form-input, .form-select, .form-textarea {
-  padding: 8px 10px;
-  border: 1px solid var(--line, #e3e8e2);
-  border-radius: 5px;
-  font-size: 12px;
-  background: #ffffff;
-  color: #283e37;
-  font-family: inherit;
-}
-
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-  border-color: var(--green, #247861) !important;
-}
-
-.form-error {
-  font-size: 11px;
-  color: #dc2626;
-  margin-top: 2px;
-}
-
-.chips-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.variable-chip {
-  background: #eef5f1;
-  border: 1px solid #c7ded3;
-  color: #1e6350;
-  padding: 2px 7px;
-  border-radius: 4px;
-  font-family: var(--mono, monospace);
-  font-size: 11px;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.variable-chip:hover {
-  background: #ddead6;
-}
-
-/* Funnel chart styles */
-.funnel-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.funnel-step {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.funnel-step-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 550;
-  color: #354a41;
-}
-
-.funnel-bar-track {
-  width: 100%;
-  height: 24px;
-  background: #eef1ed;
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-}
-
-.funnel-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #247861 0%, #3ca789 100%);
-  border-radius: 4px;
-  transition: width 0.4s ease;
-  display: flex;
-  align-items: center;
-  padding-left: 8px;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--mono, monospace);
-}
-
-.funnel-bar-fill.excluded {
-  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
-}
-
-.funnel-bar-fill.recommended {
-  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.stat-box {
-  background: #ffffff;
-  border: 1px solid var(--line, #e3e8e2);
-  border-radius: 6px;
-  padding: 14px 16px;
-}
-
-.stat-box-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted, #84938b);
-  text-transform: uppercase;
-}
-
-.stat-box-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a2c26;
-  margin-top: 4px;
-  font-family: var(--mono, monospace);
-}
-
-.stat-box-sub {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 4px;
-}
-
-/* Model Tab & Embedded 3D Workspace styles */
-.model-tab-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
-.model-tab-toolbar {
-  height: 38px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line, #e3e8e2);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.model-tab-toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-
-.model-tab-modes {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #f1f5f9;
-  padding: 2px;
-  border-radius: 6px;
-}
-
-.model-mode-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.model-mode-btn:hover {
-  color: #0f172a;
-}
-
-.model-mode-btn.active {
-  background: #ffffff;
-  color: #247861;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.model-status-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.model-version-tag {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-
-.model-name-tag {
-  font-weight: 600;
-  color: #334155;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.model-tab-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.study-table th:first-child {
+  border-top-left-radius: var(--ll-radius-sm);
 }
 
-.model-tab-scroll-wrap {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
+.study-table th:last-child {
+  border-top-right-radius: var(--ll-radius-sm);
 }
 
-/* Executive Scientific Verdict Banner */
+.study-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ll-border-subtle);
+  color: var(--ll-text-primary);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.study-table tr:hover td {
+  background: var(--ll-surface-hover);
+}
+
+.study-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ==========================================================================
+   Executive Scientific Verdict Banner
+   ========================================================================== */
 .verdict-banner {
-  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
-  border: 1px solid #c2e0d3;
-  border-left: 5px solid #059669;
-  border-radius: 8px;
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-left: 4px solid var(--ll-emerald);
+  border-radius: var(--ll-radius-lg);
   padding: 18px 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 4px rgba(36, 120, 97, 0.05);
+  margin-bottom: 18px;
+  box-shadow: var(--ll-shadow-card);
 }
 
 .verdict-header {
@@ -547,7 +790,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .verdict-badge-row {
@@ -561,54 +804,58 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
+  border-radius: var(--ll-radius-full);
+  font-size: 11.5px;
   font-weight: 600;
 }
 
 .verdict-pill.pill-success {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+  background: var(--ll-emerald-soft);
+  color: var(--ll-emerald-text);
+  border: 1px solid var(--ll-emerald-border);
 }
 
 .verdict-pill.pill-viable {
-  background: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #bae6fd;
+  background: var(--ll-blue-soft);
+  color: var(--ll-blue-text);
+  border: 1px solid var(--ll-blue-border);
 }
 
 .verdict-timestamp {
   font-size: 11px;
-  color: #84938b;
+  color: var(--ll-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .verdict-title {
   margin: 0 0 6px 0;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--ll-text-primary);
 }
 
 .verdict-text {
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.55;
-  color: #334155;
+  color: var(--ll-text-secondary);
   margin: 0 0 14px 0;
 }
 
 .verdict-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
-/* Candidate Pool Composition Bar */
+/* ==========================================================================
+   Candidate Pool Composition Bar
+   ========================================================================== */
 .pool-bar-track {
   width: 100%;
-  height: 14px;
-  background: #f1f5f9;
-  border-radius: 7px;
+  height: 10px;
+  background: var(--ll-border-subtle);
+  border-radius: var(--ll-radius-full);
   overflow: hidden;
   display: flex;
   margin-bottom: 12px;
@@ -621,28 +868,17 @@
 }
 
 .pool-segment:hover {
-  opacity: 0.82;
+  opacity: 0.8;
 }
 
-.pool-segment.seg-recommended {
-  background: #10b981;
-}
-
-.pool-segment.seg-open {
-  background: #3b82f6;
-}
-
-.pool-segment.seg-deprioritised {
-  background: #f59e0b;
-}
-
-.pool-segment.seg-excluded {
-  background: #ef4444;
-}
+.pool-segment.seg-recommended { background: #10b981; }
+.pool-segment.seg-open { background: #0284c7; }
+.pool-segment.seg-deprioritised { background: #f59e0b; }
+.pool-segment.seg-excluded { background: #ef4444; }
 
 .pool-legend {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -650,68 +886,779 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f8fafc;
-  border: 1px solid var(--line, #e2e8f0);
-  border-radius: 6px;
-  padding: 4px 10px;
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-full);
+  padding: 3px 9px;
   font-size: 11px;
-  color: #475569;
+  color: var(--ll-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
+  font-variant-numeric: tabular-nums;
 }
 
 .pool-legend-btn:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: var(--ll-surface-hover);
+  border-color: var(--ll-border-strong);
+  color: var(--ll-text-primary);
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   display: inline-block;
 }
 
 .dot-recommended { background: #10b981; }
-.dot-open { background: #3b82f6; }
+.dot-open { background: #0284c7; }
 .dot-deprioritised { background: #f59e0b; }
 .dot-excluded { background: #ef4444; }
 
-/* Enhanced Funnel Styles */
+/* ==========================================================================
+   Elimination Funnel Chart
+   ========================================================================== */
+.funnel-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.funnel-step {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.funnel-step-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+
 .funnel-step-name {
   font-size: 12px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--ll-text-primary);
 }
 
 .funnel-step-val {
   font-size: 12px;
   font-weight: 600;
-  font-family: var(--mono, monospace);
-  color: #334155;
+  font-family: var(--ll-font-mono);
+  color: var(--ll-text-secondary);
 }
+
+.funnel-bar-track {
+  width: 100%;
+  height: 20px;
+  background: var(--ll-border-subtle);
+  border-radius: var(--ll-radius-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.funnel-bar-fill {
+  height: 100%;
+  border-radius: var(--ll-radius-sm);
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--ll-font-mono);
+}
+
+.funnel-bar-fill.funnel-step-1 { background: #64748b; }
+.funnel-bar-fill.funnel-step-2 { background: #0284c7; }
+.funnel-bar-fill.funnel-step-3 { background: #4f46e5; }
+.funnel-bar-fill.funnel-step-4 { background: #059669; }
 
 .funnel-sublabel {
   font-size: 11px;
-  color: #64748b;
+  color: var(--ll-text-muted);
+  margin-top: 1px;
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   Scientific Metric Stat Grid
+   ========================================================================== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-box {
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--ll-shadow-card);
+}
+
+.stat-box-label {
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--ll-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.stat-box-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ll-text-primary);
   margin-top: 3px;
+  font-family: var(--ll-font-mono);
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-box-sub {
+  font-size: 11px;
+  color: var(--ll-text-secondary);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Unified Modal Dialog Framework
+   ========================================================================== */
+.modal-overlay,
+.study-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.modal-dialog,
+.study-modal {
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-xl);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--ll-shadow-modal);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ll-border);
+  background: var(--ll-surface);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ll-text-primary);
+  letter-spacing: -0.2px;
+}
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--ll-border);
+  background: var(--ll-surface-subtle);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Form Controls & Scientific Variable Chips
+   ========================================================================== */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-label,
+.study-form-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ll-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.form-input,
+.form-select,
+.form-textarea,
+.study-form-input,
+.study-form-select,
+.study-form-textarea {
+  padding: 7px 10px;
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-md);
+  font-size: 12.5px;
+  background: var(--ll-surface);
+  color: var(--ll-text-primary);
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+.study-form-input:focus,
+.study-form-select:focus,
+.study-form-textarea:focus {
+  border-color: var(--ll-emerald) !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12) !important;
+  outline: none;
+}
+
+.form-error {
+  font-size: 11px;
+  color: var(--ll-rose);
+  margin-top: 2px;
+}
+
+.chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.variable-chip {
+  background: var(--ll-emerald-soft);
+  border: 1px solid var(--ll-emerald-border);
+  color: var(--ll-emerald-text);
+  padding: 2px 7px;
+  border-radius: var(--ll-radius-sm);
+  font-family: var(--ll-font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.variable-chip:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+/* ==========================================================================
+   Model Tab & Simulation Embedded Toolbar
+   ========================================================================== */
+.model-tab-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.model-tab-toolbar {
+  height: 40px;
+  background: var(--ll-surface);
+  border-bottom: 1px solid var(--ll-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.model-tab-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.model-tab-modes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--ll-border-subtle);
+  padding: 2px;
+  border-radius: var(--ll-radius-md);
+}
+
+.model-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--ll-radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--ll-text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.model-mode-btn:hover {
+  color: var(--ll-text-primary);
+}
+
+.model-mode-btn.active {
+  background: var(--ll-surface);
+  color: var(--ll-emerald);
+  font-weight: 600;
+  box-shadow: var(--ll-shadow-xs);
+}
+
+.model-status-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.model-version-tag {
+  background: var(--ll-text-primary);
+  color: var(--ll-text-inverse);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--ll-radius-sm);
+  font-family: var(--ll-font-mono);
+}
+
+.model-name-tag {
+  font-weight: 600;
+  color: var(--ll-text-secondary);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-tab-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-tab-scroll-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+/* ==========================================================================
+   Scientific Studies Catalog & Matrix System
+   ========================================================================== */
+
+/* Consolidated Catalog Toolbar */
+.catalog-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 24px;
+  background: var(--ll-surface);
+  border-bottom: 1px solid var(--ll-border);
+  gap: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.catalog-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.catalog-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Executive Metric Ribbon */
+.study-executive-ribbon {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--ll-surface);
+  border-bottom: 1px solid var(--ll-border);
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .study-executive-ribbon {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.exec-kpi-block {
+  padding: 10px 20px;
+  border-right: 1px solid var(--ll-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exec-kpi-block:last-child {
+  border-right: none;
+}
+
+.exec-kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ll-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.exec-kpi-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ll-text-primary);
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.exec-kpi-sub {
+  font-size: 11px;
+  color: var(--ll-text-secondary);
+}
+
+/* Pre-Validated Scientific Benchmarks Shelf */
+.benchmark-shelf {
+  background: var(--ll-surface-subtle);
+  border-bottom: 1px solid var(--ll-border);
+  padding: 14px 24px;
+  flex-shrink: 0;
+}
+
+.benchmark-shelf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.benchmark-shelf-title {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ll-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.benchmark-shelf-toggle {
+  background: none;
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ll-emerald);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.benchmark-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .benchmark-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.benchmark-card {
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.benchmark-card:hover {
+  border-color: var(--ll-emerald);
+  box-shadow: var(--ll-shadow-xs);
+  transform: translateY(-1px);
+}
+
+.benchmark-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.benchmark-card-title {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ll-text-primary);
+  line-height: 1.3;
+}
+
+.benchmark-card-desc {
+  font-size: 11px;
+  color: var(--ll-text-secondary);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.benchmark-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid var(--ll-border-subtle);
+  font-size: 10.5px;
+  color: var(--ll-emerald);
+  font-weight: 600;
+}
+
+/* View Mode Segmented Controls */
+.view-mode-toggle {
+  display: inline-flex;
+  background: var(--ll-surface-hover);
+  padding: 2px;
+  border-radius: var(--ll-radius-md);
+  border: 1px solid var(--ll-border);
+}
+
+.view-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  border-radius: var(--ll-radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--ll-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.view-mode-btn:hover:not(.active) {
+  color: var(--ll-text-primary);
+}
+
+.view-mode-btn.active {
+  background: var(--ll-surface);
+  color: var(--ll-emerald);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* High-Density Scientific Studies Matrix (Table View) */
+.study-matrix-wrap {
+  width: 100%;
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--ll-shadow-card);
+}
+
+.study-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.study-matrix-table th {
+  padding: 10px 16px;
+  background: var(--ll-surface-subtle);
+  border-bottom: 1px solid var(--ll-border);
+  color: var(--ll-text-secondary);
+  font-weight: 650;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.study-matrix-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ll-border-subtle);
+  color: var(--ll-text-primary);
+  vertical-align: middle;
+}
+
+.matrix-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.matrix-row:hover {
+  background: var(--ll-surface-hover);
+}
+
+.matrix-row:last-child td {
+  border-bottom: none;
+}
+
+.matrix-study-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ll-text-primary);
+  letter-spacing: -0.15px;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matrix-study-id {
+  font-family: var(--ll-font-mono);
+  font-size: 10px;
+  color: var(--ll-text-muted);
+  font-weight: normal;
+}
+
+.matrix-study-desc {
+  font-size: 11.5px;
+  color: var(--ll-text-secondary);
+  max-width: 460px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   line-height: 1.4;
 }
 
-.funnel-bar-fill.funnel-step-1 {
-  background: linear-gradient(90deg, #64748b 0%, #94a3b8 100%);
+/* Architectural Project Card Grid (Grid View) */
+.study-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
 }
 
-.funnel-bar-fill.funnel-step-2 {
-  background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%);
+.scientific-study-card {
+  background: var(--ll-surface);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-lg);
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--ll-shadow-card);
+  position: relative;
+  overflow: hidden;
 }
 
-.funnel-bar-fill.funnel-step-3 {
-  background: linear-gradient(90deg, #4f46e5 0%, #818cf8 100%);
+.scientific-study-card:hover {
+  border-color: var(--ll-emerald);
+  box-shadow: var(--ll-shadow-hover);
+  transform: translateY(-1px);
 }
 
-.funnel-bar-fill.funnel-step-4 {
-  background: linear-gradient(90deg, #059669 0%, #34d399 100%);
+.study-card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.study-card-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.study-card-heading {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ll-text-primary);
+  letter-spacing: -0.2px;
+  line-height: 1.35;
+}
+
+.study-card-desc {
+  margin: 0 0 14px 0;
+  font-size: 12px;
+  color: var(--ll-text-secondary);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.study-card-meta-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.meta-chip {
+  font-family: var(--ll-font-mono);
+  font-size: 10.5px;
+  padding: 2px 7px;
+  background: var(--ll-surface-subtle);
+  border: 1px solid var(--ll-border);
+  border-radius: var(--ll-radius-sm);
+  color: var(--ll-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.study-card-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--ll-border-subtle);
+  font-size: 11px;
+  color: var(--ll-text-muted);
 }
 

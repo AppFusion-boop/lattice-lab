@@ -2,7 +2,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background: #f4f6f3;
+  background: var(--ll-canvas, #f8fafc);
   padding: 24px;
 }
 .flow-monitor > header {
@@ -13,49 +13,61 @@
   gap: 16px;
 }
 .flow-monitor h2 {
-  font-size: 19px;
-  margin: 0 0 7px;
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--ll-text-primary, #0f172a);
+  margin: 0 0 6px;
 }
 .flow-monitor p {
-  color: #75837d;
+  color: var(--ll-text-secondary, #475569);
   font-size: 12px;
 }
 .flow-monitor button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border: 1px solid #dbe3dd;
-  border-radius: 7px;
-  background: white;
-  padding: 8px 12px;
-  color: #416a5c;
+  gap: 6px;
+  border: 1px solid var(--ll-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--ll-surface, #ffffff);
+  padding: 6px 12px;
+  color: var(--ll-text-secondary, #475569);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+.flow-monitor button:hover {
+  background: var(--ll-surface-hover, #f1f5f9);
+  color: var(--ll-text-primary, #0f172a);
 }
 .monitor-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 .monitor-card {
   min-width: 0;
-  border: 1px solid #dbe3dd;
-  background: white;
-  border-radius: 12px;
+  border: 1px solid var(--ll-border, #e2e8f0);
+  background: var(--ll-surface, #ffffff);
+  border-radius: var(--ll-radius-lg, 10px);
   overflow: hidden;
+  box-shadow: var(--ll-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.05));
 }
 .monitor-card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 18px;
-  border-bottom: 1px solid #e9eee9;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ll-border-subtle, #f1f5f9);
 }
 .monitor-card h3 {
-  font-size: 14px;
-  margin: 0 0 5px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ll-text-primary, #0f172a);
+  margin: 0 0 4px;
 }
 .monitor-card small {
-  color: #87958b;
+  color: var(--ll-text-muted, #94a3b8);
   font-size: 11px;
 }
 .monitor-card > p {
@@ -64,12 +76,12 @@
 .monitor-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 16px;
-  background: white;
-  border: 1px solid #dbe3dd;
-  border-radius: 9px;
-  margin-bottom: 20px;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--ll-surface, #ffffff);
+  border: 1px solid var(--ll-border, #e2e8f0);
+  border-radius: var(--ll-radius-md, 8px);
+  margin-bottom: 18px;
 }
 .monitor-picker label {
   display: flex;

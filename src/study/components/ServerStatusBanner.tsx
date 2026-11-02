@@ -1,6 +1,7 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useServerHealth } from "../api/hooks";
 import { tr } from "../../i18n";
+import "../study.css";
 
 export function ServerStatusBanner() {
   const { isOnline, checking, recheck } = useServerHealth();
@@ -17,21 +18,21 @@ export function ServerStatusBanner() {
         alignItems: "center",
         justifyContent: "space-between",
         gap: 12,
-        padding: "10px 16px",
-        background: "#fef3c7",
-        borderBottom: "1px solid #f59e0b",
-        color: "#92400e",
+        padding: "8px 20px",
+        background: "var(--ll-amber-soft)",
+        borderBottom: "1px solid var(--ll-amber-border)",
+        color: "var(--ll-amber-text)",
         fontSize: "12px",
         fontWeight: 500,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <AlertTriangle size={16} color="#d97706" />
+        <AlertTriangle size={15} color="var(--ll-amber)" />
         <span>
-          <strong>{tr("სერვერი გათიშულია:", "Study server is not running —")}</strong>{" "}
+          <strong>{tr("სერვერი გათიშულია:", "Study server is offline —")}</strong>{" "}
           {tr(
-            "გაუშვით `npm run server` ტერმინალში კვლევების ფუნქციონალისთვის. ფლოუს რედაქტორი ჩვეულებრივ მუშაობს.",
-            "start it with `npm run server`. The flow editor works offline without the server."
+            "გაუშვით `npm run server` ტერმინალში კვლევებისა და სტატისტიკური სკრინინგისთვის. 3D ფლოუს რედაქტორი მუშაობს ავტონომიურად.",
+            "Run `npm run server` to enable study persistence and statistical screening. Flow editor works offline.",
           )}
         </span>
       </div>
@@ -39,22 +40,17 @@ export function ServerStatusBanner() {
         type="button"
         onClick={recheck}
         disabled={checking}
+        className="btn-secondary"
         style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          background: "#fff",
-          color: "#92400e",
-          border: "1px solid #d97706",
-          padding: "4px 10px",
-          borderRadius: 4,
+          padding: "3px 8px",
           fontSize: "11px",
-          fontWeight: 600,
-          cursor: "pointer",
+          color: "var(--ll-amber-text)",
+          borderColor: "var(--ll-amber-border)",
+          background: "var(--ll-surface)",
         }}
       >
-        <RefreshCw size={12} className={checking ? "spin" : ""} />
-        <span>{tr("ხელახლა შემოწმება", "Retry")}</span>
+        <RefreshCw size={11} className={checking ? "spin" : ""} />
+        <span>{tr("შემოწმება", "Retry")}</span>
       </button>
     </div>
   );

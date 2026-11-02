@@ -821,11 +821,11 @@ export default function Workspace({
       <FlowContext.Provider value={nodeRuntime}>
         <div className="studio">
           {hideHeaderBrand ? (
-            <header className="studio-header" style={{ height: 42, padding: "0 14px", background: "#f8fafc" }}>
+            <header className="studio-header" style={{ height: 42, padding: "0 14px", background: "var(--ll-surface, #ffffff)", borderBottom: "1px solid var(--ll-border, #e4e4e7)" }}>
               <div className="project-heading" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span className="project-path" style={{ color: "#2563eb", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <FlaskConical size={14} color="#2563eb" />
-                  <span>{t("კვლევის 3D ფლოუ მოდელი", "Study 3D Flow Simulation")}</span>
+                <span className="project-path" style={{ color: "var(--ll-emerald, #0f766e)", fontWeight: 650, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <FlaskConical size={14} color="var(--ll-emerald, #0f766e)" />
+                  <span>{studyId ? t("კვლევის 3D ფლოუ მოდელი", "Study 3D Flow Simulation") : t("3D ფლოუს სენდბოქსი", "3D Flow Sandbox")}</span>
                 </span>
                 <input
                   aria-label="ფლოუს სახელი"
@@ -838,7 +838,7 @@ export default function Workspace({
                       name: e.target.value.slice(0, 100),
                     })
                   }
-                  style={{ height: 26, fontSize: 12, width: 220 }}
+                  style={{ height: 26, fontSize: 12, width: 220, border: "1px solid var(--ll-border, #e4e4e7)", borderRadius: 4, padding: "0 8px", background: "var(--ll-surface-subtle, #fafbfc)" }}
                 />
               </div>
               <div className="header-actions">
@@ -869,7 +869,7 @@ export default function Workspace({
                 </button>
                 <button
                   className="save-button"
-                  style={{ background: "#2563eb", height: 28, fontSize: 11, padding: "0 12px" }}
+                  style={{ background: "var(--ll-emerald, #059669)", height: 28, fontSize: 11, padding: "0 12px" }}
                   onClick={() => setShowStudyBinding(true)}
                   title={t("მოდელის ვერსიის შენახვა", "Save Model Version")}
                 >

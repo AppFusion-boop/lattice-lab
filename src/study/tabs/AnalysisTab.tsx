@@ -163,14 +163,23 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
   const controlledParams = (parameters || []).filter((p) => p.role === "controlled");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* 1. 2D Safe Operating Envelope Phase Diagram */}
       <div className="study-card">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <Compass size={18} color="#0284c7" />
-          <h3 style={{ margin: 0, fontSize: 15 }}>
-            {tr("2D უსაფრთხო სამუშაო გარსის ფაზური დიაგრამა", "2D Safe Operating Envelope Phase Diagram")}
-          </h3>
+        <div className="study-card-header">
+          <div>
+            <h3 className="study-card-title">
+              <Compass size={17} color="var(--ll-blue)" />
+              <span>{tr("2D უსაფრთხო სამუშაო გარსის ფაზური დიაგრამა", "2D Safe Operating Envelope Phase Diagram")}</span>
+            </h3>
+            <p className="study-card-sub">
+              {tr(
+                "პარამეტრული სივრცის დაყოფა ვალიდურ, ზღვრულ და გამორიცხულ რეგიონებად.",
+                "Projection of candidate feasibility across controlled parameters with safe operating contours."
+              )}
+            </p>
+          </div>
+          <span className="badge badge-physics">2D Envelope Contour</span>
         </div>
         <PhaseDiagram2D
           candidates={candidatesData?.items || []}
@@ -180,15 +189,18 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
 
       {/* 2. Model Validation Against Evidence & Human Sign-Off (Hard Rule 6) */}
       <div className="study-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <ShieldCheck size={18} color="#059669" />
+        <div className="study-card-header">
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <ShieldCheck size={20} color="var(--ll-emerald)" style={{ marginTop: 2, flexShrink: 0 }} />
             <div>
-              <h3 style={{ margin: 0, fontSize: 15 }}>
-                {tr("მოდელის ვალიდაცია მტკიცებულებებთან & ადამიანური დადასტურება", "Model Validation vs. Physical Evidence & Human Sign-Off (Hard Rule 6)")}
+              <h3 className="study-card-title">
+                <span>{tr("მოდელის ვალიდაცია მტკიცებულებებთან & ადამიანური დადასტურება", "Model Validation vs. Physical Evidence & Human Sign-Off (Hard Rule 6)")}</span>
               </h3>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
-                Unvalidated models may only deprioritise candidates. Exclusion at confidence requires empirical 90% PI coverage ≥ 80% and explicit human sign-off.
+              <p className="study-card-sub">
+                {tr(
+                  "არავალიდირებულ მოდელს მხოლოდ დეპრიორიტიზაცია შეუძლია. გამორიცხვისთვის საჭიროა 90% PI დაფარვა ≥ 80% და ადამიანის ხელმოწერა.",
+                  "Unvalidated models may only deprioritise candidates. Exclusion at confidence requires empirical 90% PI coverage ≥ 80% and explicit human sign-off."
+                )}
               </p>
             </div>
           </div>
@@ -200,48 +212,63 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
               disabled={validating}
             >
               <Play size={13} />
-              <span>{validating ? "Validating..." : `Validate Model v${latestModel.version}`}</span>
+              <span>{validating ? tr("მოწმდება...", "Validating...") : tr(`მოდელის შემოწმება v${latestModel.version}`, `Validate Model v${latestModel.version}`)}</span>
             </button>
           )}
         </div>
 
         {!latestModel ? (
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            No Flow Model version saved yet. Link a Flow Model in the "3D Flow & Simulation" tab first.
+          <div style={{ padding: "16px 20px", background: "var(--ll-surface-subtle)", borderRadius: 6, fontSize: 12.5, color: "var(--ll-text-muted)" }}>
+            {tr("ფლოუ მოდელის ვერსია ჯერ არ არის შენახული. მიაბით მოდელი '3D ფლოუ' ჩანართში.", "No Flow Model version saved yet. Link a Flow Model in the '3D Flow' tab first.")}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 13 }}>
-              <span>
-                <strong>Current Status:</strong>{" "}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 16,
+                alignItems: "center",
+                flexWrap: "wrap",
+                padding: "10px 14px",
+                background: "var(--ll-surface-subtle)",
+                borderRadius: "var(--ll-radius-md)",
+                border: "1px solid var(--ll-border)",
+                fontSize: 12.5,
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "var(--ll-text-secondary)", fontWeight: 600 }}>{tr("სტატუსი:", "Current Status:")}</span>
                 {latestModel.validation_status === "validated" ? (
-                  <span className="badge badge-status-recommended" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    <CheckCircle2 size={12} /> Validated
+                  <span className="badge badge-status-recommended">
+                    <CheckCircle2 size={12} /> {tr("ვალიდირებული", "Validated")}
                   </span>
                 ) : (
-                  <span className="badge badge-status-open" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    <AlertTriangle size={12} /> Unvalidated (Deprioritise Only)
+                  <span className="badge badge-status-open">
+                    <AlertTriangle size={12} /> {tr("არავალიდირებული (მხოლოდ დეპრიორიტიზაცია)", "Unvalidated (Deprioritise Only)")}
                   </span>
                 )}
               </span>
+
               {(valResult || latestModel.validation_json) && (
-                <span>
-                  <strong>Empirical 90% PI Coverage:</strong>{" "}
-                  <code>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--ll-text-secondary)", fontWeight: 600 }}>{tr("90% PI დაფარვა:", "Empirical 90% PI Coverage:")}</span>
+                  <code style={{ fontFamily: "var(--ll-font-mono)", fontWeight: 600, color: "var(--ll-emerald)" }}>
                     {(
                       ((valResult?.empirical_coverage_90 ??
                         (latestModel.validation_json as any)?.empirical_coverage_90) ||
                         0) * 100
                     ).toFixed(1)}
                     %
-                  </code>{" "}
-                  ({valResult?.n_evidence_rows ?? (latestModel.validation_json as any)?.n_evidence_rows ?? 0} evidence rows)
+                  </code>
+                  <span style={{ color: "var(--ll-text-muted)", fontSize: 11.5 }}>
+                    ({valResult?.n_evidence_rows ?? (latestModel.validation_json as any)?.n_evidence_rows ?? 0} {tr("მტკიცებულება", "evidence rows")})
+                  </span>
                 </span>
               )}
             </div>
 
             {valError && (
-              <div style={{ padding: 10, background: "#fef2f2", color: "#b91c1c", borderRadius: 6, fontSize: 12 }}>
+              <div style={{ padding: "10px 14px", background: "var(--ll-rose-soft)", color: "var(--ll-rose-text)", border: "1px solid var(--ll-rose-border)", borderRadius: "var(--ll-radius-md)", fontSize: 12 }}>
                 {valError}
               </div>
             )}
@@ -251,10 +278,10 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
                 (latestModel.validation_json as any)?.eligible_for_acceptance) && (
                 <div
                   style={{
-                    padding: 12,
-                    background: "#ecfdf5",
-                    border: "1px solid #a7f3d0",
-                    borderRadius: 6,
+                    padding: 14,
+                    background: "var(--ll-emerald-soft)",
+                    border: "1px solid var(--ll-emerald-border)",
+                    borderRadius: "var(--ll-radius-md)",
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
@@ -266,8 +293,8 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
                     className="form-input"
                     value={acceptReason}
                     onChange={(e) => setAcceptReason(e.target.value)}
-                    style={{ flex: 1, minWidth: 260, fontSize: 12 }}
-                    placeholder="Reason for human validation sign-off..."
+                    style={{ flex: 1, minWidth: 260, fontSize: 12.5 }}
+                    placeholder={tr("ადამიანური დადასტურების საფუძველი...", "Reason for human validation sign-off...")}
                   />
                   <button
                     className="btn-primary"
@@ -275,7 +302,7 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
                     disabled={accepting || acceptReason.trim().length < 3}
                   >
                     <CheckCircle2 size={13} />
-                    <span>{accepting ? "Signing Off..." : "Accept Model Validation"}</span>
+                    <span>{accepting ? tr("დასტურდება...", "Signing Off...") : tr("ვალიდაციის მიღება", "Accept Model Validation")}</span>
                   </button>
                 </div>
               )}
@@ -284,28 +311,30 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
       </div>
 
       {/* 3. Buckingham Pi Dimensional Analysis & K-Fold False-Exclusion Backtest */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div className="study-card">
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Calculator size={17} color="#7c3aed" />
-            <h4 style={{ margin: 0, fontSize: 14 }}>
-              {tr("ბუკინგემის Π განზომილებიანი რედუქცია", "Buckingham Π Dimensional Reduction")}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
+        <div className="study-card" style={{ marginBottom: 0 }}>
+          <div className="study-card-header">
+            <h4 className="study-card-title">
+              <Calculator size={16} color="var(--ll-indigo)" />
+              <span>{tr("ბუკინგემის Π განზომილებიანი რედუქცია", "Buckingham Π Dimensional Reduction")}</span>
             </h4>
           </div>
           {dimAnalysis ? (
-            <div style={{ fontSize: 12, color: "#334155", display: "flex", flexDirection: "column", gap: 8 }}>
-              <p style={{ margin: 0 }}>{dimAnalysis.reduction_summary}</p>
+            <div style={{ fontSize: 12.5, color: "var(--ll-text-secondary)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ margin: 0, lineHeight: 1.5 }}>{dimAnalysis.reduction_summary}</p>
               {dimAnalysis.pi_groups?.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {dimAnalysis.pi_groups.map((pg: any) => (
                     <div
                       key={pg.name}
                       style={{
-                        padding: "6px 10px",
-                        background: "#f5f3ff",
-                        border: "1px solid #ddd6fe",
-                        borderRadius: 6,
-                        fontFamily: "var(--mono)",
+                        padding: "7px 12px",
+                        background: "var(--ll-indigo-soft)",
+                        border: "1px solid var(--ll-indigo-border)",
+                        borderRadius: "var(--ll-radius-md)",
+                        fontFamily: "var(--ll-font-mono)",
+                        fontSize: 12,
+                        color: "var(--ll-indigo-text)",
                       }}
                     >
                       <strong>{pg.name}</strong> = {pg.expression}
@@ -315,38 +344,38 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
               )}
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: "#64748b" }}>Loading dimensional analysis...</div>
+            <div style={{ fontSize: 12, color: "var(--ll-text-muted)" }}>{tr("განზომილებიანი ანალიზი იტვირთება...", "Loading dimensional analysis...")}</div>
           )}
         </div>
 
-        <div className="study-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <ShieldCheck size={17} color="#0284c7" />
-              <h4 style={{ margin: 0, fontSize: 14 }}>
-                {tr("K-ჯერადი ცრუ გამორიცხვის ბექ-ტესტი", "K-Fold False-Exclusion Back-Test")}
-              </h4>
-            </div>
+        <div className="study-card" style={{ marginBottom: 0 }}>
+          <div className="study-card-header">
+            <h4 className="study-card-title">
+              <ShieldCheck size={16} color="var(--ll-blue)" />
+              <span>{tr("K-ჯერადი ცრუ გამორიცხვის ბექ-ტესტი", "K-Fold False-Exclusion Back-Test")}</span>
+            </h4>
             <button
               className="btn-secondary"
-              style={{ fontSize: 11, padding: "4px 10px" }}
               onClick={handleRunBacktest}
               disabled={runningBacktest}
             >
-              {runningBacktest ? "Running..." : "Run 5-Fold Back-Test"}
+              {runningBacktest ? tr("მიმდინარეობს...", "Running...") : tr("5-Fold ტესტის გაშვება", "Run 5-Fold Back-Test")}
             </button>
           </div>
-          <p style={{ margin: "0 0 8px", fontSize: 12, color: "#64748b" }}>
-            Holds out 1/K of valid evidence per fold, refits the conformal GP surrogate, and checks how often truly viable runs were falsely excluded.
+          <p className="study-card-sub" style={{ margin: "0 0 10px" }}>
+            {tr(
+              "მალავს მტკიცებულებების 1/K ნაწილს თითო ფოლდზე, ამოწმებს სიცოცხლისუნარიანი კანდიდატების ცრუ გამორიცხვის სიხშირეს.",
+              "Holds out 1/K of valid evidence per fold, refits the conformal GP surrogate, and checks how often viable runs were falsely excluded."
+            )}
           </p>
           {backtestError && (
-            <div style={{ fontSize: 12, color: "#b91c1c" }}>{backtestError}</div>
+            <div style={{ padding: "8px 12px", background: "var(--ll-rose-soft)", color: "var(--ll-rose-text)", borderRadius: 6, fontSize: 12 }}>{backtestError}</div>
           )}
           {backtestResult && (
-            <div style={{ padding: 10, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12 }}>
-              <div><strong>Statement:</strong> {backtestResult.statement}</div>
-              <div style={{ marginTop: 4 }}>
-                <strong>False Exclusions:</strong> {backtestResult.false_exclusions} / {backtestResult.n_truly_viable} viable (95% Wilson CI: [{(backtestResult.wilson_ci_95[0] * 100).toFixed(1)}%, {(backtestResult.wilson_ci_95[1] * 100).toFixed(1)}%])
+            <div style={{ padding: 12, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", borderRadius: "var(--ll-radius-md)", fontSize: 12.5 }}>
+              <div><strong style={{ color: "var(--ll-text-primary)" }}>{tr("განაცხადი:", "Statement:")}</strong> {backtestResult.statement}</div>
+              <div style={{ marginTop: 6, color: "var(--ll-text-secondary)" }}>
+                <strong>{tr("ცრუ გამორიცხვები:", "False Exclusions:")}</strong> {backtestResult.false_exclusions} / {backtestResult.n_truly_viable} viable (95% Wilson CI: [{(backtestResult.wilson_ci_95[0] * 100).toFixed(1)}%, {(backtestResult.wilson_ci_95[1] * 100).toFixed(1)}%])
               </div>
             </div>
           )}
@@ -354,21 +383,27 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
       </div>
 
       {/* 4. Deterministic Interval Arithmetic Futility Prover & TOST Equivalence */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div className="study-card">
-          <h4 style={{ margin: "0 0 8px", fontSize: 14 }}>
-            {tr("ინტერვალური არითმეტიკის უსარგებლობის დამამტკიცებელი", "Deterministic Interval Futility Prover")}
-          </h4>
-          <p style={{ margin: "0 0 10px", fontSize: 12, color: "#64748b" }}>
-            Mathematically proves parameter sub-domains where outcome bounds cannot satisfy the viability criterion regardless of other variables.
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
+        <div className="study-card" style={{ marginBottom: 0 }}>
+          <div className="study-card-header">
+            <h4 className="study-card-title">
+              <Scale size={16} color="var(--ll-rose)" />
+              <span>{tr("ინტერვალური უსარგებლობის დამამტკიცებელი", "Deterministic Interval Futility Prover")}</span>
+            </h4>
+          </div>
+          <p className="study-card-sub" style={{ margin: "0 0 10px" }}>
+            {tr(
+              "მათემატიკურად ამტკიცებს პარამეტრულ ქვედომენებს, სადაც შედეგი ვერ დააკმაყოფილებს კრიტერიუმს.",
+              "Mathematically proves parameter sub-domains where outcome bounds cannot satisfy the viability criterion."
+            )}
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             <input
               className="form-input"
-              style={{ flex: 1, fontSize: 12, fontFamily: "var(--mono)" }}
+              style={{ flex: 1, minWidth: 180, fontSize: 12, fontFamily: "var(--ll-font-mono)" }}
               value={intervalExpr}
               onChange={(e) => setIntervalExpr(e.target.value)}
-              placeholder="Analytical bound expression, e.g. 100 * exp(-0.02 * flow)"
+              placeholder="e.g. 100 * exp(-0.02 * flow)"
             />
             <select
               className="form-select"
@@ -380,18 +415,18 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
                 <option key={o.key} value={o.key}>{o.label || o.key}</option>
               ))}
             </select>
-            <button className="btn-primary" style={{ fontSize: 12 }} onClick={handleRunIntervals}>
-              Prove Bounds
+            <button className="btn-primary" onClick={handleRunIntervals}>
+              {tr("დამტკიცება", "Prove Bounds")}
             </button>
           </div>
-          {intervalError && <div style={{ fontSize: 12, color: "#b91c1c" }}>{intervalError}</div>}
+          {intervalError && <div style={{ padding: "8px 12px", background: "var(--ll-rose-soft)", color: "var(--ll-rose-text)", borderRadius: 6, fontSize: 12 }}>{intervalError}</div>}
           {intervalResult && (
             <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 6 }}>
               {intervalResult.theorems.length === 0 ? (
-                <div style={{ color: "#64748b" }}>No unconditionally futile sub-intervals detected over current bounds.</div>
+                <div style={{ color: "var(--ll-text-muted)", fontSize: 12 }}>{tr("უპირობოდ უსარგებლო ინტერვალები არ გამოვლენილა.", "No unconditionally futile sub-intervals detected over current bounds.")}</div>
               ) : (
                 intervalResult.theorems.map((t: any, idx: number) => (
-                  <div key={idx} style={{ padding: 8, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, color: "#991b1b" }}>
+                  <div key={idx} style={{ padding: 8, background: "var(--ll-rose-soft)", border: "1px solid var(--ll-rose-border)", borderRadius: "var(--ll-radius-md)", color: "var(--ll-rose-text)" }}>
                     {t.statement}
                   </div>
                 ))
@@ -400,14 +435,20 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
           )}
         </div>
 
-        <div className="study-card">
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Scale size={17} color="#059669" />
-            <h4 style={{ margin: 0, fontSize: 14 }}>
-              {tr("ეკვივალენტობის ტესტირება (TOST)", "Two One-Sided Equivalence Test (TOST)")}
+        <div className="study-card" style={{ marginBottom: 0 }}>
+          <div className="study-card-header">
+            <h4 className="study-card-title">
+              <Scale size={16} color="var(--ll-emerald)" />
+              <span>{tr("ეკვივალენტობის ტესტირება (TOST)", "Two One-Sided Equivalence Test (TOST)")}</span>
             </h4>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 8 }}>
+          <p className="study-card-sub" style={{ margin: "0 0 10px" }}>
+            {tr(
+              "ადასტურებს ან უარყოფს ბიოეკვივალენტობას ან ფიზიკურ ეკვივალენტობას ორ დონეს შორის (±Margin).",
+              "Tests biological or physical equivalence between two levels within a clinically or mechanically acceptable margin."
+            )}
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 10 }}>
             <select
               className="form-select"
               style={{ fontSize: 12 }}
@@ -439,15 +480,15 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
               value={tostMargin}
               onChange={(e) => setTostMargin(e.target.value)}
             />
-            <button className="btn-primary" style={{ fontSize: 12 }} onClick={handleRunTost}>
-              Test
+            <button className="btn-primary" onClick={handleRunTost}>
+              {tr("ტესტი", "Test")}
             </button>
           </div>
-          {tostError && <div style={{ fontSize: 12, color: "#b91c1c" }}>{tostError}</div>}
+          {tostError && <div style={{ padding: "8px 12px", background: "var(--ll-rose-soft)", color: "var(--ll-rose-text)", borderRadius: 6, fontSize: 12 }}>{tostError}</div>}
           {tostResult && (
-            <div style={{ padding: 10, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12 }}>
-              <div><strong>Verdict:</strong> {tostResult.statement}</div>
-              <div style={{ marginTop: 4, color: "#475569" }}>
+            <div style={{ padding: 12, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", borderRadius: "var(--ll-radius-md)", fontSize: 12.5 }}>
+              <div><strong style={{ color: "var(--ll-text-primary)" }}>{tr("ვერდიქტი:", "Verdict:")}</strong> {tostResult.statement}</div>
+              <div style={{ marginTop: 6, color: "var(--ll-text-secondary)" }}>
                 p_TOST = {tostResult.p_tost} | 90% CI: [{tostResult.ci_lower}, {tostResult.ci_upper}]
               </div>
             </div>
@@ -457,11 +498,20 @@ export function AnalysisTab({ study }: AnalysisTabProps) {
 
       {/* 5. Global Sobol / Morris Sensitivity Analysis */}
       <div className="study-card">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <Activity size={18} color="#2563eb" />
-          <h3 style={{ margin: 0, fontSize: 15 }}>
-            {tr("გლობალური მგრძნობელობის ანალიზი (Sobol S1 / ST)", "Global Sensitivity Analysis & Parameter Freezing")}
-          </h3>
+        <div className="study-card-header">
+          <div>
+            <h3 className="study-card-title">
+              <Activity size={17} color="var(--ll-emerald)" />
+              <span>{tr("გლობალური მგრძნობელობის ანალიზი (Sobol S1 / ST)", "Global Sensitivity Analysis & Parameter Freezing")}</span>
+            </h3>
+            <p className="study-card-sub">
+              {tr(
+                "სობოლისა და მორისის ინდექსები. პარამეტრების გაყინვა დომენის განზომილების შესამცირებლად.",
+                "Sobol variance decomposition and Morris elementary effects for identifying non-influential parameters to safely freeze."
+              )}
+            </p>
+          </div>
+          <span className="badge badge-generic">Sobol S1 / Total ST</span>
         </div>
         <TornadoChart
           study={study}

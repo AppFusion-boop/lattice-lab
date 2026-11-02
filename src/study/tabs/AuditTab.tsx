@@ -111,27 +111,28 @@ export function AuditTab({ study }: AuditTabProps) {
 
   return (
     <div className="study-card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div className="study-card-header" style={{ alignItems: "flex-start", marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: "0 0 6px 0", fontSize: 16 }}>
-            {tr("აუდიტის ჟურნალი & სარეზერვო ასლი", "Audit Log & Archival Backups")}
+          <h3 className="study-card-title">
+            <Database size={18} color="var(--ll-emerald)" />
+            <span>{tr("აუდიტის ჟურნალი & სარეზერვო ასლი", "Audit Log & Archival Backups")}</span>
           </h3>
-          <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
+          <p className="study-card-sub">
             {tr(
-              "შეუცვლელი, მხოლოდ მიწერადი ჟურნალი. ყველა ცვლილება დადასტურებულია SQLite ტრიგერებით.",
+              "შეუცვლელი, მხოლოდ მიწერადი ჟურნალი. ყველა ცვლილება დადასტურებულია SQLite ტრიგერებით (§5, §6).",
               "Append-only, immutable audit trail enforced by database triggers (§5, §6)."
             )}
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             className="btn-secondary"
             onClick={handleCreateBackup}
             disabled={backingUp}
             title={tr("სრული SQLite ბაზის წერტილოვანი სარეზერვო ასლი", "Create point-in-time SQLite backup file")}
           >
-            <Database size={14} />
+            <Database size={13} />
             <span>{backingUp ? tr("იქმნება...", "Creating...") : tr("SQLite სარეზერვო ასლი", "Create Backup")}</span>
           </button>
           <button
@@ -139,16 +140,15 @@ export function AuditTab({ study }: AuditTabProps) {
             onClick={handleExportZip}
             title={tr("კვლევის რეპორტების ZIP არქივის ჩამოტვირთვა", "Export complete study archive as standalone ZIP")}
           >
-            <FileArchive size={14} />
+            <FileArchive size={13} />
             <span>{tr("რეპორტების ZIP", "Reports ZIP")}</span>
           </button>
           <button
             className="btn-primary"
             onClick={handleExportLat}
             title={tr("სრული კვლევის პორტაბელური პაკეტის ექსპორტი (.lat ფაილი 3D სცენებით, DoE-თა და ემპირიით)", "Export complete portable study package (.lat archive)")}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            <Download size={14} />
+            <Download size={13} />
             <span>{tr("პაკეტის ექსპორტი (.lat)", "Export Package (.lat)")}</span>
           </button>
         </div>
@@ -159,11 +159,11 @@ export function AuditTab({ study }: AuditTabProps) {
           style={{
             padding: "10px 14px",
             marginBottom: 16,
-            borderRadius: 6,
-            fontSize: 13,
-            background: backupMessage.includes("შეცდომა") || backupMessage.includes("failed") ? "#fef2f2" : "#f0fdf4",
-            color: backupMessage.includes("შეცდომა") || backupMessage.includes("failed") ? "#991b1b" : "#166534",
-            border: `1px solid ${backupMessage.includes("შეცდომა") || backupMessage.includes("failed") ? "#fecaca" : "#bbf7d0"}`,
+            borderRadius: "var(--ll-radius-md)",
+            fontSize: 12.5,
+            background: backupMessage.includes("შეცდომა") || backupMessage.includes("failed") ? "var(--ll-rose-soft)" : "var(--ll-emerald-soft)",
+            color: backupMessage.includes("შეცდომა") || backupMessage.includes("failed") ? "var(--ll-rose-text)" : "var(--ll-emerald-text)",
+            border: `1px solid ${backupMessage.includes("შეცდომა") || backupMessage.includes("failed") ? "var(--ll-rose-border)" : "var(--ll-emerald-border)"}`,
           }}
         >
           {backupMessage}
@@ -171,10 +171,10 @@ export function AuditTab({ study }: AuditTabProps) {
       )}
 
       {/* Filter bar */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
         <select
-          className="study-form-input"
-          style={{ maxWidth: 240 }}
+          className="form-select"
+          style={{ maxWidth: 220, fontSize: 12 }}
           value={entityFilter}
           onChange={(e) => {
             setEntityFilter(e.target.value);
@@ -189,8 +189,8 @@ export function AuditTab({ study }: AuditTabProps) {
         </select>
 
         <select
-          className="study-form-input"
-          style={{ maxWidth: 220 }}
+          className="form-select"
+          style={{ maxWidth: 200, fontSize: 12 }}
           value={actionFilter}
           onChange={(e) => {
             setActionFilter(e.target.value);
@@ -205,35 +205,35 @@ export function AuditTab({ study }: AuditTabProps) {
         </select>
 
         <button
-          className="btn-secondary"
+          className="btn-ghost"
           onClick={() => refresh()}
           title={tr("განახლება", "Refresh")}
-          style={{ padding: "6px 10px" }}
+          style={{ padding: "5px 8px" }}
         >
           <RefreshCw size={13} />
         </button>
 
-        <div style={{ marginLeft: "auto", fontSize: 13, color: "#64748b" }}>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--ll-text-muted)", fontVariantNumeric: "tabular-nums" }}>
           {tr(`სულ: ${total} ჩანაწერი`, `Total: ${total} entries`)}
         </div>
       </div>
 
       {/* Audit Log Table */}
       {loading && items.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--ll-text-muted)" }}>
           {tr("აუდიტის მონაცემები იტვირთება...", "Loading audit log...")}
         </div>
       ) : error ? (
-        <div style={{ padding: 20, color: "#dc2626", background: "#fef2f2", borderRadius: 6 }}>
+        <div style={{ padding: 16, color: "var(--ll-rose-text)", background: "var(--ll-rose-soft)", border: "1px solid var(--ll-rose-border)", borderRadius: "var(--ll-radius-md)" }}>
           {error.message}
         </div>
       ) : items.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--ll-text-muted)" }}>
           {tr("ჩანაწერები არ მოიძებნა", "No audit entries match filter.")}
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <table className="study-table" style={{ width: "100%", fontSize: 13 }}>
+          <table className="study-table" style={{ width: "100%", fontSize: 12.5 }}>
             <thead>
               <tr>
                 <th style={{ width: 60 }}>#</th>
@@ -258,22 +258,22 @@ export function AuditTab({ study }: AuditTabProps) {
 
                 return (
                   <tr key={entry.id}>
-                    <td style={{ color: "#64748b" }}>{entry.id}</td>
-                    <td style={{ whiteSpace: "nowrap", fontFamily: "var(--font-mono, monospace)", fontSize: 12 }}>
+                    <td style={{ color: "var(--ll-text-muted)" }}>{entry.id}</td>
+                    <td style={{ whiteSpace: "nowrap", fontFamily: "var(--ll-font-mono)", fontSize: 11.5 }}>
                       {new Date(entry.at).toLocaleString()}
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: "#475569" }}>{entry.actor}</span>
+                      <span style={{ fontSize: 12, color: "var(--ll-text-secondary)" }}>{entry.actor}</span>
                     </td>
                     <td>
                       <span className={`badge ${badgeClass}`}>{entry.action}</span>
                     </td>
                     <td>
-                      <code style={{ fontSize: 12, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                      <code style={{ fontSize: 11.5, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", padding: "2px 6px", borderRadius: 4 }}>
                         {entry.entity}
                       </code>
                     </td>
-                    <td style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, color: "#64748b" }}>
+                    <td style={{ fontFamily: "var(--ll-font-mono)", fontSize: 11, color: "var(--ll-text-muted)" }}>
                       {entry.entity_id || "—"}
                     </td>
                     <td>
@@ -281,10 +281,10 @@ export function AuditTab({ study }: AuditTabProps) {
                         style={{
                           maxHeight: 60,
                           overflowY: "auto",
-                          fontFamily: "var(--font-mono, monospace)",
+                          fontFamily: "var(--ll-font-mono)",
                           fontSize: 11,
-                          color: "#334155",
-                          background: "#f8fafc",
+                          color: "var(--ll-text-secondary)",
+                          background: "var(--ll-surface-subtle)",
                           padding: "4px 8px",
                           borderRadius: 4,
                           whiteSpace: "pre-wrap",
@@ -308,10 +308,10 @@ export function AuditTab({ study }: AuditTabProps) {
               alignItems: "center",
               marginTop: 16,
               paddingTop: 12,
-              borderTop: "1px solid #e2e8f0",
+              borderTop: "1px solid var(--ll-border)",
             }}
           >
-            <span style={{ fontSize: 13, color: "#64748b" }}>
+            <span style={{ fontSize: 12, color: "var(--ll-text-muted)" }}>
               {tr(
                 `გვერდი ${currentPage} / ${totalPages} (${total} ჩანაწერიდან)`,
                 `Page ${currentPage} of ${totalPages} (from ${total} total)`
@@ -325,7 +325,7 @@ export function AuditTab({ study }: AuditTabProps) {
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 style={{ padding: "4px 10px", fontSize: 12 }}
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={13} />
                 <span>{tr("წინა", "Previous")}</span>
               </button>
               <button
@@ -335,7 +335,7 @@ export function AuditTab({ study }: AuditTabProps) {
                 style={{ padding: "4px 10px", fontSize: 12 }}
               >
                 <span>{tr("შემდეგი", "Next")}</span>
-                <ChevronRight size={14} />
+                <ChevronRight size={13} />
               </button>
             </div>
           </div>

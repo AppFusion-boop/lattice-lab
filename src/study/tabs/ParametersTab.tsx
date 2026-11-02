@@ -5,6 +5,7 @@ import { useApi } from "../api/hooks";
 import type { Study, Parameter, ParameterCreate, Outcome } from "../api/types";
 import { tr } from "../../i18n";
 import { TornadoChart } from "../components/TornadoChart";
+import "../study.css";
 
 interface ParametersTabProps {
   study: Study;
@@ -98,35 +99,29 @@ export function ParametersTab({ study }: ParametersTabProps) {
       } else if (role === "uncertain") {
         if (distType === "uniform") {
           spec.distribution = { type: "uniform" };
-        } else if (distType === "normal") {
+        } else {
           spec.distribution = {
-            type: "normal",
+            type: distType,
             mean: distMean ? parseFloat(distMean) : (minNum + maxNum) / 2,
             sd: distSd ? parseFloat(distSd) : (maxNum - minNum) / 6,
           };
         }
       }
     } else if (kind === "integer") {
-      const minNum = parseInt(minVal, 10);
-      const maxNum = parseInt(maxVal, 10);
       spec = {
-        min: minNum,
-        max: maxNum,
+        min: parseInt(minVal, 10),
+        max: parseInt(maxVal, 10),
         step: parseInt(stepVal, 10) || 1,
-        levels: levels ? parseInt(levels, 10) : undefined,
       };
       if (role === "fixed") {
-        spec.value = fixedVal ? parseInt(fixedVal, 10) : minNum;
+        spec.value = fixedVal ? parseInt(fixedVal, 10) : parseInt(minVal, 10);
       }
     } else if (kind === "categorical") {
-      const opts = optionsStr
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      spec = {
-        options: opts,
-        value: role === "fixed" ? fixedVal || opts[0] : undefined,
-      };
+      const opts = optionsStr.split(",").map((s) => s.trim()).filter(Boolean);
+      spec = { options: opts };
+      if (role === "fixed") {
+        spec.value = fixedVal || opts[0];
+      }
     }
 
     const payload: ParameterCreate = {
@@ -161,7 +156,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
       return;
     }
     try {
-      await apiDelete(`/parameters/${param.id}`);
+      await apiDelete(`/studies/${study.id}/parameters/${param.id}`);
       refresh();
     } catch (err) {
       alert((err as Error).message);
@@ -169,31 +164,43 @@ export function ParametersTab({ study }: ParametersTabProps) {
   };
 
   return (
-    <div>
-      <div className="study-card">
-        <div className="study-card-header">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="study-card" style={{ padding: 0, overflow: "hidden", marginBottom: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "14px 20px",
+            background: "var(--ll-surface)",
+            borderBottom: "1px solid var(--ll-border)",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
           <div>
-            <h4 className="study-card-title">{tr("კვლევის პარამეტრების სივრცე", "Study Parameter Space")}</h4>
-            <p style={{ margin: "4px 0 0 0", color: "#586b62", fontSize: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 650, color: "var(--ll-text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+              <Sliders size={16} color="var(--ll-emerald)" />
+              <span>{tr("კვლევის პარამეტრები (Experimental Parameters)", "Experimental Parameters")}</span>
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--ll-text-secondary)" }}>
               {tr(
-                "მართვადი (Controlled) პარამეტრები ქმნიან საკვლევ ვარიაციებს. განუსაზღვრელი (Uncertain) პარამეტრები მოდელირდება მონტე-კარლო განაწილებებით.",
-                "Controlled parameters define candidates. Uncertain parameters vary via probability distributions. Fixed parameters remain invariant."
+                "მართვადი (DoE ცვლადები), გაურკვეველი (მონტე-კარლო განაწილებები) და ფიქსირებული პარამეტრები.",
+                "Controlled factors, uncertain epistemic variables, and fixed bench constants.",
               )}
             </p>
           </div>
+
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
               className="btn-secondary"
               onClick={() => setShowTornado(!showTornado)}
-              title={tr("სობოლის მგრძნობელობის ანალიზი", "Sobol Global Sensitivity Analysis")}
+              style={{ color: showTornado ? "var(--ll-blue)" : undefined }}
             >
-              <Activity size={14} />
-              <span>
-                {showTornado
-                  ? tr("ტორნადოს დახურვა", "Hide Tornado")
-                  : tr("მგრძნობელობის ანალიზი (Tornado)", "Sensitivity Ranking (Tornado)")}
-              </span>
+              <Activity size={13} color="var(--ll-blue)" />
+              <span>{showTornado ? tr("სენსიტიურობის დახურვა", "Hide Sensitivity") : tr("სენსიტიურობა (სობოლი)", "Sobol Sensitivity")}</span>
             </button>
+
             <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
               <Plus size={14} />
               <span>{tr("პარამეტრის დამატება", "Add Parameter")}</span>
@@ -202,7 +209,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
         </div>
 
         {showTornado && (
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--ll-border)", background: "var(--ll-surface-subtle)" }}>
             <TornadoChart
               study={study}
               outcomes={outcomes || []}
@@ -215,86 +222,96 @@ export function ParametersTab({ study }: ParametersTabProps) {
         )}
 
         {loading ? (
-          <div style={{ padding: 24, textAlign: "center", color: "#84938b" }}>{tr("იტვირთება...", "Loading...")}</div>
+          <div style={{ padding: 32, textAlign: "center", color: "var(--ll-text-muted)" }}>{tr("იტვირთება...", "Loading...")}</div>
         ) : !parameters || parameters.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "32px 16px", color: "#84938b" }}>
-            <Sliders size={28} style={{ margin: "0 auto 8px auto", display: "block", opacity: 0.6 }} />
-            <p>{tr("პარამეტრები ჯერ არ არის დამატებული.", "No parameters added to this study yet.")}</p>
+          <div style={{ textAlign: "center", padding: "40px 16px", color: "var(--ll-text-muted)" }}>
+            <Sliders size={28} style={{ margin: "0 auto 8px auto", display: "block", opacity: 0.5 }} />
+            <p style={{ margin: 0 }}>{tr("პარამეტრები ჯერ არ არის დამატებული.", "No parameters added to this study yet.")}</p>
           </div>
         ) : (
-          <table className="study-table">
-            <thead>
-              <tr>
-                <th>{tr("იდენტიფიკატორი", "Key")}</th>
-                <th>{tr("დასახელება", "Label")}</th>
-                <th>{tr("ტიპი", "Kind")}</th>
-                <th>{tr("როლი", "Role")}</th>
-                <th>{tr("ერთეული", "Unit")}</th>
-                <th>{tr("სპეციფიკაცია (დიაპაზონი / მნიშვნელობები)", "Specification")}</th>
-                <th style={{ width: 60, textAlign: "right" }}>{tr("მოქმედება", "Actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parameters.map((p) => {
-                const s = p.spec as Record<string, unknown>;
-                let specSummary = "";
-                if (p.kind === "continuous") {
-                  specSummary = `[${s.min ?? "?"} .. ${s.max ?? "?"}] (${s.scale ?? "linear"})`;
-                  if (s.levels) specSummary += ` · ${s.levels} levels`;
-                  if (p.role === "fixed") specSummary = `Fixed: ${s.value}`;
-                  if (p.role === "uncertain" && s.distribution) {
-                    const d = s.distribution as Record<string, unknown>;
-                    specSummary += ` · ~${d.type}`;
+          <div style={{ overflowX: "auto" }}>
+            <table className="study-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 120 }}>{tr("იდენტიფიკატორი", "Key")}</th>
+                  <th>{tr("დასახელება", "Label")}</th>
+                  <th style={{ width: 90 }}>{tr("ტიპი", "Kind")}</th>
+                  <th style={{ width: 110 }}>{tr("როლი", "Role")}</th>
+                  <th style={{ width: 80 }}>{tr("ერთეული", "Unit")}</th>
+                  <th>{tr("სპეციფიკაცია (დიაპაზონი / განაწილება)", "Specification")}</th>
+                  <th style={{ width: 60, textAlign: "right" }}>{tr("მოქმედება", "Actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parameters.map((p) => {
+                  const s = p.spec as Record<string, unknown>;
+                  let specSummary = "";
+                  if (p.kind === "continuous") {
+                    specSummary = `[${s.min ?? "?"} .. ${s.max ?? "?"}] (${s.scale ?? "linear"})`;
+                    if (s.levels) specSummary += ` · ${s.levels} levels`;
+                    if (p.role === "fixed") specSummary = `Fixed: ${s.value}`;
+                    if (p.role === "uncertain" && s.distribution) {
+                      const d = s.distribution as Record<string, unknown>;
+                      specSummary += ` · ~${d.type}`;
+                    }
+                  } else if (p.kind === "integer") {
+                    specSummary = `[${s.min ?? "?"} .. ${s.max ?? "?"}] step ${s.step ?? 1}`;
+                  } else if (p.kind === "categorical") {
+                    const opts = (s.options as string[]) || [];
+                    specSummary = opts.join(", ");
                   }
-                } else if (p.kind === "integer") {
-                  specSummary = `[${s.min ?? "?"} .. ${s.max ?? "?"}] step ${s.step ?? 1}`;
-                } else if (p.kind === "categorical") {
-                  const opts = (s.options as string[]) || [];
-                  specSummary = opts.join(", ");
-                }
 
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      <code style={{ background: "#eef5f1", padding: "2px 6px", borderRadius: 4, fontFamily: "var(--mono)" }}>
-                        {p.key}
-                      </code>
-                    </td>
-                    <td style={{ fontWeight: 550 }}>{p.label}</td>
-                    <td>
-                      <span className="badge" style={{ background: "#f1f5f9", color: "#475569" }}>
-                        {p.kind}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className="badge"
-                        style={{
-                          background:
-                            p.role === "controlled" ? "#dcfce7" : p.role === "uncertain" ? "#fef3c7" : "#e2e8f0",
-                          color:
-                            p.role === "controlled" ? "#15803d" : p.role === "uncertain" ? "#92400e" : "#475569",
-                        }}
-                      >
-                        {p.role}
-                      </span>
-                    </td>
-                    <td>{p.unit || "—"}</td>
-                    <td style={{ color: "#475569", fontSize: 11, fontFamily: "var(--mono)" }}>{specSummary}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <button
-                        onClick={() => handleDelete(p)}
-                        style={{ color: "#991b1b", padding: 4, borderRadius: 4 }}
-                        title="Delete parameter"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <span className="variable-chip">
+                          {p.key}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 600, color: "var(--ll-text-primary)" }}>{p.label}</td>
+                      <td>
+                        <span className="badge badge-generic">
+                          {p.kind}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className="badge"
+                          style={{
+                            background:
+                              p.role === "controlled" ? "var(--ll-emerald-soft)" : p.role === "uncertain" ? "var(--ll-amber-soft)" : "var(--ll-surface-hover)",
+                            color:
+                              p.role === "controlled" ? "var(--ll-emerald-text)" : p.role === "uncertain" ? "var(--ll-amber-text)" : "var(--ll-text-secondary)",
+                            borderColor:
+                              p.role === "controlled" ? "var(--ll-emerald-border)" : p.role === "uncertain" ? "var(--ll-amber-border)" : "var(--ll-border)",
+                          }}
+                        >
+                          {p.role}
+                        </span>
+                      </td>
+                      <td style={{ fontFamily: "var(--ll-font-mono)", color: "var(--ll-text-secondary)", fontSize: 11.5 }}>
+                        {p.unit || "—"}
+                      </td>
+                      <td style={{ color: "var(--ll-text-secondary)", fontSize: 11.5, fontFamily: "var(--ll-font-mono)" }}>
+                        {specSummary}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => handleDelete(p)}
+                          style={{ color: "var(--ll-rose)", padding: 4 }}
+                          title="Delete parameter"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -303,9 +320,9 @@ export function ParametersTab({ study }: ParametersTabProps) {
         <div className="modal-overlay">
           <div className="modal-dialog">
             <div className="modal-header">
-              <h3 className="modal-title">{tr("ახალი პარამეტრის დამატება", "Add New Parameter")}</h3>
-              <button onClick={() => setShowModal(false)} style={{ color: "#64748b" }}>
-                <X size={18} />
+              <h3 className="modal-title">{tr("ახალი პარამეტრის დამატება", "Add Experimental Parameter")}</h3>
+              <button type="button" className="btn-ghost" onClick={() => setShowModal(false)} style={{ padding: 4 }}>
+                <X size={16} />
               </button>
             </div>
 
@@ -315,10 +332,10 @@ export function ParametersTab({ study }: ParametersTabProps) {
                   <div
                     style={{
                       padding: 10,
-                      background: "#fef2f2",
-                      border: "1px solid #fecaca",
-                      borderRadius: 6,
-                      color: "#991b1b",
+                      background: "var(--ll-rose-soft)",
+                      border: "1px solid var(--ll-rose-border)",
+                      borderRadius: "var(--ll-radius-md)",
+                      color: "var(--ll-rose-text)",
                       fontSize: 12,
                       display: "flex",
                       alignItems: "center",
@@ -336,7 +353,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="e.g. droplet, flow, mw"
+                      placeholder="e.g. droplet, flow, w"
                       value={key}
                       onChange={(e) => setKey(e.target.value)}
                       required
@@ -352,134 +369,117 @@ export function ParametersTab({ study }: ParametersTabProps) {
                       placeholder="e.g. Droplet Diameter"
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
-                      required
                     />
-                    {fieldErrors.label && <span className="form-error">{fieldErrors.label}</span>}
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div className="form-group">
                     <label className="form-label">{tr("ფიზიკური ერთეული", "Physical Unit")}</label>
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="e.g. um, L/min, degC, Pa"
+                      placeholder="e.g. um, Pa, L/min, mm"
                       value={unit}
                       onChange={(e) => setUnit(e.target.value)}
                     />
-                    {fieldErrors.unit && <span className="form-error">{fieldErrors.unit}</span>}
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">{tr("მონაცემთა ტიპი", "Kind")}</label>
+                    <label className="form-label">{tr("ტიპი", "Kind")}</label>
                     <select className="form-select" value={kind} onChange={(e) => setKind(e.target.value as any)}>
-                      <option value="continuous">{tr("უწყვეტი (Continuous)", "Continuous")}</option>
-                      <option value="integer">{tr("მთელი (Integer)", "Integer")}</option>
-                      <option value="categorical">{tr("კატეგორიული (Categorical)", "Categorical")}</option>
+                      <option value="continuous">Continuous</option>
+                      <option value="integer">Integer</option>
+                      <option value="categorical">Categorical</option>
                     </select>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">{tr("როლი კვლევაში", "Role")}</label>
+                    <label className="form-label">{tr("როლი", "Role")}</label>
                     <select className="form-select" value={role} onChange={(e) => setRole(e.target.value as any)}>
-                      <option value="controlled">{tr("მართვადი (Controlled)", "Controlled")}</option>
-                      <option value="uncertain">{tr("განუსაზღვრელი (Uncertain)", "Uncertain")}</option>
-                      <option value="fixed">{tr("ფიქსირებული (Fixed)", "Fixed")}</option>
+                      <option value="controlled">Controlled (DoE)</option>
+                      <option value="uncertain">Uncertain (MC)</option>
+                      <option value="fixed">Fixed (Constant)</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Kind Specific Specification */}
                 {kind === "continuous" && (
-                  <div style={{ padding: 12, background: "#f8faf8", borderRadius: 6, border: "1px solid var(--line)" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", borderRadius: "var(--ll-radius-md)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div className="form-group">
                         <label className="form-label">Min</label>
-                        <input type="number" step="any" className="form-input" value={minVal} onChange={(e) => setMinVal(e.target.value)} required />
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-input"
+                          value={minVal}
+                          onChange={(e) => setMinVal(e.target.value)}
+                          required
+                        />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Max</label>
-                        <input type="number" step="any" className="form-input" value={maxVal} onChange={(e) => setMaxVal(e.target.value)} required />
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-input"
+                          value={maxVal}
+                          onChange={(e) => setMaxVal(e.target.value)}
+                          required
+                        />
                       </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div className="form-group">
-                        <label className="form-label">{tr("მასშტაბი", "Scale")}</label>
+                        <label className="form-label">{tr("სკალა", "Scale")}</label>
                         <select className="form-select" value={scale} onChange={(e) => setScale(e.target.value as any)}>
                           <option value="linear">Linear</option>
                           <option value="log">Logarithmic</option>
                         </select>
                       </div>
-                    </div>
 
-                    {role === "controlled" && (
-                      <div className="form-group" style={{ marginTop: 10 }}>
-                        <label className="form-label">{tr("დონეების რაოდენობა ბადისთვის (Levels)", "Grid Levels")}</label>
-                        <input type="number" min="2" max="100" className="form-input" value={levels} onChange={(e) => setLevels(e.target.value)} />
-                      </div>
-                    )}
-
-                    {role === "fixed" && (
-                      <div className="form-group" style={{ marginTop: 10 }}>
-                        <label className="form-label">{tr("ფიქსირებული მნიშვნელობა", "Fixed Value")}</label>
-                        <input type="number" step="any" className="form-input" value={fixedVal} onChange={(e) => setFixedVal(e.target.value)} required />
-                      </div>
-                    )}
-
-                    {role === "uncertain" && (
-                      <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                      {role === "controlled" && (
                         <div className="form-group">
-                          <label className="form-label">{tr("განაწილება", "Distribution")}</label>
+                          <label className="form-label">{tr("ბადის დონეები", "Grid Levels")}</label>
+                          <input
+                            type="number"
+                            min="2"
+                            max="100"
+                            className="form-input"
+                            value={levels}
+                            onChange={(e) => setLevels(e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {role === "fixed" && (
+                        <div className="form-group">
+                          <label className="form-label">{tr("ფიქსირებული მნიშვნელობა", "Fixed Value")}</label>
+                          <input
+                            type="number"
+                            step="any"
+                            className="form-input"
+                            value={fixedVal}
+                            onChange={(e) => setFixedVal(e.target.value)}
+                            required
+                          />
+                        </div>
+                      )}
+
+                      {role === "uncertain" && (
+                        <div className="form-group">
+                          <label className="form-label">{tr("განაწილების ტიპი", "Distribution Type")}</label>
                           <select className="form-select" value={distType} onChange={(e) => setDistType(e.target.value as any)}>
-                            <option value="normal">Normal</option>
+                            <option value="normal">Normal (Gaussian)</option>
+                            <option value="lognormal">Lognormal</option>
                             <option value="uniform">Uniform</option>
+                            <option value="triangular">Triangular</option>
                           </select>
                         </div>
-                        {distType === "normal" && (
-                          <>
-                            <div className="form-group">
-                              <label className="form-label">Mean (μ)</label>
-                              <input type="number" step="any" className="form-input" value={distMean} onChange={(e) => setDistMean(e.target.value)} placeholder="Auto" />
-                            </div>
-                            <div className="form-group">
-                              <label className="form-label">Std Dev (σ)</label>
-                              <input type="number" step="any" className="form-input" value={distSd} onChange={(e) => setDistSd(e.target.value)} placeholder="Auto" />
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {kind === "integer" && (
-                  <div style={{ padding: 12, background: "#f8faf8", borderRadius: 6, border: "1px solid var(--line)" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                      <div className="form-group">
-                        <label className="form-label">Min</label>
-                        <input type="number" className="form-input" value={minVal} onChange={(e) => setMinVal(e.target.value)} required />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Max</label>
-                        <input type="number" className="form-input" value={maxVal} onChange={(e) => setMaxVal(e.target.value)} required />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Step</label>
-                        <input type="number" min="1" className="form-input" value={stepVal} onChange={(e) => setStepVal(e.target.value)} required />
-                      </div>
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {kind === "categorical" && (
-                  <div className="form-group">
-                    <label className="form-label">{tr("ვარიანტები (მძიმით გამოყოფილი)", "Options (comma-separated)")}</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={optionsStr}
-                      onChange={(e) => setOptionsStr(e.target.value)}
-                      required
-                    />
                   </div>
                 )}
               </div>
@@ -489,7 +489,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
                   {tr("გაუქმება", "Cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  {tr("შექმნა", "Create Parameter")}
+                  {tr("დამატება", "Add Parameter")}
                 </button>
               </div>
             </form>

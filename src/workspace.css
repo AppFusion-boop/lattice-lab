@@ -1,14 +1,16 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap");
 :root {
-  font-family: "DM Sans", "Noto Sans Georgian", sans-serif;
-  color: #283e37;
-  background: #f7f8f5;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Georgian", sans-serif;
+  color: #09090b;
+  background: #fafbfc;
   font-synthesis: none;
   font-size: 12px;
-  --line: #e3e8e2;
-  --muted: #84938b;
-  --green: #247861;
-  --mono: "IBM Plex Mono", monospace;
+  --line: #e4e4e7;
+  --muted: #71717a;
+  --green: #0f766e;
+  --mono: "JetBrains Mono", "IBM Plex Mono", monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 * {
   box-sizing: border-box;
@@ -41,23 +43,23 @@ button:hover:not(:disabled) {
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid #53a18c;
+  outline: 2px solid #10b981;
   outline-offset: 3px;
 }
 input,
 textarea,
 select {
   outline: none;
-  color: #354a41;
+  color: #0f172a;
 }
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: #8db5a5 !important;
-  box-shadow: 0 0 0 3px #78af9310;
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
 }
 input[type="range"] {
-  accent-color: #448e79;
+  accent-color: #059669;
 }
 a {
   color: inherit;

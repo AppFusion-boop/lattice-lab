@@ -301,32 +301,31 @@ export function MicrographTab({ study }: MicrographTabProps) {
   return (
     <div className="micrograph-tab-container" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Top Banner */}
-      <div className="study-card" style={{ padding: "16px 20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+      <div className="study-card" style={{ marginBottom: 0 }}>
+        <div className="study-card-header" style={{ marginBottom: 0 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Microscope size={22} color="#059669" />
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#111827" }}>
-                {tr("ციფრული გამავალი მიკროსკოპი (Digital Transmissive Microscope)", "Digital Transmissive Micrograph View")}
+              <Microscope size={20} color="var(--ll-emerald)" />
+              <h3 className="study-card-title" style={{ fontSize: 16 }}>
+                <span>{tr("ციფრული გამავალი მიკროსკოპი (Digital Transmissive Microscope)", "Digital Transmissive Micrograph View")}</span>
               </h3>
-              <span className="badge badge-physics" style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+              <span className="badge badge-physics">
                 2D Wave Optics & Beer–Lambert
               </span>
             </div>
-            <p style={{ margin: "4px 0 0 0", color: "#4b5563", fontSize: 13 }}>
+            <p className="study-card-sub" style={{ margin: "4px 0 0" }}>
               {tr(
                 "ფიზიკურად კალიბრირებული 2D მიკროსკოპული გამოსახულება: აბეს დიფრაქციული ზღვარი, ბერეკის ველის სიღრმე და ლამბერტ-ბერის შთანთქმა.",
-                "Physically calibrated 2D micrograph: Abbe diffraction PSF blur, Berek depth-of-field, and Beer–Lambert attenuation.",
+                "Physically calibrated 2D micrograph: Abbe diffraction PSF blur, Berek depth-of-field, and Beer–Lambert attenuation."
               )}
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <button
               className="btn-secondary"
               onClick={handleExportJson}
               title={tr("მიკროგრაფის მონაცემების ექსპორტი (JSON)", "Export Micrograph Data as JSON")}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
             >
               <Download size={13} />
               <span>{tr("ექსპორტი (JSON)", "Export JSON")}</span>
@@ -334,23 +333,14 @@ export function MicrographTab({ study }: MicrographTabProps) {
             <button
               className="btn-primary"
               onClick={() => setShowRecordModal(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: "#059669",
-                borderColor: "#059669",
-                fontSize: 12,
-              }}
               title={tr("რეალური ლაბორატორიული ცდის აღრიცხვა", "Record Real Lab Measurement")}
             >
-              <FlaskConical size={14} />
+              <FlaskConical size={13} />
               <span>{tr("რეალური ცდის შეტანა", "Record Lab Run")}</span>
             </button>
             <button
               className="btn-secondary"
               onClick={() => navigate(`studies/${study.id}/flow`)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
             >
               <Workflow size={13} />
               <span>{tr("3D ფლოუში გახსნა", "Open in 3D Flow")}</span>

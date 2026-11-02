@@ -111,32 +111,26 @@ export function TornadoChart({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
-          padding: "12px 16px",
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: 8,
+          padding: "10px 14px",
+          background: "var(--ll-surface-subtle)",
+          border: "1px solid var(--ll-border)",
+          borderRadius: "var(--ll-radius-md)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Activity size={16} color="#0284c7" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
-              {tr("სამიზნე შედეგი (Outcome):", "Target Outcome:")}
+            <Activity size={15} color="var(--ll-emerald)" />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ll-text-primary)" }}>
+              {tr("სამიზნე შედეგი:", "Target Outcome:")}
             </span>
             <select
+              className="form-select"
               value={selectedOutcomeId}
               onChange={(e) => {
                 setSelectedOutcomeId(e.target.value);
                 setSensitivityData(null);
               }}
-              style={{
-                fontSize: 13,
-                padding: "4px 8px",
-                borderRadius: 6,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#0f172a",
-              }}
+              style={{ fontSize: 12, padding: "4px 8px" }}
             >
               {outcomes.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -147,19 +141,14 @@ export function TornadoChart({
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "#64748b" }}>
+            <span style={{ fontSize: 12, color: "var(--ll-text-secondary)" }}>
               {tr("სემპლები (N):", "Samples (N):")}
             </span>
             <select
+              className="form-select"
               value={nSamples}
               onChange={(e) => setNSamples(Number(e.target.value))}
-              style={{
-                fontSize: 12,
-                padding: "3px 6px",
-                borderRadius: 4,
-                border: "1px solid #cbd5e1",
-                background: "#fff",
-              }}
+              style={{ fontSize: 12, padding: "4px 8px" }}
             >
               <option value={32}>32 ({tr("სწრაფი", "Fast")})</option>
               <option value={64}>64 ({tr("რეკომენდებული", "Recommended")})</option>
@@ -169,19 +158,14 @@ export function TornadoChart({
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "#64748b" }}>
+            <span style={{ fontSize: 12, color: "var(--ll-text-secondary)" }}>
               {tr("გაყინვის ზღვარი:", "Freezing Threshold:")}
             </span>
             <select
+              className="form-select"
               value={freezingThreshold}
               onChange={(e) => setFreezingThreshold(Number(e.target.value))}
-              style={{
-                fontSize: 12,
-                padding: "3px 6px",
-                borderRadius: 4,
-                border: "1px solid #cbd5e1",
-                background: "#fff",
-              }}
+              style={{ fontSize: 12, padding: "4px 8px" }}
             >
               <option value={0.03}>3%</option>
               <option value={0.05}>5% ({tr("სტანდარტული", "Standard")})</option>
@@ -192,24 +176,11 @@ export function TornadoChart({
         </div>
 
         <button
+          className="btn-primary"
           onClick={handleCompute}
           disabled={isComputing || !activeOutcome}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "6px 14px",
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#ffffff",
-            background: isComputing ? "#94a3b8" : "#0284c7",
-            border: "none",
-            borderRadius: 6,
-            cursor: isComputing ? "not-allowed" : "pointer",
-            transition: "background 0.15s ease",
-          }}
         >
-          <RefreshCw size={14} className={isComputing ? "animate-spin" : ""} />
+          <RefreshCw size={13} className={isComputing ? "animate-spin" : ""} />
           <span>
             {isComputing
               ? tr("სობოლის ანალიზი მიმდინარეობს...", "Computing Sobol Analysis...")
