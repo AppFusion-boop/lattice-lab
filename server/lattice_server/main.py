@@ -22,6 +22,7 @@ from lattice_server.api.jobs import router as jobs_router
 from lattice_server.api.models import router as models_router
 from lattice_server.api.outcomes import router as outcomes_router
 from lattice_server.api.overrides import router as overrides_router
+from lattice_server.api.paper import router as paper_router
 from lattice_server.api.parameters import router as parameters_router
 from lattice_server.api.pareto import router as pareto_router
 from lattice_server.api.reports import router as reports_router
@@ -113,6 +114,7 @@ app.include_router(pareto_router, prefix="/api/v1")
 app.include_router(calibration_router, prefix="/api/v1")
 app.include_router(analyses_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
+app.include_router(paper_router, prefix="/api/v1")
 app.include_router(study_package_router, prefix="/api/v1")
 app.include_router(units_router, prefix="/api/v1")
 

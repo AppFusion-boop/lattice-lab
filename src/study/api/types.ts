@@ -68,3 +68,11 @@ export type UnitConvertResponse = components["schemas"]["UnitConvertResponse"];
 export type CompatibleUnitsResponse = components["schemas"]["CompatibleUnitsResponse"];
 
 export type StudyPackageInspect = components["schemas"]["StudyPackageInspectResponse"];
+
+export type PaperResponse = components["schemas"]["PaperResponse"];
+export type AuthorMeta = components["schemas"]["AuthorMeta"];
+export type PaperCustomizationRequest = components["schemas"]["PaperCustomizationRequest"];
+export type PaperSection = components["schemas"]["PaperSection"];
+export type FigureMeta = components["schemas"]["FigureMeta"];
+export type TableMeta = components["schemas"]["TableMeta"];
+

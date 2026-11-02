@@ -979,6 +979,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/studies/{study_id}/paper": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Paper Manuscript
+         * @description Generate default scientific paper manuscript model.
+         */
+        get: operations["get_paper_manuscript_api_v1_studies__study_id__paper_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/paper/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Paper Customized
+         * @description Generate scientific paper with customized author metadata and options.
+         */
+        post: operations["preview_paper_customized_api_v1_studies__study_id__paper_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/paper.tex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Paper Latex File
+         * @description Download single standalone LaTeX manuscript file.
+         */
+        get: operations["get_paper_latex_file_api_v1_studies__study_id__paper_tex_get"];
+        put?: never;
+        /**
+         * Get Custom Paper Latex File
+         * @description Download customized standalone LaTeX manuscript file.
+         */
+        post: operations["get_custom_paper_latex_file_api_v1_studies__study_id__paper_tex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/paper.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Paper Zip Bundle
+         * @description Download complete Overleaf-ready publication archive (.zip).
+         */
+        get: operations["download_paper_zip_bundle_api_v1_studies__study_id__paper_zip_get"];
+        put?: never;
+        /**
+         * Download Custom Paper Zip Bundle
+         * @description Download customized Overleaf-ready publication archive (.zip).
+         */
+        post: operations["download_custom_paper_zip_bundle_api_v1_studies__study_id__paper_zip_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/paper/figures/{figure_name}.{fmt}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Paper Figure
+         * @description Render and retrieve individual publication vector or raster figures.
+         */
+        get: operations["get_paper_figure_api_v1_studies__study_id__paper_figures__figure_name___fmt__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/studies/{study_id}/export.lat": {
         parameters: {
             query?: never;
@@ -1131,6 +1239,38 @@ export interface components {
             offset: number;
             /** Limit */
             limit: number;
+        };
+        /** AuthorMeta */
+        AuthorMeta: {
+            /**
+             * Name
+             * @description Full author name, e.g. 'Jane Doe'
+             */
+            name: string;
+            /**
+             * Affiliation
+             * @description Institution, university, or lab department
+             * @default
+             */
+            affiliation: string;
+            /**
+             * Email
+             * @description Contact email address
+             * @default
+             */
+            email: string;
+            /**
+             * Orcid
+             * @description ORCID identifier (e.g. 0000-0002-1825-0097)
+             * @default
+             */
+            orcid: string;
+            /**
+             * Is Corresponding
+             * @description Whether this is the corresponding author
+             * @default false
+             */
+            is_corresponding: boolean;
         };
         /** BackupResponse */
         BackupResponse: {
@@ -1502,6 +1642,29 @@ export interface components {
             /** Variables */
             variables?: string[];
         };
+        /** FigureMeta */
+        FigureMeta: {
+            /**
+             * Id
+             * @description Figure identifier (e.g. 'fig_funnel')
+             */
+            id: string;
+            /**
+             * Title
+             * @description Figure short title
+             */
+            title: string;
+            /**
+             * Caption
+             * @description Full scientific caption with error bounds and methodology
+             */
+            caption: string;
+            /**
+             * Filename Base
+             * @description Base filename without extension (e.g. 'fig1_funnel')
+             */
+            filename_base: string;
+        };
         /** FreezingRecommendationModel */
         FreezingRecommendationModel: {
             /** Param Id */
@@ -1806,6 +1969,120 @@ export interface components {
             offset: number;
             /** Limit */
             limit: number;
+        };
+        /** PaperCustomizationRequest */
+        PaperCustomizationRequest: {
+            /**
+             * Title
+             * @description Custom paper title
+             */
+            title?: string | null;
+            /**
+             * Authors
+             * @description Author list with affiliations
+             */
+            authors?: components["schemas"]["AuthorMeta"][];
+            /**
+             * Template
+             * @description Target journal LaTeX template class
+             * @default standard
+             * @enum {string}
+             */
+            template: "standard" | "revtex" | "nature" | "ieee";
+            /**
+             * Column Layout
+             * @description Document column layout
+             * @default twocolumn
+             * @enum {string}
+             */
+            column_layout: "onecolumn" | "twocolumn";
+            /**
+             * Include Figures
+             * @description Whether to compile and embed vector figures
+             * @default true
+             */
+            include_figures: boolean;
+            /**
+             * Include Supplementary
+             * @description Whether to include run sheet and audit appendices
+             * @default true
+             */
+            include_supplementary: boolean;
+            /**
+             * Abstract Override
+             * @description Optional user-edited abstract text
+             */
+            abstract_override?: string | null;
+            /**
+             * Section Overrides
+             * @description Optional custom text per section ID (e.g. {'intro': '...', 'discussion': '...'})
+             */
+            section_overrides?: {
+                [key: string]: string;
+            };
+        };
+        /** PaperResponse */
+        PaperResponse: {
+            /** Study Id */
+            study_id: string;
+            /** Title */
+            title: string;
+            /** Authors */
+            authors: components["schemas"]["AuthorMeta"][];
+            /** Abstract */
+            abstract: string;
+            /** Keywords */
+            keywords: string[];
+            /** Template */
+            template: string;
+            /** Column Layout */
+            column_layout: string;
+            /** Sections */
+            sections: components["schemas"]["PaperSection"][];
+            /** Figures */
+            figures: components["schemas"]["FigureMeta"][];
+            /** Tables */
+            tables: components["schemas"]["TableMeta"][];
+            /** Bibtex */
+            bibtex: string;
+            /** Markdown */
+            markdown: string;
+            /** Latex */
+            latex: string;
+            /** Generated At */
+            generated_at: string;
+            /** Master Seed */
+            master_seed: number;
+            /** Evidence Fingerprint */
+            evidence_fingerprint: string;
+        };
+        /** PaperSection */
+        PaperSection: {
+            /**
+             * Id
+             * @description Machine-readable section id (e.g. 'introduction')
+             */
+            id: string;
+            /**
+             * Number
+             * @description Section number string (e.g. '1', '2.1')
+             */
+            number: string;
+            /**
+             * Title
+             * @description Section title
+             */
+            title: string;
+            /**
+             * Content Markdown
+             * @description Formatted markdown content with math blocks
+             */
+            content_markdown: string;
+            /**
+             * Content Latex
+             * @description Escaped and formatted LaTeX content
+             */
+            content_latex: string;
         };
         /** ParameterBindingModel */
         ParameterBindingModel: {
@@ -2301,6 +2578,29 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** TableMeta */
+        TableMeta: {
+            /**
+             * Id
+             * @description Table identifier (e.g. 'tab_parameters')
+             */
+            id: string;
+            /**
+             * Title
+             * @description Table title
+             */
+            title: string;
+            /**
+             * Caption
+             * @description Table description and unit notes
+             */
+            caption: string;
+            /**
+             * Filename Base
+             * @description Base filename without extension (e.g. 'tab1_parameters')
+             */
+            filename_base: string;
         };
         /** TemplateCreateRequest */
         TemplateCreateRequest: {
@@ -4707,6 +5007,237 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_paper_manuscript_api_v1_studies__study_id__paper_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_paper_customized_api_v1_studies__study_id__paper_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperCustomizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_paper_latex_file_api_v1_studies__study_id__paper_tex_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_custom_paper_latex_file_api_v1_studies__study_id__paper_tex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperCustomizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_paper_zip_bundle_api_v1_studies__study_id__paper_zip_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_custom_paper_zip_bundle_api_v1_studies__study_id__paper_zip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperCustomizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_paper_figure_api_v1_studies__study_id__paper_figures__figure_name___fmt__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+                figure_name: string;
+                fmt: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

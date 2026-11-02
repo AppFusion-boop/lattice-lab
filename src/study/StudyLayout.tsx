@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ArrowLeft, Download, FlaskConical } from "lucide-react";
+import { ChevronRight, ArrowLeft, Download, FlaskConical, BookOpen } from "lucide-react";
 import { apiGet } from "./api/client";
 import { useApi } from "./api/hooks";
 import type { Study, Parameter, Outcome, Evidence } from "./api/types";
@@ -20,6 +20,7 @@ import { AuditTab } from "./tabs/AuditTab";
 import { MicrographTab } from "./tabs/MicrographTab";
 import { RecordExperimentModal } from "./components/RecordExperimentModal";
 import { CalibrationWizard } from "./components/CalibrationWizard";
+import { PaperExportModal } from "./components/PaperExportModal";
 import "./study.css";
 
 interface StudyLayoutProps {
@@ -50,6 +51,7 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
 
   const [showRecordModal, setShowRecordModal] = useState<boolean>(false);
   const [showCalibrationModal, setShowCalibrationModal] = useState<boolean>(false);
+  const [showPaperModal, setShowPaperModal] = useState<boolean>(false);
 
   if (loading) {
     return (
@@ -139,6 +141,22 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
           >
             <Download size={14} />
             <span>{tr("ექსპორტი (.lat)", "Export (.lat)")}</span>
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={() => setShowPaperModal(true)}
+            title={tr("სამეცნიერო სტატიის ექსპორტი (LaTeX, BibTeX, PDF)", "Export study as peer-reviewed scientific research paper")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              borderColor: "#0284c7",
+              color: "#0284c7",
+              fontWeight: 600,
+            }}
+          >
+            <BookOpen size={14} />
+            <span>{tr("სტატია (Paper)", "Research Paper")}</span>
           </button>
         </div>
       </header>
@@ -278,6 +296,14 @@ export function StudyLayout({ id, tab }: StudyLayoutProps) {
             refresh();
             refreshEvidence();
           }}
+        />
+      )}
+      {/* Global Scientific Paper Export Modal */}
+      {showPaperModal && (
+        <PaperExportModal
+          study={study}
+          isOpen={showPaperModal}
+          onClose={() => setShowPaperModal(false)}
         />
       )}
     </div>

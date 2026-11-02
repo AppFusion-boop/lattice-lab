@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Download, Copy, Printer, Check, FileText, RefreshCw } from "lucide-react";
+import { Download, Copy, Printer, Check, FileText, RefreshCw, BookOpen } from "lucide-react";
 import { apiGet } from "../api/client";
 import { useApi } from "../api/hooks";
 import type { Study } from "../api/types";
 import { tr } from "../../i18n";
+import { PaperExportModal } from "../components/PaperExportModal";
 
 interface ReportTabProps {
   study: Study;
@@ -17,6 +18,7 @@ interface ReportData {
 
 export function ReportTab({ study }: ReportTabProps) {
   const [copied, setCopied] = useState(false);
+  const [showPaperModal, setShowPaperModal] = useState(false);
 
   const {
     data: report,
@@ -62,6 +64,22 @@ export function ReportTab({ study }: ReportTabProps) {
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            className="btn-primary"
+            onClick={() => setShowPaperModal(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "#0284c7",
+              borderColor: "#0284c7",
+            }}
+            title={tr("სრული სამეცნიერო სტატიის გენერირება (LaTeX, PDF, BibTeX)", "Export full scientific research paper")}
+          >
+            <BookOpen size={13} />
+            <span>{tr("სამეცნიერო სტატია (Paper)", "Research Paper")}</span>
+          </button>
+
           <button className="btn-secondary" onClick={refresh} title="Regenerate Report">
             <RefreshCw size={13} />
             <span>{tr("განახლება", "Refresh")}</span>
@@ -117,6 +135,14 @@ export function ReportTab({ study }: ReportTabProps) {
         >
           {report.markdown}
         </div>
+      )}
+
+      {showPaperModal && (
+        <PaperExportModal
+          study={study}
+          isOpen={showPaperModal}
+          onClose={() => setShowPaperModal(false)}
+        />
       )}
     </div>
   );

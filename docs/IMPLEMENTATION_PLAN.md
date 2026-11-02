@@ -1033,6 +1033,7 @@ Agents: update the row when you start (`in progress`) and finish (`done`) a task
 | P5-4 | Pareto + cost | done | 2026-10-19 | `dominance_filter` in `screening/pipeline.py` + fixed `ParetoExplorer.tsx` comparator |
 | P5-5 | Plan tab UI | done | 2026-10-19 | `PlanTab.tsx`, `AnalysisTab.tsx`, and interactive 2D `PhaseDiagram2D.tsx` mounted in `StudyLayout.tsx` |
 | P6-1 | Study report | done | 2026-10-19 | Defensible scientific Markdown report generator (`reports/markdown.py`, `api/reports.py`, `ReportTab.tsx`) |
+| P6-1.B | Scientific research paper export | done | 2026-11-02 | Peer-reviewed research paper export engine & Reactive Studio: IMRaD LaTeX/BibTeX bundle generator (Overleaf-ready), headless Matplotlib publication figures (Funnel, Phase Space, Sobol Sensitivity, Pareto Frontier), Booktabs tables, in-browser academic 2-column viewer & CSS Paged Media PDF print view (PE-1..PE-6, 5 new tests, 113 total). Enhanced Paper Studio UI/UX with cursor-aware dynamic data tokens (`{{n_candidates}}`, `{{confidence}}`, `{{fig:funnel}}`), live reactive data synchronization from DB, and interactive figure inspector. |
 | P6-2 | Domain packs | todo | | |
 | P6-3 | External simulator import | todo | | |
 | P6-4 | Full i18n refactor | todo | | |
