@@ -1,0 +1,16 @@
+node_modules
+dist
+data
+server/.venv
+server/lattice.db
+.npm-cache
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.sqlite*
+.git
+.openai
+

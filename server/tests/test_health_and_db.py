@@ -18,6 +18,23 @@ def test_health_endpoint(client: TestClient):
     assert "engine_ok" in data
 
 
+def test_frontend_static_serving(client: TestClient):
+    # Verify that the SPA root returns 200 with HTML when dist/ exists
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers.get("content-type", "")
+    assert "<div id=\"root\">" in response.text or "Lattice" in response.text
+
+    # Verify that SPA catch-all returns index.html for non-API client routes
+    spa_resp = client.get("/studies/any-id/overview")
+    assert spa_resp.status_code == 200
+    assert "text/html" in spa_resp.headers.get("content-type", "")
+
+    # Verify that nonexistent API route still returns 404
+    api_resp = client.get("/api/v1/nonexistent_route_404")
+    assert api_resp.status_code == 404
+
+
 def test_migration_creates_all_tables():
     conn = db.connect()
     try:

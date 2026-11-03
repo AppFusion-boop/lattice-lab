@@ -7,9 +7,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm:dev:web\" \"npm:server\"",
+    "dev:web": "vite --host 127.0.0.1",
+    "dev:all": "npm run dev",
     "server": "uv run --directory server uvicorn lattice_server.main:app --host 127.0.0.1 --port 8765 --reload",
-    "dev:all": "concurrently -n web,api \"npm:dev\" \"npm:server\"",
+    "start": "uv run --directory server uvicorn lattice_server.main:app --host 0.0.0.0 --port ${PORT:-8765}",
     "build": "tsc --noEmit && vite build",
     "test": "tsx --test src/core/engine.test.ts src/core/expression.conformance.test.ts src/core/study/batch.test.ts src/core/study/eval-batch.test.ts src/core/microscope.test.ts",
     "test:server": "uv run --directory server pytest",

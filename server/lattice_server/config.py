@@ -12,7 +12,14 @@ DEFAULT_REPO_ROOT = SERVER_DIR.parent
 
 REPO_ROOT = Path(os.environ.get("LATTICE_REPO_ROOT", str(DEFAULT_REPO_ROOT))).resolve()
 DATA_DIR = Path(os.environ.get("LATTICE_DATA_DIR", str(REPO_ROOT / "data"))).resolve()
-PORT = int(os.environ.get("LATTICE_PORT", "8765"))
+PORT = int(os.environ.get("PORT", os.environ.get("LATTICE_PORT", "8765")))
+HOST = os.environ.get(
+    "HOST",
+    os.environ.get(
+        "LATTICE_HOST",
+        "0.0.0.0" if os.environ.get("PORT") or os.environ.get("RAILWAY_ENVIRONMENT") else "127.0.0.1",
+    ),
+)
 ENGINE_CMD = os.environ.get("LATTICE_ENGINE_CMD", "node_modules/.bin/tsx scripts/eval-batch.ts")
 
 DB_PATH = DATA_DIR / "lattice.sqlite"

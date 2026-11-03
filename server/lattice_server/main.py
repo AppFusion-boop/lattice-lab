@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from contextlib import asynccontextmanager
 from typing import Any
@@ -7,6 +8,8 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from lattice_server import config, db, examples
 from lattice_server.api.analyses import router as analyses_router
@@ -81,12 +84,21 @@ def openapi_alias() -> dict[str, Any]:
     return app.openapi()
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+cors_origins_env = os.environ.get("LATTICE_CORS_ORIGINS")
+allowed_origins = (
+    [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+    if cors_origins_env
+    else [
         "http://127.0.0.1:5173",
         "http://localhost:5173",
-    ],
+    ]
+)
+is_deployed = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("PORT"))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https?://.*" if is_deployed else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -135,3 +147,46 @@ def health() -> dict[str, Any]:
         "db_path": str(config.DB_PATH),
         "engine_ok": engine_available,
     }
+
+
+# Mount static frontend files if built dist/ directory exists (production / single-server mode)
+dist_dir = config.REPO_ROOT / "dist"
+if dist_dir.is_dir():
+    # Mount subdirectories (e.g. assets, demos, models)
+    for sub in ["assets", "demos", "models"]:
+        sub_path = dist_dir / sub
+        if sub_path.is_dir():
+            app.mount(f"/{sub}", StaticFiles(directory=str(sub_path)), name=sub)
+
+    index_file = dist_dir / "index.html"
+
+    @app.get("/favicon.svg", include_in_schema=False)
+    async def favicon() -> Response:
+        fav_path = dist_dir / "favicon.svg"
+        if fav_path.is_file():
+            return FileResponse(fav_path)
+        return Response(status_code=404)
+
+    @app.get("/", include_in_schema=False)
+    async def serve_root() -> Response:
+        if index_file.is_file():
+            return FileResponse(index_file)
+        return Response(status_code=404)
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str) -> Response:
+        # Don't intercept API routes that 404
+        if full_path.startswith("api"):
+            return Response(status_code=404)
+        file_path = dist_dir / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        if index_file.is_file():
+            return FileResponse(index_file)
+        return Response(status_code=404)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("lattice_server.main:app", host=config.HOST, port=config.PORT, reload=False)

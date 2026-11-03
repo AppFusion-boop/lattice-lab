@@ -8,26 +8,46 @@
 ```sh
 npm install
 uv sync --directory server
-npm run dev:all
+npm run dev
 ```
 
+- ვებ-ინტერფეისი & სერვერი ერთად: `npm run dev` (Vite :5173 + FastAPI :8765)
+- მხოლოდ ვებ-ინტერფეისი: `npm run dev:web`
+- მხოლოდ სერვერი: `npm run server`
 - ვებ-ინტერფეისი: http://127.0.0.1:5173/
 - სერვერის API: http://127.0.0.1:8765/ (ან http://127.0.0.1:5173/api/v1/health)
-- მხოლოდ ფლოუს რედაქტორის გაშვება: `npm run dev`
 - Windows-ზე ასევე შეგიძლიათ გაუშვათ `Start-Local.ps1`.
 
 ### English
 ```sh
 npm install                  # Install frontend dependencies
 uv sync --directory server   # Install Python backend dependencies
-npm run dev:all              # Start both frontend (:5173) and API backend (:8765)
+npm run dev                  # Start both frontend (:5173) and API backend (:8765) with a single command
 ```
 
+- Unified Dev Server: `npm run dev` (starts Vite on :5173 and FastAPI on :8765 concurrently)
+- Frontend-only: `npm run dev:web`
+- Backend-only: `npm run server`
 - Web UI: http://127.0.0.1:5173/
 - Backend Health: http://127.0.0.1:5173/api/v1/health (proxied via Vite)
-- Frontend-only: `npm run dev`
 - Tests: `npm test` (TypeScript) and `npm run test:server` (Python pytest)
 - Build: `npm run build`
+
+## Railway Deployment
+
+Lattice Lab is production-ready for deployment on [Railway](https://railway.app/):
+
+1. **Push to GitHub**: Ensure the repository containing `railway.toml`, `Dockerfile`, and `.dockerignore` is pushed.
+2. **Deploy on Railway**: In Railway Dashboard, click **New Project** → **Deploy from GitHub repo** → select `lattice-lab`. Railway automatically detects `railway.toml` and builds via the Dockerfile.
+3. **Persistent Volume (Recommended)**:
+   - In your Railway project, click **+ New** → **Volume**.
+   - Mount the volume at `/app/data` (or set environment variable `LATTICE_DATA_DIR=/app/data`).
+   - This ensures SQLite database (`lattice.sqlite`), backups, and generated reports persist across container restarts.
+4. **Environment Variables**:
+   - `PORT`: Injected automatically by Railway.
+   - `LATTICE_DATA_DIR`: Optional (defaults to `/app/data`).
+   - `LATTICE_CORS_ORIGINS`: Optional (comma-separated origins if embedding in another domain).
+5. **Healthcheck**: Automatically configured in `railway.toml` at `/api/v1/health`.
 
 
 ## საერთო დრო და მონიტორინგი
