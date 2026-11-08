@@ -40,9 +40,10 @@ COPY . .
 # 7. Install editable package & build frontend
 RUN uv sync --directory server --no-dev --frozen && npm run build
 
-# 8. Data volume
+# 8. Data directory
+# Railway rejects the Dockerfile VOLUME instruction. To keep data across
+# deploys, attach a Railway Volume to this service with mount path /app/data.
 RUN mkdir -p /app/data
-VOLUME ["/app/data"]
 
 EXPOSE 8765
 
