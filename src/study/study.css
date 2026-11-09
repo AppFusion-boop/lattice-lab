@@ -1045,7 +1045,8 @@
 }
 
 .modal-dialog,
-.study-modal {
+.study-modal,
+.study-modal-dialog {
   background: var(--ll-surface);
   border: 1px solid var(--ll-border);
   border-radius: var(--ll-radius-xl);
@@ -1118,7 +1119,9 @@
 .form-textarea,
 .study-form-input,
 .study-form-select,
-.study-form-textarea {
+.study-form-textarea,
+.study-input,
+.study-select {
   padding: 7px 10px;
   border: 1px solid var(--ll-border);
   border-radius: var(--ll-radius-md);
@@ -1135,7 +1138,9 @@
 .form-textarea:focus,
 .study-form-input:focus,
 .study-form-select:focus,
-.study-form-textarea:focus {
+.study-form-textarea:focus,
+.study-input:focus,
+.study-select:focus {
   border-color: var(--ll-emerald) !important;
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12) !important;
   outline: none;

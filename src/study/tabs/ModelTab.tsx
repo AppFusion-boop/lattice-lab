@@ -14,16 +14,19 @@ import {
   Activity,
   Download,
   Sparkles,
+  Target,
 } from "lucide-react";
 import Workspace from "../../Workspace";
 import { apiGet } from "../api/client";
 import { useApi } from "../api/hooks";
-import type { Study, ModelVersion, Parameter, Outcome, Evidence } from "../api/types";
+import type { Study, ModelVersion, Parameter, Outcome, Evidence, TestSuiteSummary } from "../api/types";
 import { tr } from "../../i18n";
 import { BindingDialog } from "../components/BindingDialog";
 import { TornadoChart } from "../components/TornadoChart";
 import { FabricationExportModal } from "../components/FabricationExportModal";
 import { CalibrationWizard } from "../components/CalibrationWizard";
+import { TestCaseManager } from "../components/TestCaseManager";
+import { applyRowBindings } from "../../core/study/bindings";
 import { tunnelProject } from "../../core/tunnel-demo";
 import { molecularProject } from "../../core/molecule-demo";
 import { microchannelProject } from "../../core/microchannel-demo";
@@ -37,7 +40,7 @@ interface ModelTabProps {
 }
 
 export function ModelTab({ study }: ModelTabProps) {
-  const [viewMode, setViewMode] = useState<"workspace" | "mappings" | "sensitivity" | "history">("workspace");
+  const [viewMode, setViewMode] = useState<"workspace" | "mappings" | "sensitivity" | "tests" | "history">("workspace");
   const [showBindingDialog, setShowBindingDialog] = useState<boolean>(false);
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [showCalibrationWizard, setShowCalibrationWizard] = useState<boolean>(false);
@@ -70,6 +73,13 @@ export function ModelTab({ study }: ModelTabProps) {
     data: evidence,
   } = useApi<Evidence[]>(`evidence-${study.id}`, () =>
     apiGet<Evidence[]>(`/studies/${study.id}/evidence`),
+  );
+
+  const {
+    data: testSummary,
+    refresh: refreshTestSummary,
+  } = useApi<TestSuiteSummary>(`test-summary-${study.id}`, () =>
+    apiGet<TestSuiteSummary>(`/studies/${study.id}/test-cases/summary`),
   );
 
   const toggleExpand = (id: string) => {
@@ -163,6 +173,21 @@ export function ModelTab({ study }: ModelTabProps) {
     return [];
   }, [activeProject]);
 
+  const handleLoadIntoSim = (testParams: Record<string, any>) => {
+    const base = draftProject || activeProject;
+    if (!base) return;
+    const cloned = structuredClone(base);
+    if (latestModel?.parameter_bindings && Array.isArray(latestModel.parameter_bindings)) {
+      try {
+        applyRowBindings(cloned, latestModel.parameter_bindings as any, testParams);
+      } catch {
+        // Continue even if some parameters are not bound to flow nodes
+      }
+    }
+    setDraftProject(cloned);
+    setViewMode("workspace");
+  };
+
   return (
     <div className="model-tab-container">
       {/* Top Model Toolbar & Sub-navigation */}
@@ -193,6 +218,28 @@ export function ModelTab({ study }: ModelTabProps) {
             >
               <Activity size={13} />
               <span>{tr("მგრძნობელობა (Tornado)", "Sensitivity (Tornado)")}</span>
+            </button>
+            <button
+              className={`model-mode-btn ${viewMode === "tests" ? "active" : ""}`}
+              onClick={() => setViewMode("tests")}
+              title={tr("დეტერმინისტული ზუსტი ტესტ-კეისების ნაკრები", "Deterministic exact test cases suite")}
+            >
+              <Target size={13} />
+              <span>{tr("ტესტ-კეისები", "Test Cases")}</span>
+              {testSummary && testSummary.total_count > 0 && (
+                <span
+                  className="badge"
+                  style={{
+                    fontSize: 10,
+                    padding: "1px 5px",
+                    background: testSummary.failed_count > 0 ? "var(--ll-rose-soft)" : "var(--ll-surface-subtle)",
+                    color: testSummary.failed_count > 0 ? "var(--ll-rose-text)" : "var(--ll-text-secondary)",
+                    borderColor: testSummary.failed_count > 0 ? "var(--ll-rose-border)" : "transparent",
+                  }}
+                >
+                  {testSummary.total_count}
+                </span>
+              )}
             </button>
             {models && models.length > 1 && (
               <button
@@ -286,7 +333,7 @@ export function ModelTab({ study }: ModelTabProps) {
       {viewMode === "workspace" && (
         <div style={{ flex: 1, minHeight: 0, height: "100%", width: "100%", position: "relative" }}>
           <Workspace
-            initialProject={activeProject}
+            initialProject={draftProject || activeProject}
             studyId={study.id}
             hideHeaderBrand={true}
             onProjectChange={setDraftProject}
@@ -561,6 +608,18 @@ export function ModelTab({ study }: ModelTabProps) {
             onParameterUpdated={() => {
               refreshParams();
             }}
+          />
+        </div>
+      )}
+
+      {viewMode === "tests" && (
+        <div className="model-tab-scroll-wrap">
+          <TestCaseManager
+            study={study}
+            parameters={parameters || []}
+            outcomes={outcomes || []}
+            latestModel={latestModel}
+            onLoadIntoSim={handleLoadIntoSim}
           />
         </div>
       )}

@@ -35,6 +35,7 @@ from lattice_server.api.sensitivity import router as sensitivity_router
 from lattice_server.api.sources import router as sources_router
 from lattice_server.api.studies import router as studies_router
 from lattice_server.api.study_package import router as study_package_router
+from lattice_server.api.test_cases import router as test_cases_router
 from lattice_server.api.units import router as units_router
 from lattice_server.errors import (
     ApiHttpError,
@@ -128,6 +129,7 @@ app.include_router(analyses_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(paper_router, prefix="/api/v1")
 app.include_router(study_package_router, prefix="/api/v1")
+app.include_router(test_cases_router, prefix="/api/v1")
 app.include_router(units_router, prefix="/api/v1")
 
 

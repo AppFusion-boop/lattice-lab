@@ -366,6 +366,79 @@ def main() -> str:
     # Generate an active balanced batch
     client.post(f"/api/v1/studies/{study_id}/batches", json={"batch_size": 4, "strategy": "balanced"})
 
+    # Seed deterministic test cases
+    test_cases_payload = [
+        {
+            "name": "Nominal Physiological Bench Run",
+            "description": "Baseline moderate rubbing under standard 120 mN force at 8 mm/s speed.",
+            "category": "nominal",
+            "parameters": {
+                "normal_load_mn": 120.0,
+                "sliding_velocity_mms": 8.0,
+                "cuticle_wear_coeff": 8.0,
+                "initial_cuticle_thickness_um": 4.2,
+                "vibration_amplitude_um": 0.05,
+                "objective_mag": 40.0,
+            },
+            "expected_outcomes": {
+                "transmittance_pct": {"op": ">=", "value": 72.0},
+                "michelson_contrast": {"op": "<=", "value": 0.35},
+            },
+        },
+        {
+            "name": "High-Stress Severe Abrasion Corner",
+            "description": "Severe abrasive load (220 mN) and high reciprocating speed (18 mm/s) stress test.",
+            "category": "corner_case",
+            "parameters": {
+                "normal_load_mn": 220.0,
+                "sliding_velocity_mms": 18.0,
+                "cuticle_wear_coeff": 16.5,
+                "initial_cuticle_thickness_um": 3.0,
+                "vibration_amplitude_um": 0.25,
+                "objective_mag": 40.0,
+            },
+            "expected_outcomes": {
+                "transmittance_pct": {"op": ">=", "value": 75.0},
+                "michelson_contrast": {"op": "<=", "value": 0.30},
+            },
+        },
+        {
+            "name": "Gentle Conditioning Benchmark",
+            "description": "Low load (65 mN) standard ISO benchmark protocol for smooth cuticle retention.",
+            "category": "benchmark",
+            "parameters": {
+                "normal_load_mn": 65.0,
+                "sliding_velocity_mms": 3.5,
+                "cuticle_wear_coeff": 3.2,
+                "initial_cuticle_thickness_um": 5.0,
+                "vibration_amplitude_um": 0.0,
+                "objective_mag": 40.0,
+            },
+            "expected_outcomes": {
+                "transmittance_pct": {"op": ">=", "value": 70.0},
+                "michelson_contrast": {"op": "<=", "value": 0.38},
+            },
+        },
+        {
+            "name": "Resonance Chatter Boundary Limit",
+            "description": "Extreme mechanical reciprocating chatter vibration (+0.65 um amplitude).",
+            "category": "boundary",
+            "parameters": {
+                "normal_load_mn": 160.0,
+                "sliding_velocity_mms": 10.0,
+                "cuticle_wear_coeff": 12.0,
+                "initial_cuticle_thickness_um": 3.8,
+                "vibration_amplitude_um": 0.65,
+                "objective_mag": 40.0,
+            },
+            "expected_outcomes": {
+                "transmittance_pct": {"op": ">=", "value": 72.0},
+            },
+        },
+    ]
+    for tc in test_cases_payload:
+        client.post(f"/api/v1/studies/{study_id}/test-cases", json=tc)
+
     print("\n✓ Hair Keratin Tribology Study seeded successfully!")
     print(f"Study ID: {study_id}")
     print(f"Name: {study_name}")

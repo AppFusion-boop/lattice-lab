@@ -1147,6 +1147,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/studies/{study_id}/test-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Test Cases */
+        get: operations["list_test_cases_api_v1_studies__study_id__test_cases_get"];
+        put?: never;
+        /** Create Test Case */
+        post: operations["create_test_case_api_v1_studies__study_id__test_cases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/test-cases/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Test Suite Summary */
+        get: operations["get_test_suite_summary_api_v1_studies__study_id__test_cases_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/test-cases/{test_case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Test Case */
+        get: operations["get_test_case_api_v1_studies__study_id__test_cases__test_case_id__get"];
+        /** Update Test Case */
+        put: operations["update_test_case_api_v1_studies__study_id__test_cases__test_case_id__put"];
+        post?: never;
+        /** Delete Test Case */
+        delete: operations["delete_test_case_api_v1_studies__study_id__test_cases__test_case_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/test-cases/{test_case_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Test Case */
+        post: operations["run_test_case_api_v1_studies__study_id__test_cases__test_case_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/studies/{study_id}/test-cases/run-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run All Test Cases */
+        post: operations["run_all_test_cases_api_v1_studies__study_id__test_cases_run_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/units/convert": {
         parameters: {
             query?: never;
@@ -1208,6 +1296,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AssertionVerdict */
+        AssertionVerdict: {
+            /** Outcome Key */
+            outcome_key: string;
+            /** Label */
+            label: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /** Actual */
+            actual: number;
+            /** Expected */
+            expected: string;
+            /** Passed */
+            passed: boolean;
+            /** Delta */
+            delta?: number | null;
+            /** Message */
+            message?: string | null;
+        };
         /** AuditEntryResponse */
         AuditEntryResponse: {
             /** Id */
@@ -2611,6 +2721,144 @@ export interface components {
             template: "tunnel_blast" | "drug_screen" | "microchannel_cold_plate" | "smart_cement_skyscraper";
             /** Name */
             name?: string | null;
+        };
+        /** TestCaseCreate */
+        TestCaseCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Category
+             * @default custom
+             * @enum {string}
+             */
+            category: "benchmark" | "corner_case" | "boundary" | "regression" | "nominal" | "custom";
+            /** Parameters */
+            parameters?: {
+                [key: string]: unknown;
+            };
+            /** Expected Outcomes */
+            expected_outcomes?: {
+                [key: string]: unknown;
+            };
+        };
+        /** TestCaseResponse */
+        TestCaseResponse: {
+            /** Id */
+            id: string;
+            /** Study Id */
+            study_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "benchmark" | "corner_case" | "boundary" | "regression" | "nominal" | "custom";
+            /** Parameters */
+            parameters: {
+                [key: string]: unknown;
+            };
+            /** Expected Outcomes */
+            expected_outcomes: {
+                [key: string]: unknown;
+            };
+            /**
+             * Last Run Status
+             * @enum {string}
+             */
+            last_run_status: "untested" | "passed" | "failed" | "error";
+            /** Last Run At */
+            last_run_at: string | null;
+            /** Last Run Outputs */
+            last_run_outputs: {
+                [key: string]: unknown;
+            };
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** TestCaseRunResult */
+        TestCaseRunResult: {
+            /** Test Case Id */
+            test_case_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "untested" | "passed" | "failed" | "error";
+            /** Duration Ms */
+            duration_ms: number;
+            /** Outcomes */
+            outcomes?: {
+                [key: string]: number;
+            };
+            /** Assertions */
+            assertions?: components["schemas"]["AssertionVerdict"][];
+            /** Error Message */
+            error_message?: string | null;
+            /** Executed At */
+            executed_at: string;
+        };
+        /** TestCaseUpdate */
+        TestCaseUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Category */
+            category?: ("benchmark" | "corner_case" | "boundary" | "regression" | "nominal" | "custom") | null;
+            /** Parameters */
+            parameters?: {
+                [key: string]: unknown;
+            } | null;
+            /** Expected Outcomes */
+            expected_outcomes?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** TestSuiteRunResponse */
+        TestSuiteRunResponse: {
+            /** Study Id */
+            study_id: string;
+            /** Model Version Id */
+            model_version_id?: string | null;
+            /** Total Count */
+            total_count: number;
+            /** Passed Count */
+            passed_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Results */
+            results: components["schemas"]["TestCaseRunResult"][];
+            /** Created At */
+            created_at: string;
+        };
+        /** TestSuiteSummaryResponse */
+        TestSuiteSummaryResponse: {
+            /** Total Count */
+            total_count: number;
+            /** Passed Count */
+            passed_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Untested Count */
+            untested_count: number;
+            /** Error Count */
+            error_count: number;
+            /** Pass Rate Pct */
+            pass_rate_pct: number;
+            /** Last Run At */
+            last_run_at?: string | null;
         };
         /** UnitConvertRequest */
         UnitConvertRequest: {
@@ -5335,6 +5583,264 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_test_cases_api_v1_studies__study_id__test_cases_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCaseResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_test_case_api_v1_studies__study_id__test_cases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestCaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_test_suite_summary_api_v1_studies__study_id__test_cases_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestSuiteSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_test_case_api_v1_studies__study_id__test_cases__test_case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+                test_case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_test_case_api_v1_studies__study_id__test_cases__test_case_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+                test_case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestCaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_test_case_api_v1_studies__study_id__test_cases__test_case_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+                test_case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_test_case_api_v1_studies__study_id__test_cases__test_case_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+                test_case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCaseRunResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_all_test_cases_api_v1_studies__study_id__test_cases_run_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestSuiteRunResponse"];
                 };
             };
             /** @description Validation Error */

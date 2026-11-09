@@ -80,6 +80,21 @@ export async function apiPost<T>(path: string, body?: unknown, options?: Request
   return handleResponse<T>(res);
 }
 
+export async function apiPut<T>(path: string, body?: unknown, options?: RequestInit): Promise<T> {
+  const url = path.startsWith("http") || path.startsWith("/api") ? path : `/api/v1${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...options,
+  });
+  return handleResponse<T>(res);
+}
+
 export async function apiPatch<T>(path: string, body?: unknown, options?: RequestInit): Promise<T> {
   const url = path.startsWith("http") || path.startsWith("/api") ? path : `/api/v1${path.startsWith("/") ? path : `/${path}`}`;
   const res = await fetch(url, {

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { apiPost, apiGet } from "../api/client";
 import { useApi, useJob } from "../api/hooks";
-import type { Study, ScreeningRun, Job, CandidateSet, Parameter, Outcome, Evidence } from "../api/types";
+import type { Study, ScreeningRun, Job, CandidateSet, Parameter, Outcome, Evidence, TestSuiteSummary } from "../api/types";
 import { tr } from "../../i18n";
 import { navigate } from "../../app/router";
 import { RecordExperimentModal } from "../components/RecordExperimentModal";
@@ -58,6 +58,11 @@ export function OverviewTab({ study, onRefreshStudy }: OverviewTabProps) {
   const { data: evidenceList, refresh: refreshEvidence } = useApi<Evidence[]>(
     `evidence-${study.id}`,
     () => apiGet<Evidence[]>(`/studies/${study.id}/evidence`).catch(() => [])
+  );
+
+  const { data: testSummary } = useApi<TestSuiteSummary>(
+    `test-summary-${study.id}`,
+    () => apiGet<TestSuiteSummary>(`/studies/${study.id}/test-cases/summary`).catch(() => null as unknown as TestSuiteSummary),
   );
 
   const [showRecordModal, setShowRecordModal] = useState<boolean>(false);
@@ -232,6 +237,66 @@ export function OverviewTab({ study, onRefreshStudy }: OverviewTabProps) {
           </button>
         </div>
       </div>
+
+      {/* Deterministic Test Suite Executive Summary */}
+      {testSummary && testSummary.total_count > 0 && (
+        <div
+          className="study-card"
+          style={{
+            padding: "11px 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "var(--ll-surface)",
+            border: "1px solid var(--ll-border)",
+            marginBottom: 0,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+          onClick={() => navigate(`studies/${study.id}/flow`)}
+          title={tr("გადასვლა დეტერმინისტულ ტესტ-კეისებზე 3D ფლოუში", "Open Test Cases Suite in 3D Flow")}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "var(--ll-radius-md)",
+                background: testSummary.failed_count > 0 ? "var(--ll-rose-soft)" : "var(--ll-emerald-soft)",
+                color: testSummary.failed_count > 0 ? "var(--ll-rose)" : "var(--ll-emerald)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Target size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 650, color: "var(--ll-text-primary)" }}>
+                {tr("დეტერმინისტული ტესტ-სუიტი (Exact Test Suite):", "Deterministic Exact Test Suite:")}{" "}
+                <span
+                  style={{
+                    color: testSummary.failed_count > 0 ? "var(--ll-rose)" : "var(--ll-emerald)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {testSummary.passed_count} / {testSummary.total_count} {tr("წარმატებული", "Passing")} ({testSummary.pass_rate_pct}%)
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ll-text-secondary)", marginTop: 1 }}>
+                {testSummary.untested_count > 0
+                  ? `${testSummary.untested_count} ${tr("ტესტი გაუშვებელია", "tests unexecuted")} · ${tr("დააჭირეთ სამართავად", "Click to manage and execute")}`
+                  : tr("ყველა საკვანძო კუთხური კეისი და ბენჩმარკი შემოწმებულია 3D ფლოუ მოდელზე", "All corner cases and regulatory benchmarks verified against 3D Flow model")}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--ll-blue)", fontWeight: 550 }}>
+            <span>{tr("3D ფლოუში მართვა", "Manage in 3D Flow")}</span>
+            <ChevronRight size={14} />
+          </div>
+        </div>
+      )}
 
       {/* Live Job Progress Banner */}
       {runningJob && job && (

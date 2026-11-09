@@ -76,3 +76,14 @@ export type PaperSection = components["schemas"]["PaperSection"];
 export type FigureMeta = components["schemas"]["FigureMeta"];
 export type TableMeta = components["schemas"]["TableMeta"];
 
+export type TestCase = components["schemas"]["TestCaseResponse"];
+export type TestCaseCreate = components["schemas"]["TestCaseCreate"];
+export type TestCaseUpdate = components["schemas"]["TestCaseUpdate"];
+export type TestCaseCategory = "benchmark" | "corner_case" | "boundary" | "regression" | "nominal" | "custom";
+export type TestCaseStatus = "untested" | "passed" | "failed" | "error";
+export type TestCaseRunResult = components["schemas"]["TestCaseRunResult"];
+export type TestSuiteRunResponse = components["schemas"]["TestSuiteRunResponse"];
+export type TestSuiteSummary = components["schemas"]["TestSuiteSummaryResponse"];
+export type AssertionVerdict = components["schemas"]["AssertionVerdict"];
+
+

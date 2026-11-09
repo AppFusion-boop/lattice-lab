@@ -922,3 +922,93 @@ class CompatibleUnitsResponse(BaseModel):
     dimension: str
     compatible: list[str]
 
+
+# --- Test Cases Suite Schemas ---
+
+
+TestCaseCategory = Literal["benchmark", "corner_case", "boundary", "regression", "nominal", "custom"]
+TestCaseStatus = Literal["untested", "passed", "failed", "error"]
+
+
+class TestCaseAssertion(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    op: Literal["<", "<=", ">", ">=", "==", "between"] = ">="
+    value: float | None = None
+    low: float | None = None
+    high: float | None = None
+    tolerance_pct: float | None = None
+
+
+class TestCaseCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str = Field(default="")
+    category: TestCaseCategory = "custom"
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    expected_outcomes: dict[str, Any] = Field(default_factory=dict)
+
+
+class TestCaseUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    category: TestCaseCategory | None = None
+    parameters: dict[str, Any] | None = None
+    expected_outcomes: dict[str, Any] | None = None
+
+
+class AssertionVerdict(BaseModel):
+    outcome_key: str
+    label: str
+    unit: str = ""
+    actual: float
+    expected: str
+    passed: bool
+    delta: float | None = None
+    message: str | None = None
+
+
+class TestCaseRunResult(BaseModel):
+    test_case_id: str
+    status: TestCaseStatus
+    duration_ms: float
+    outcomes: dict[str, float] = Field(default_factory=dict)
+    assertions: list[AssertionVerdict] = Field(default_factory=list)
+    error_message: str | None = None
+    executed_at: str
+
+
+class TestCaseResponse(BaseModel):
+    id: str
+    study_id: str
+    name: str
+    description: str
+    category: TestCaseCategory
+    parameters: dict[str, Any]
+    expected_outcomes: dict[str, Any]
+    last_run_status: TestCaseStatus
+    last_run_at: str | None
+    last_run_outputs: dict[str, Any]
+    created_at: str
+    updated_at: str
+
+
+class TestSuiteSummaryResponse(BaseModel):
+    total_count: int
+    passed_count: int
+    failed_count: int
+    untested_count: int
+    error_count: int
+    pass_rate_pct: float
+    last_run_at: str | None = None
+
+
+class TestSuiteRunResponse(BaseModel):
+    study_id: str
+    model_version_id: str | None = None
+    total_count: int
+    passed_count: int
+    failed_count: int
+    duration_ms: float
+    results: list[TestCaseRunResult]
+    created_at: str
+
+

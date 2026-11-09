@@ -40,7 +40,7 @@ def test_migration_creates_all_tables():
     try:
         assert db.get_current_version(conn) == 0
         version = db.migrate(conn)
-        assert version == 1
+        assert version >= 2
 
         tables = [
             row["name"]
@@ -66,11 +66,13 @@ def test_migration_creates_all_tables():
             "screening_runs",
             "sources",
             "studies",
+            "test_cases",
+            "test_case_runs",
         ]
         for t in expected_tables:
             assert t in tables, f"Expected table {t} to be created by migration"
 
-        assert db.get_current_version(conn) == 1
+        assert db.get_current_version(conn) == version
     finally:
         conn.close()
 
