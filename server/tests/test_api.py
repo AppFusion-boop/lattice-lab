@@ -253,6 +253,27 @@ def test_parameter_crud_and_validations(client: TestClient):
     del_res = client.delete(f"/api/v1/parameters/{p_cat.json()['id']}")
     assert del_res.status_code == 204
 
+    # 12. Dependent parameter with integral mathematical formula
+    p_dep = client.post(
+        f"/api/v1/studies/{sid}/parameters",
+        json={
+            "key": "integrated_droplet_mass",
+            "label": "Integrated Droplet Mass",
+            "unit": "mg",
+            "kind": "continuous",
+            "role": "dependent",
+            "spec": {
+                "expression": "integral(0, mist_lead, droplet * t)",
+                "dependencies": ["mist_lead", "droplet"],
+                "sample_value": 45.2,
+            },
+        },
+    )
+    assert p_dep.status_code == 201
+    dep_data = p_dep.json()
+    assert dep_data["role"] == "dependent"
+    assert dep_data["spec"]["expression"] == "integral(0, mist_lead, droplet * t)"
+
 
 def test_outcome_crud_and_criterion(client: TestClient):
     """Test Outcome creation, criterion validation, updating, and listing."""

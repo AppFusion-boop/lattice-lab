@@ -187,3 +187,50 @@ def test_variable_collisions_and_strictness():
     vec_vals, vec_mask = compiled_default.evaluate_vec({"a": np.array([10.0])})
     assert vec_vals[0] == 10.0
     assert vec_mask[0] == True
+
+
+def test_advanced_math_functions_integral_sum_matrices():
+    """Verify safe definite integrals, summations, matrix determinants and norms."""
+    # Definite integral: ∫_0^3 t^2 dt = 9
+    int_comp = compile_expression("integral(0, 3, t^2)")
+    assert abs(int_comp.evaluate({}) - 9.0) < 1e-6
+
+    # Definite integral with parameters: ∫_0^mist_lead (amplitude * t) dt = 0.5 * amplitude * mist_lead^2
+    param_int = compile_expression(
+        "integral(0, mist_lead, amplitude * t)",
+        variables=["mist_lead", "amplitude"],
+    )
+    val = param_int.evaluate({"mist_lead": 2.0, "amplitude": 5.0})
+    assert abs(val - 10.0) < 1e-6
+
+    # Vectorized evaluation of integral
+    v_lead = np.array([2.0, 4.0])
+    v_amp = np.array([5.0, 2.0])
+    v_res, v_mask = param_int.evaluate_vec({"mist_lead": v_lead, "amplitude": v_amp})
+    assert np.all(v_mask)
+    assert abs(v_res[0] - 10.0) < 1e-6
+    # 0.5 * 2.0 * 16.0 = 16.0
+    assert abs(v_res[1] - 16.0) < 1e-6
+
+    # Matrix determinants
+    det2_comp = compile_expression("det2(4, 2, 1, 3)")
+    assert det2_comp.evaluate({}) == 10.0
+
+    det3_comp = compile_expression("det3(1, 0, 0, 0, 1, 0, 0, 0, 1)")
+    assert det3_comp.evaluate({}) == 1.0
+
+    # Norms
+    norm2_comp = compile_expression("norm2(3, 4)")
+    assert norm2_comp.evaluate({}) == 5.0
+
+    norm3_comp = compile_expression("norm3(2, 3, 6)")
+    assert norm3_comp.evaluate({}) == 7.0
+
+    # Summation
+    sum_comp = compile_expression("sum(1, 4, k)")
+    assert sum_comp.evaluate({}) == 10.0
+
+    # Variables extraction skips dummy variables t and k
+    vars_found = expression_variables("integral(0, mist_lead, amplitude * t) + sum(1, n, k * factor)")
+    assert vars_found == ["amplitude", "factor", "mist_lead", "n"]
+

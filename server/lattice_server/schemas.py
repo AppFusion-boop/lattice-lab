@@ -171,6 +171,17 @@ class CategoricalSpec(BaseModel):
         return self
 
 
+class DependentSpec(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    expression: str = Field(min_length=1, max_length=1000)
+    dependencies: list[str] = Field(default_factory=list)
+    latex: str | None = None
+    sample_value: float | None = None
+    min: float | None = None
+    max: float | None = None
+
+
 # --- Parameter Model ---
 
 
@@ -193,7 +204,7 @@ class ParameterCreate(BaseModel):
     label: str = Field(min_length=1, max_length=100)
     unit: str = ""
     kind: Literal["continuous", "integer", "categorical"]
-    role: Literal["controlled", "uncertain", "fixed"]
+    role: Literal["controlled", "uncertain", "fixed", "dependent"]
     spec: dict[str, Any]
 
     @field_validator("key")
@@ -211,6 +222,10 @@ class ParameterCreate(BaseModel):
         k = self.kind
         r = self.role
         s = self.spec
+
+        if r == "dependent":
+            DependentSpec.model_validate(s)
+            return self
 
         # Validate spec schema
         if k == "continuous":
@@ -240,7 +255,7 @@ class ParameterCreate(BaseModel):
 class ParameterUpdate(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=100)
     unit: str | None = None
-    role: Literal["controlled", "uncertain", "fixed"] | None = None
+    role: Literal["controlled", "uncertain", "fixed", "dependent"] | None = None
     spec: dict[str, Any] | None = None
 
     @field_validator("unit")
@@ -258,7 +273,7 @@ class ParameterResponse(BaseModel):
     label: str
     unit: str
     kind: Literal["continuous", "integer", "categorical"]
-    role: Literal["controlled", "uncertain", "fixed"]
+    role: Literal["controlled", "uncertain", "fixed", "dependent"]
     spec: dict[str, Any]
     position: int
 

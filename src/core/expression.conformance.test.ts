@@ -88,3 +88,38 @@ test("named variables, collision checks, and expressionVariables helper", () => 
   const defaultFn = compileExpression("a + b");
   assert.equal(defaultFn({ a: 10 }), 10);
 });
+
+test("advanced mathematical functions: integral, sum, det2, det3, norm", () => {
+  // Definite integral: ∫_0^3 t^2 dt = 9
+  const intFn1 = compileExpression("integral(0, 3, t^2)");
+  assert.ok(Math.abs(intFn1({}) - 9) < 1e-6);
+
+  // Definite integral with parameters: ∫_0^mist_lead (amplitude * t) dt = 0.5 * amplitude * mist_lead^2
+  const intFn2 = compileExpression("integral(0, mist_lead, amplitude * t)", {
+    variables: ["mist_lead", "amplitude"],
+  });
+  const res2 = intFn2({ mist_lead: 2, amplitude: 5 });
+  assert.ok(Math.abs(res2 - 10) < 1e-6);
+
+  // Matrix determinants
+  const det2Fn = compileExpression("det2(4, 2, 1, 3)");
+  assert.equal(det2Fn({}), 10);
+
+  const det3Fn = compileExpression("det3(1, 0, 0, 0, 1, 0, 0, 0, 1)");
+  assert.equal(det3Fn({}), 1);
+
+  // Vector norms
+  const normFn = compileExpression("norm2(3, 4)");
+  assert.equal(normFn({}), 5);
+
+  const norm3Fn = compileExpression("norm3(2, 3, 6)");
+  assert.equal(norm3Fn({}), 7);
+
+  // Discrete summation: sum_{k=1}^4 k = 10
+  const sumFn = compileExpression("sum(1, 4, k)");
+  assert.equal(sumFn({}), 10);
+
+  // Variables extraction ignores dummy integration variables (t, k)
+  const vars = expressionVariables("integral(0, mist_lead, amplitude * t) + sum(1, n, k * factor)");
+  assert.deepEqual(vars, ["amplitude", "factor", "mist_lead", "n"]);
+});

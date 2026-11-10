@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from lattice_server.audit import write_audit
+from lattice_server.expr import ExpressionError, compile_expression, expression_variables
 from lattice_server.ids import compute_values_hash, new_id
 from lattice_server.repo import parameters as parameters_repo
 from lattice_server.schemas import (
@@ -66,11 +67,29 @@ def create_candidate_set(
     )
 
     # Prepare batch rows for candidates
+    dependent_params = [p for p in params if p.role == "dependent"]
+    compiled_deps: list[tuple[str, Any]] = []
+    for dp in dependent_params:
+        expr = dp.spec.get("expression")
+        if expr:
+            try:
+                comp = compile_expression(expr, variables=expression_variables(expr), strict=False)
+                compiled_deps.append((dp.key, comp))
+            except (ExpressionError, ValueError, KeyError):
+                # Ignore invalid dependent expression during batch generation
+                continue
+
     batch: list[tuple[str, str, int, str | None, str, str]] = []
     for idx, row_vals in enumerate(candidate_rows):
         cid = f"{cset_id}_{idx}"
         label = str(row_vals.get("_label") or row_vals.get("label") or "") or None
         clean_vals = {k: v for k, v in row_vals.items() if not k.startswith("_") and k != "label"}
+        for dkey, dcomp in compiled_deps:
+            try:
+                clean_vals[dkey] = dcomp.evaluate(clean_vals)
+            except (ExpressionError, ValueError, KeyError):
+                # Omit or leave unevaluated if evaluation fails for this candidate
+                continue
         v_hash = compute_values_hash(clean_vals, controlled_keys=controlled_keys)
         v_json = json.dumps(clean_vals, separators=(",", ":"), sort_keys=True)
         batch.append((cid, cset_id, idx, label, v_json, v_hash))

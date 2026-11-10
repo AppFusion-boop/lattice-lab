@@ -2232,7 +2232,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "controlled" | "uncertain" | "fixed";
+            role: "controlled" | "uncertain" | "fixed" | "dependent";
             /** Spec */
             spec: {
                 [key: string]: unknown;
@@ -2259,7 +2259,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "controlled" | "uncertain" | "fixed";
+            role: "controlled" | "uncertain" | "fixed" | "dependent";
             /** Spec */
             spec: {
                 [key: string]: unknown;
@@ -2289,7 +2289,7 @@ export interface components {
             /** Unit */
             unit?: string | null;
             /** Role */
-            role?: ("controlled" | "uncertain" | "fixed") | null;
+            role?: ("controlled" | "uncertain" | "fixed" | "dependent") | null;
             /** Spec */
             spec?: {
                 [key: string]: unknown;

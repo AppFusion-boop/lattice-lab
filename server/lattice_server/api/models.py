@@ -11,6 +11,7 @@ from fastapi import APIRouter, status
 from lattice_server.db import DbConn
 from lattice_server.engine import bridge
 from lattice_server.errors import ApiHttpError
+from lattice_server.expr import ExpressionError, compile_expression, expression_variables
 from lattice_server.repo import models as models_repo
 from lattice_server.repo import parameters as parameters_repo
 from lattice_server.repo import studies as studies_repo
@@ -24,7 +25,10 @@ router = APIRouter(tags=["models"])
 
 def _calculate_nominal_values(parameters: list[Any]) -> dict[str, Any]:
     nominal: dict[str, Any] = {}
-    for p in parameters:
+    independent = [p for p in parameters if p.role != "dependent"]
+    dependent = [p for p in parameters if p.role == "dependent"]
+
+    for p in independent:
         k = p.kind
         r = p.role
         s = p.spec
@@ -48,6 +52,19 @@ def _calculate_nominal_values(parameters: list[Any]) -> dict[str, Any]:
             else:
                 opts = s.get("options", [""])
                 nominal[p.key] = opts[0] if opts else ""
+
+    for p in dependent:
+        s = p.spec
+        expr = s.get("expression")
+        if expr:
+            try:
+                comp = compile_expression(expr, variables=expression_variables(expr), strict=False)
+                nominal[p.key] = comp.evaluate(nominal)
+            except (ExpressionError, ValueError, KeyError):
+                nominal[p.key] = float(s.get("sample_value", 0.0))
+        else:
+            nominal[p.key] = float(s.get("sample_value", 0.0))
+
     return nominal
 
 

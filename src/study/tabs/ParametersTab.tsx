@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Plus, Trash2, X, Sliders, AlertCircle, Activity } from "lucide-react";
+import { Plus, Trash2, X, Sliders, AlertCircle, Activity, Calculator } from "lucide-react";
 import { apiGet, apiPost, apiDelete, ApiError } from "../api/client";
 import { useApi } from "../api/hooks";
 import type { Study, Parameter, ParameterCreate, Outcome } from "../api/types";
 import { tr } from "../../i18n";
 import { TornadoChart } from "../components/TornadoChart";
+import { VisualMathBuilder } from "../components/VisualMathBuilder";
+import { MathFormulaDisplay } from "../components/MathFormulaDisplay";
 import "../study.css";
 
 interface ParametersTabProps {
@@ -21,7 +23,12 @@ export function ParametersTab({ study }: ParametersTabProps) {
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("");
   const [kind, setKind] = useState<"continuous" | "integer" | "categorical">("continuous");
-  const [role, setRole] = useState<"controlled" | "uncertain" | "fixed">("controlled");
+  const [role, setRole] = useState<"controlled" | "uncertain" | "fixed" | "dependent">("controlled");
+
+  // Dependent formula spec
+  const [dependentExpr, setDependentExpr] = useState("");
+  const [dependentDeps, setDependentDeps] = useState<string[]>([]);
+  const [dependentSample, setDependentSample] = useState<number | null>(null);
 
   // Continuous spec
   const [minVal, setMinVal] = useState("10");
@@ -63,6 +70,9 @@ export function ParametersTab({ study }: ParametersTabProps) {
     setUnit("");
     setKind("continuous");
     setRole("controlled");
+    setDependentExpr("");
+    setDependentDeps([]);
+    setDependentSample(null);
     setMinVal("10");
     setMaxVal("1000");
     setScale("linear");
@@ -84,7 +94,17 @@ export function ParametersTab({ study }: ParametersTabProps) {
 
     let spec: Record<string, unknown> = {};
 
-    if (kind === "continuous") {
+    if (role === "dependent") {
+      if (!dependentExpr.trim()) {
+        setFormError(tr("მიუთითეთ მათემატიკური წესი / ფორმულა", "Please define a mathematical formula for the dependent parameter"));
+        return;
+      }
+      spec = {
+        expression: dependentExpr.trim(),
+        dependencies: dependentDeps,
+        sample_value: dependentSample,
+      };
+    } else if (kind === "continuous") {
       const minNum = parseFloat(minVal);
       const maxNum = parseFloat(maxVal);
       spec = {
@@ -191,7 +211,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button
               className="btn-secondary"
               onClick={() => setShowTornado(!showTornado)}
@@ -201,7 +221,15 @@ export function ParametersTab({ study }: ParametersTabProps) {
               <span>{showTornado ? tr("სენსიტიურობის დახურვა", "Hide Sensitivity") : tr("სენსიტიურობა (სობოლი)", "Sobol Sensitivity")}</span>
             </button>
 
-            <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                resetForm();
+                setRole("controlled");
+                setShowModal(true);
+              }}
+            >
               <Plus size={14} />
               <span>{tr("პარამეტრის დამატება", "Add Parameter")}</span>
             </button>
@@ -246,7 +274,13 @@ export function ParametersTab({ study }: ParametersTabProps) {
                 {parameters.map((p) => {
                   const s = p.spec as Record<string, unknown>;
                   let specSummary = "";
-                  if (p.kind === "continuous") {
+                  if (p.role === "dependent") {
+                    const deps = (s.dependencies as string[]) || [];
+                    specSummary = `f(${deps.join(", ")}) = ${s.expression ?? ""}`;
+                    if (s.sample_value !== undefined && s.sample_value !== null) {
+                      specSummary += ` · nominal: ${Number(s.sample_value).toFixed(2)}`;
+                    }
+                  } else if (p.kind === "continuous") {
                     specSummary = `[${s.min ?? "?"} .. ${s.max ?? "?"}] (${s.scale ?? "linear"})`;
                     if (s.levels) specSummary += ` · ${s.levels} levels`;
                     if (p.role === "fixed") specSummary = `Fixed: ${s.value}`;
@@ -279,21 +313,55 @@ export function ParametersTab({ study }: ParametersTabProps) {
                           className="badge"
                           style={{
                             background:
-                              p.role === "controlled" ? "var(--ll-emerald-soft)" : p.role === "uncertain" ? "var(--ll-amber-soft)" : "var(--ll-surface-hover)",
+                              p.role === "controlled"
+                                ? "var(--ll-emerald-soft)"
+                                : p.role === "uncertain"
+                                ? "var(--ll-amber-soft)"
+                                : p.role === "dependent"
+                                ? "rgba(139, 92, 246, 0.12)"
+                                : "var(--ll-surface-hover)",
                             color:
-                              p.role === "controlled" ? "var(--ll-emerald-text)" : p.role === "uncertain" ? "var(--ll-amber-text)" : "var(--ll-text-secondary)",
+                              p.role === "controlled"
+                                ? "var(--ll-emerald-text)"
+                                : p.role === "uncertain"
+                                ? "var(--ll-amber-text)"
+                                : p.role === "dependent"
+                                ? "#7c3aed"
+                                : "var(--ll-text-secondary)",
                             borderColor:
-                              p.role === "controlled" ? "var(--ll-emerald-border)" : p.role === "uncertain" ? "var(--ll-amber-border)" : "var(--ll-border)",
+                              p.role === "controlled"
+                                ? "var(--ll-emerald-border)"
+                                : p.role === "uncertain"
+                                ? "var(--ll-amber-border)"
+                                : p.role === "dependent"
+                                ? "rgba(139, 92, 246, 0.3)"
+                                : "var(--ll-border)",
+                            fontWeight: p.role === "dependent" ? 650 : 500,
                           }}
                         >
-                          {p.role}
+                          {p.role === "dependent" ? "f(x) dependent" : p.role}
                         </span>
                       </td>
                       <td style={{ fontFamily: "var(--ll-font-mono)", color: "var(--ll-text-secondary)", fontSize: 11.5 }}>
                         {p.unit || "—"}
                       </td>
-                      <td style={{ color: "var(--ll-text-secondary)", fontSize: 11.5, fontFamily: "var(--ll-font-mono)" }}>
-                        {specSummary}
+                      <td style={{ color: "var(--ll-text-primary)", fontSize: 12 }}>
+                        {p.role === "dependent" || Boolean((s.expression as string)) ? (
+                          <MathFormulaDisplay
+                            expression={String(s.expression || "")}
+                            studyParameters={parameters || []}
+                            dependencies={(s.dependencies as string[]) || []}
+                            paramKey={p.key}
+                            showLhs={true}
+                            nominalValue={s.sample_value !== undefined && s.sample_value !== null ? Number(s.sample_value) : null}
+                            unit={p.unit}
+                            size="sm"
+                          />
+                        ) : (
+                          <span style={{ color: "var(--ll-text-secondary)", fontFamily: "var(--ll-font-mono)", fontSize: 11.5 }}>
+                            {specSummary}
+                          </span>
+                        )}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <button
@@ -318,16 +386,25 @@ export function ParametersTab({ study }: ParametersTabProps) {
       {/* Add Parameter Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-dialog">
+          <div className="modal-dialog" style={{ maxWidth: role === "dependent" ? 780 : 540, width: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
             <div className="modal-header">
-              <h3 className="modal-title">{tr("ახალი პარამეტრის დამატება", "Add Experimental Parameter")}</h3>
+              <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {role === "dependent" ? (
+                  <>
+                    <span style={{ fontSize: 18, color: "#8b5cf6", fontWeight: 700 }}>∫</span>
+                    <span>{tr("დამოკიდებული პარამეტრის დამატება (Symbolab)", "Add Dependent Parameter (Symbolab Builder)")}</span>
+                  </>
+                ) : (
+                  <span>{tr("ახალი პარამეტრის დამატება", "Add Experimental Parameter")}</span>
+                )}
+              </h3>
               <button type="button" className="btn-ghost" onClick={() => setShowModal(false)} style={{ padding: 4 }}>
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate}>
-              <div className="modal-body">
+            <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+              <div className="modal-body" style={{ overflowY: "auto", flex: 1, padding: "16px 20px" }}>
                 {formError && (
                   <div
                     style={{
@@ -340,12 +417,60 @@ export function ParametersTab({ study }: ParametersTabProps) {
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
+                      marginBottom: 12,
                     }}
                   >
                     <AlertCircle size={14} />
                     <span>{formError}</span>
                   </div>
                 )}
+
+                {/* 1. Large Visual Role Selector Segmented Control */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 700, margin: 0, fontSize: 12 }}>
+                    {tr("პარამეტრის ტიპი / როლი (Role):", "Parameter Type / Role:")}
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                    {[
+                      { id: "controlled" as const, label: "Controlled", desc: "DoE Factor", icon: "🎯" },
+                      { id: "dependent" as const, label: "Dependent", desc: "Symbolab Math", icon: "∫" },
+                      { id: "uncertain" as const, label: "Uncertain", desc: "Monte Carlo", icon: "🎲" },
+                      { id: "fixed" as const, label: "Fixed", desc: "Constant", icon: "📌" },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setRole(item.id)}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          textAlign: "center",
+                          padding: "8px 6px",
+                          borderRadius: "var(--ll-radius-md)",
+                          border: role === item.id
+                            ? item.id === "dependent" ? "2px solid #8b5cf6" : "2px solid var(--ll-emerald)"
+                            : "1px solid var(--ll-border)",
+                          background: role === item.id
+                            ? item.id === "dependent" ? "rgba(139, 92, 246, 0.12)" : "var(--ll-emerald-soft)"
+                            : "var(--ll-surface)",
+                          color: role === item.id
+                            ? item.id === "dependent" ? "#7c3aed" : "var(--ll-emerald-text)"
+                            : "var(--ll-text-primary)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          boxShadow: role === item.id ? "0 2px 4px rgba(0,0,0,0.06)" : "none",
+                        }}
+                      >
+                        <span style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</span>
+                        <span style={{ fontSize: 11.5, fontWeight: role === item.id ? 700 : 600, marginTop: 4 }}>
+                          {item.label}
+                        </span>
+                        <span style={{ fontSize: 10, color: "var(--ll-text-muted)" }}>{item.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div className="form-group">
@@ -373,38 +498,58 @@ export function ParametersTab({ study }: ParametersTabProps) {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
                   <div className="form-group">
                     <label className="form-label">{tr("ფიზიკური ერთეული", "Physical Unit")}</label>
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="e.g. um, Pa, L/min, mm"
+                      placeholder="e.g. um, Pa, L/min, mm, kg"
                       value={unit}
                       onChange={(e) => setUnit(e.target.value)}
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">{tr("ტიპი", "Kind")}</label>
-                    <select className="form-select" value={kind} onChange={(e) => setKind(e.target.value as any)}>
-                      <option value="continuous">Continuous</option>
-                      <option value="integer">Integer</option>
-                      <option value="categorical">Categorical</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">{tr("როლი", "Role")}</label>
-                    <select className="form-select" value={role} onChange={(e) => setRole(e.target.value as any)}>
-                      <option value="controlled">Controlled (DoE)</option>
-                      <option value="uncertain">Uncertain (MC)</option>
-                      <option value="fixed">Fixed (Constant)</option>
-                    </select>
-                  </div>
+                  {role !== "dependent" ? (
+                    <div className="form-group">
+                      <label className="form-label">{tr("ტიპი", "Kind")}</label>
+                      <select className="form-select" value={kind} onChange={(e) => setKind(e.target.value as any)}>
+                        <option value="continuous">Continuous</option>
+                        <option value="integer">Integer</option>
+                        <option value="categorical">Categorical</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label">{tr("ტიპი (მათემატიკური)", "Kind (Computed)")}</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value="Continuous (Evaluated Function)"
+                        disabled
+                        style={{ opacity: 0.85, background: "var(--ll-surface-subtle)", fontWeight: 600, color: "#7c3aed" }}
+                      />
+                    </div>
+                  )}
                 </div>
 
-                {kind === "continuous" && (
+                {role === "dependent" && (
+                  <div style={{ marginTop: 12 }}>
+                    <VisualMathBuilder
+                      currentParamKey={key.trim()}
+                      studyParameters={parameters || []}
+                      expression={dependentExpr}
+                      onChange={(expr, deps, sample) => {
+                        setDependentExpr(expr);
+                        setDependentDeps(deps);
+                        setDependentSample(sample);
+                      }}
+                      unit={unit}
+                    />
+                  </div>
+                )}
+
+                {role !== "dependent" && kind === "continuous" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", borderRadius: "var(--ll-radius-md)" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div className="form-group">
@@ -479,6 +624,34 @@ export function ParametersTab({ study }: ParametersTabProps) {
                           </select>
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {role !== "dependent" && kind === "integer" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", borderRadius: "var(--ll-radius-md)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                      <div className="form-group">
+                        <label className="form-label">Min</label>
+                        <input type="number" step="1" className="form-input" value={minVal} onChange={(e) => setMinVal(e.target.value)} required />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Max</label>
+                        <input type="number" step="1" className="form-input" value={maxVal} onChange={(e) => setMaxVal(e.target.value)} required />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Step</label>
+                        <input type="number" step="1" min="1" className="form-input" value={stepVal} onChange={(e) => setStepVal(e.target.value)} required />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {role !== "dependent" && kind === "categorical" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--ll-surface-subtle)", border: "1px solid var(--ll-border)", borderRadius: "var(--ll-radius-md)" }}>
+                    <div className="form-group">
+                      <label className="form-label">{tr("ვარიანტები (მძიმით გამოყოფილი)", "Options (comma-separated)")}</label>
+                      <input type="text" className="form-input" value={optionsStr} onChange={(e) => setOptionsStr(e.target.value)} required />
                     </div>
                   </div>
                 )}

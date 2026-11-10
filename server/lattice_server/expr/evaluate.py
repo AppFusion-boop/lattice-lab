@@ -26,6 +26,45 @@ from lattice_server.expr.tokenizer import TOKEN_RE
 
 FORMULA_FUNCTIONS = list(FUNCTION_ARITIES.keys())
 
+# 16-point Gauss-Legendre quadrature nodes and weights for numerical integration
+GAUSS_NODES = (
+    -0.9894009349916499,
+    -0.9445750230732326,
+    -0.8656312023878318,
+    -0.7554044083550030,
+    -0.6178762444026438,
+    -0.4580167776572274,
+    -0.2816035507792589,
+    -0.0950125098376374,
+    0.0950125098376374,
+    0.2816035507792589,
+    0.4580167776572274,
+    0.6178762444026438,
+    0.7554044083550030,
+    0.8656312023878318,
+    0.9445750230732326,
+    0.9894009349916499,
+)
+
+GAUSS_WEIGHTS = (
+    0.0271524594117542,
+    0.0622535239386475,
+    0.0951585116824926,
+    0.1246289712555341,
+    0.1495959888165767,
+    0.1691565193950027,
+    0.1826034150449236,
+    0.1894506104550686,
+    0.1894506104550686,
+    0.1826034150449236,
+    0.1691565193950027,
+    0.1495959888165767,
+    0.1246289712555341,
+    0.0951585116824926,
+    0.0622535239386475,
+    0.0271524594117542,
+)
+
 
 def expression_variables(source: str) -> list[str]:
     """Extract variable identifiers used in source, excluding functions and constants (pi, e).
@@ -52,19 +91,19 @@ def expression_variables(source: str) -> list[str]:
             if i + 1 < len(tokens) and tokens[i + 1] == "(":
                 # Function call
                 continue
-            if tok not in ("pi", "e"):
+            if tok not in ("pi", "e", "t", "k"):
                 found_vars.add(tok)
 
     return sorted(found_vars)
 
 
 def _collect_ast_variables(node: ASTNode) -> set[str]:
-    """Collect all variable names referenced in the AST (excluding pi and e)."""
+    """Collect all variable names referenced in the AST (excluding pi, e, t, k)."""
     result: set[str] = set()
 
     def walk(n: ASTNode) -> None:
         if isinstance(n, VariableNode):
-            if n.name not in ("pi", "e"):
+            if n.name not in ("pi", "e", "t", "k"):
                 result.add(n.name)
         elif isinstance(n, UnaryNode):
             walk(n.child)
@@ -248,6 +287,35 @@ class CompiledExpression:
                     return self._eval_scalar(node.args[1], v)
                 return self._eval_scalar(node.args[2], v)
 
+            if node.fn_name == "integral":
+                lower = self._eval_scalar(node.args[0], v)
+                upper = self._eval_scalar(node.args[1], v)
+                if not (math.isfinite(lower) and math.isfinite(upper)):
+                    raise NonFiniteError("Integral bounds must be finite")
+                half_len = 0.5 * (upper - lower)
+                mid = 0.5 * (upper + lower)
+                quad_sum = 0.0
+                for node_xi, weight_w in zip(GAUSS_NODES, GAUSS_WEIGHTS):
+                    t_val = half_len * node_xi + mid
+                    v_scoped = {**v, "t": t_val}
+                    quad_sum += weight_w * self._eval_scalar(node.args[2], v_scoped)
+                return half_len * quad_sum
+
+            if node.fn_name == "sum":
+                start_val = self._eval_scalar(node.args[0], v)
+                end_val = self._eval_scalar(node.args[1], v)
+                if not (math.isfinite(start_val) and math.isfinite(end_val)):
+                    raise NonFiniteError("Summation bounds must be finite")
+                start = math.floor(start_val)
+                end = math.floor(end_val)
+                if end - start > 10000:
+                    raise ExpressionError("Summation range too large (max 10,000 steps)")
+                total = 0.0
+                for k in range(start, end + 1):
+                    v_scoped = {**v, "k": float(k), "t": float(k)}
+                    total += self._eval_scalar(node.args[2], v_scoped)
+                return total
+
             args = [self._eval_scalar(arg, v) for arg in node.args]
             fn = node.fn_name
             try:
@@ -295,6 +363,19 @@ class CompiledExpression:
                     # clamp(x, a, b) => max(a, min(b, x))
                     x, a, b = args[0], args[1], args[2]
                     return max(a, min(b, x))
+                if fn == "det2":
+                    return args[0] * args[3] - args[1] * args[2]
+                if fn == "det3":
+                    a1, a2, a3, b1, b2, b3, c1, c2, c3 = args
+                    return a1 * (b2 * c3 - b3 * c2) - a2 * (b1 * c3 - b3 * c1) + a3 * (b1 * c2 - b2 * c1)
+                if fn == "norm2":
+                    return math.hypot(args[0], args[1])
+                if fn == "norm3":
+                    return math.hypot(args[0], args[1], args[2])
+                if fn == "trace2":
+                    return args[0] + args[1]
+                if fn == "trace3":
+                    return args[0] + args[1] + args[2]
             except (ValueError, OverflowError) as e:
                 raise NonFiniteError(
                     "Expression produced a non-finite value. Check division and function domains."
@@ -389,6 +470,13 @@ class CompiledExpression:
                 f_val = self._eval_vec(node.args[2], v, n)
                 return np.where(cond, t_val, f_val)
 
+            if node.fn_name in ("integral", "sum"):
+                res = np.empty(n, dtype=np.float64)
+                for i in range(n):
+                    row_v = {k: float(arr[i]) for k, arr in v.items()}
+                    res[i] = self._eval_scalar(node, row_v)
+                return res
+
             args = [self._eval_vec(arg, v, n) for arg in node.args]
             fn = node.fn_name
             if fn == "sin":
@@ -422,6 +510,19 @@ class CompiledExpression:
             if fn == "clamp":
                 x, a, b = args[0], args[1], args[2]
                 return np.maximum(a, np.minimum(b, x))
+            if fn == "det2":
+                return args[0] * args[3] - args[1] * args[2]
+            if fn == "det3":
+                a1, a2, a3, b1, b2, b3, c1, c2, c3 = args
+                return a1 * (b2 * c3 - b3 * c2) - a2 * (b1 * c3 - b3 * c1) + a3 * (b1 * c2 - b2 * c1)
+            if fn == "norm2":
+                return np.hypot(args[0], args[1])
+            if fn == "norm3":
+                return np.sqrt(args[0] ** 2 + args[1] ** 2 + args[2] ** 2)
+            if fn == "trace2":
+                return args[0] + args[1]
+            if fn == "trace3":
+                return args[0] + args[1] + args[2]
             raise ExpressionError(f"Unknown function: {fn}")
 
         raise ExpressionError(f"Unknown AST node type: {type(node)}")
@@ -445,7 +546,7 @@ def compile_expression(
         for v in variables:  # type: ignore[union-attr]
             if v in FUNCTION_ARITIES:
                 raise ExpressionError(f"Variable name collides with function: {v}")
-        allowed_vars = set(variables) | {"pi", "e"}  # type: ignore[union-attr]
+        allowed_vars = set(variables) | {"pi", "e", "t", "k"}  # type: ignore[union-attr]
     else:
         allowed_vars = None
 

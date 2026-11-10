@@ -32,6 +32,14 @@ FUNCTION_ARITIES: dict[str, int] = {
     "pow": 2,
     "clamp": 3,
     "if": 3,
+    "integral": 3,
+    "sum": 3,
+    "det2": 4,
+    "det3": 9,
+    "norm2": 2,
+    "norm3": 3,
+    "trace2": 2,
+    "trace3": 3,
 }
 
 PRECEDENCE: dict[str, int] = {
@@ -147,7 +155,7 @@ class Parser:
                     if tok not in self.allowed_vars:
                         raise UnknownVariableError(f"Unknown variable: {tok}")
                 else:
-                    if tok not in ("a", "b", "t", "pi", "e"):
+                    if tok not in ("a", "b", "c", "d", "t", "k", "pi", "e"):
                         raise UnknownVariableError(f"Unknown variable: {tok}. Use a, b or t.")
                 tree = VariableNode(name=tok)
         else:

@@ -1,4 +1,43 @@
 type Tree = { op: string; value?: string; args: Tree[] };
+
+const GAUSS_NODES = [
+  -0.9894009349916499,
+  -0.9445750230732326,
+  -0.8656312023878318,
+  -0.7554044083550030,
+  -0.6178762444026438,
+  -0.4580167776572274,
+  -0.2816035507792589,
+  -0.0950125098376374,
+  0.0950125098376374,
+  0.2816035507792589,
+  0.4580167776572274,
+  0.6178762444026438,
+  0.7554044083550030,
+  0.8656312023878318,
+  0.9445750230732326,
+  0.9894009349916499,
+];
+
+const GAUSS_WEIGHTS = [
+  0.0271524594117542,
+  0.0622535239386475,
+  0.0951585116824926,
+  0.1246289712555341,
+  0.1495959888165767,
+  0.1691565193950027,
+  0.1826034150449236,
+  0.1894506104550686,
+  0.1894506104550686,
+  0.1826034150449236,
+  0.1691565193950027,
+  0.1495959888165767,
+  0.1246289712555341,
+  0.0951585116824926,
+  0.0622535239386475,
+  0.0271524594117542,
+];
+
 const fns: Record<string, { arity: number; fn: (...v: number[]) => number }> = {
   sin: { arity: 1, fn: Math.sin },
   cos: { arity: 1, fn: Math.cos },
@@ -16,6 +55,18 @@ const fns: Record<string, { arity: number; fn: (...v: number[]) => number }> = {
   pow: { arity: 2, fn: Math.pow },
   clamp: { arity: 3, fn: (x, a, b) => Math.max(a, Math.min(b, x)) },
   if: { arity: 3, fn: (c, a, b) => (c ? a : b) },
+  det2: { arity: 4, fn: (a, b, c, d) => a * d - b * c },
+  det3: {
+    arity: 9,
+    fn: (a1, a2, a3, b1, b2, b3, c1, c2, c3) =>
+      a1 * (b2 * c3 - b3 * c2) - a2 * (b1 * c3 - b3 * c1) + a3 * (b1 * c2 - b2 * c1),
+  },
+  norm2: { arity: 2, fn: (x, y) => Math.hypot(x, y) },
+  norm3: { arity: 3, fn: (x, y, z) => Math.hypot(x, y, z) },
+  trace2: { arity: 2, fn: (a, d) => a + d },
+  trace3: { arity: 3, fn: (a, b, c) => a + b + c },
+  integral: { arity: 3, fn: () => 0 }, // Handled in calc AST walker
+  sum: { arity: 3, fn: () => 0 }, // Handled in calc AST walker
 };
 export const formulaFunctions = Object.keys(fns);
 
@@ -43,7 +94,7 @@ export function expressionVariables(source: string): string[] {
     if (/^[a-zA-Z_]/.test(tok)) {
       if (tokens[i + 1] === "(") {
         // function call
-      } else if (tok !== "pi" && tok !== "e") {
+      } else if (tok !== "pi" && tok !== "e" && tok !== "t" && tok !== "k") {
         vars.add(tok);
       }
     }
@@ -67,7 +118,7 @@ export function compileExpression(
     }
   }
   const allowedVars = hasCustomVars
-    ? new Set([...options!.variables!, "pi", "e"])
+    ? new Set([...options!.variables!, "pi", "e", "t", "k"])
     : null;
   const strict = options?.strict ?? (hasCustomVars ? true : false);
 
@@ -136,7 +187,7 @@ export function compileExpression(
             throw Error("Unknown variable: " + tok);
           }
         } else {
-          if (!["a", "b", "c", "d", "t", "pi", "e"].includes(tok))
+          if (!["a", "b", "c", "d", "t", "k", "pi", "e"].includes(tok))
             throw Error("Unknown variable: " + tok + ". Use a, b or t.");
         }
         tree = { op: "variable", value: tok, args: [] };
@@ -171,6 +222,36 @@ export function compileExpression(
     if (n.op === "call") {
       if (n.value === "if")
         return calc(n.args[0], v) ? calc(n.args[1], v) : calc(n.args[2], v);
+      if (n.value === "integral") {
+        const lower = calc(n.args[0], v);
+        const upper = calc(n.args[1], v);
+        if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+          throw Error("Integral bounds must be finite numbers");
+        }
+        let quadSum = 0;
+        const halfLen = 0.5 * (upper - lower);
+        const mid = 0.5 * (upper + lower);
+        for (let i = 0; i < GAUSS_NODES.length; i++) {
+          const tVal = halfLen * GAUSS_NODES[i] + mid;
+          quadSum += GAUSS_WEIGHTS[i] * calc(n.args[2], { ...v, t: tVal });
+        }
+        return halfLen * quadSum;
+      }
+      if (n.value === "sum") {
+        const start = Math.floor(calc(n.args[0], v));
+        const end = Math.floor(calc(n.args[1], v));
+        if (!Number.isFinite(start) || !Number.isFinite(end)) {
+          throw Error("Summation bounds must be finite integers");
+        }
+        if (end - start > 10000) {
+          throw Error("Summation range too large (max 10,000 steps)");
+        }
+        let tot = 0;
+        for (let k = start; k <= end; k++) {
+          tot += calc(n.args[2], { ...v, k, t: k });
+        }
+        return tot;
+      }
       return fns[n.value!].fn(...n.args.map((a) => calc(a, v)));
     }
     const a = calc(n.args[0], v);

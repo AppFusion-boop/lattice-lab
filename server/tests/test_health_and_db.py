@@ -40,7 +40,7 @@ def test_migration_creates_all_tables():
     try:
         assert db.get_current_version(conn) == 0
         version = db.migrate(conn)
-        assert version >= 2
+        assert version >= 3
 
         tables = [
             row["name"]
