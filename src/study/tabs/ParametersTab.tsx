@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus, Trash2, X, Sliders, AlertCircle, Activity, Calculator } from "lucide-react";
-import { apiGet, apiPost, apiDelete, ApiError } from "../api/client";
+import { Plus, Trash2, X, Sliders, AlertCircle, Activity, Edit2 } from "lucide-react";
+import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "../api/client";
 import { useApi } from "../api/hooks";
 import type { Study, Parameter, ParameterCreate, Outcome } from "../api/types";
 import { tr } from "../../i18n";
@@ -15,6 +15,7 @@ interface ParametersTabProps {
 
 export function ParametersTab({ study }: ParametersTabProps) {
   const [showModal, setShowModal] = useState(false);
+  const [editingParam, setEditingParam] = useState<Parameter | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -65,6 +66,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
   );
 
   const resetForm = () => {
+    setEditingParam(null);
     setKey("");
     setLabel("");
     setUnit("");
@@ -85,6 +87,52 @@ export function ParametersTab({ study }: ParametersTabProps) {
     setDistSd("");
     setFieldErrors({});
     setFormError(null);
+  };
+
+  const openEditModal = (param: Parameter) => {
+    resetForm();
+    setEditingParam(param);
+    setKey(param.key);
+    setLabel(param.label);
+    setUnit(param.unit || "");
+    setKind(param.kind);
+    setRole(param.role);
+
+    const s = (param.spec || {}) as Record<string, unknown>;
+    if (param.role === "dependent") {
+      setDependentExpr(String(s.expression || ""));
+      setDependentDeps(Array.isArray(s.dependencies) ? (s.dependencies as string[]) : []);
+      setDependentSample(typeof s.sample_value === "number" ? s.sample_value : null);
+    } else if (param.kind === "continuous") {
+      if (s.min !== undefined) setMinVal(String(s.min));
+      if (s.max !== undefined) setMaxVal(String(s.max));
+      if (s.scale === "linear" || s.scale === "log") setScale(s.scale);
+      if (s.levels !== undefined) setLevels(String(s.levels));
+      if (s.value !== undefined) setFixedVal(String(s.value));
+      if (s.distribution && typeof s.distribution === "object") {
+        const d = s.distribution as Record<string, unknown>;
+        if (
+          d.type === "uniform" ||
+          d.type === "normal" ||
+          d.type === "lognormal" ||
+          d.type === "triangular"
+        ) {
+          setDistType(d.type);
+        }
+        if (d.mean !== undefined) setDistMean(String(d.mean));
+        if (d.sd !== undefined) setDistSd(String(d.sd));
+      }
+    } else if (param.kind === "integer") {
+      if (s.min !== undefined) setMinVal(String(s.min));
+      if (s.max !== undefined) setMaxVal(String(s.max));
+      if (s.step !== undefined) setStepVal(String(s.step));
+      if (s.value !== undefined) setFixedVal(String(s.value));
+    } else if (param.kind === "categorical") {
+      if (Array.isArray(s.options)) setOptionsStr((s.options as string[]).join(", "));
+      if (s.value !== undefined) setFixedVal(String(s.value));
+    }
+
+    setShowModal(true);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -144,17 +192,25 @@ export function ParametersTab({ study }: ParametersTabProps) {
       }
     }
 
-    const payload: ParameterCreate = {
-      key: key.trim(),
-      label: label.trim() || key.trim(),
-      unit: unit.trim(),
-      kind,
-      role,
-      spec,
-    };
-
     try {
-      await apiPost(`/studies/${study.id}/parameters`, payload);
+      if (editingParam) {
+        await apiPatch(`/parameters/${editingParam.id}`, {
+          label: label.trim() || key.trim(),
+          unit: unit.trim(),
+          role,
+          spec,
+        });
+      } else {
+        const payload: ParameterCreate = {
+          key: key.trim(),
+          label: label.trim() || key.trim(),
+          unit: unit.trim(),
+          kind: role === "dependent" ? "continuous" : kind,
+          role,
+          spec,
+        };
+        await apiPost(`/studies/${study.id}/parameters`, payload);
+      }
       setShowModal(false);
       resetForm();
       refresh();
@@ -176,7 +232,7 @@ export function ParametersTab({ study }: ParametersTabProps) {
       return;
     }
     try {
-      await apiDelete(`/studies/${study.id}/parameters/${param.id}`);
+      await apiDelete(`/parameters/${param.id}`);
       refresh();
     } catch (err) {
       alert((err as Error).message);
@@ -219,6 +275,25 @@ export function ParametersTab({ study }: ParametersTabProps) {
             >
               <Activity size={13} color="var(--ll-blue)" />
               <span>{showTornado ? tr("სენსიტიურობის დახურვა", "Hide Sensitivity") : tr("სენსიტიურობა (სობოლი)", "Sobol Sensitivity")}</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                resetForm();
+                setRole("dependent");
+                setShowModal(true);
+              }}
+              style={{
+                borderColor: "rgba(139, 92, 246, 0.45)",
+                background: "rgba(139, 92, 246, 0.1)",
+                color: "#7c3aed",
+                fontWeight: 650,
+              }}
+            >
+              <span style={{ fontFamily: "Georgia, serif", fontSize: 15, fontWeight: 700, lineHeight: 1 }}>∫</span>
+              <span>{tr("დამოკიდებული ფორმულა (Symbolab)", "Add Dependent Formula")}</span>
             </button>
 
             <button
@@ -363,16 +438,27 @@ export function ParametersTab({ study }: ParametersTabProps) {
                           </span>
                         )}
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => handleDelete(p)}
-                          style={{ color: "var(--ll-rose)", padding: 4 }}
-                          title="Delete parameter"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => openEditModal(p)}
+                            style={{ color: p.role === "dependent" ? "#7c3aed" : "var(--ll-text-secondary)", padding: 4 }}
+                            title={p.role === "dependent" ? "Edit formula in Symbolab Builder" : "Edit parameter"}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => handleDelete(p)}
+                            style={{ color: "var(--ll-rose)", padding: 4 }}
+                            title="Delete parameter"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -383,22 +469,38 @@ export function ParametersTab({ study }: ParametersTabProps) {
         )}
       </div>
 
-      {/* Add Parameter Modal */}
+      {/* Add / Edit Parameter Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-dialog" style={{ maxWidth: role === "dependent" ? 780 : 540, width: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
+          <div className="modal-dialog" style={{ maxWidth: role === "dependent" ? 880 : 540, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {role === "dependent" ? (
                   <>
-                    <span style={{ fontSize: 18, color: "#8b5cf6", fontWeight: 700 }}>∫</span>
-                    <span>{tr("დამოკიდებული პარამეტრის დამატება (Symbolab)", "Add Dependent Parameter (Symbolab Builder)")}</span>
+                    <span style={{ fontSize: 18, color: "#8b5cf6", fontWeight: 700, fontFamily: "Georgia, serif" }}>∫</span>
+                    <span>
+                      {editingParam
+                        ? tr(`დამოკიდებული ფორმულის რედაქტირება: ${editingParam.key}`, `Edit Dependent Parameter: ${editingParam.key}`)
+                        : tr("დამოკიდებული პარამეტრის შექმნა (Symbolab 2D Equation Builder)", "Add Dependent Parameter (Symbolab 2D Equation Builder)")}
+                    </span>
                   </>
                 ) : (
-                  <span>{tr("ახალი პარამეტრის დამატება", "Add Experimental Parameter")}</span>
+                  <span>
+                    {editingParam
+                      ? tr(`პარამეტრის რედაქტირება: ${editingParam.key}`, `Edit Parameter: ${editingParam.key}`)
+                      : tr("ახალი პარამეტრის დამატება", "Add Experimental Parameter")}
+                  </span>
                 )}
               </h3>
-              <button type="button" className="btn-ghost" onClick={() => setShowModal(false)} style={{ padding: 4 }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingParam(null);
+                }}
+                style={{ padding: 4 }}
+              >
                 <X size={16} />
               </button>
             </div>
@@ -481,6 +583,8 @@ export function ParametersTab({ study }: ParametersTabProps) {
                       placeholder="e.g. droplet, flow, w"
                       value={key}
                       onChange={(e) => setKey(e.target.value)}
+                      disabled={Boolean(editingParam)}
+                      style={editingParam ? { opacity: 0.75, background: "var(--ll-surface-subtle)" } : undefined}
                       required
                     />
                     {fieldErrors.key && <span className="form-error">{fieldErrors.key}</span>}
@@ -658,11 +762,18 @@ export function ParametersTab({ study }: ParametersTabProps) {
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingParam(null);
+                  }}
+                >
                   {tr("გაუქმება", "Cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  {tr("დამატება", "Add Parameter")}
+                  {editingParam ? tr("შენახვა", "Save Changes") : tr("დამატება", "Add Parameter")}
                 </button>
               </div>
             </form>

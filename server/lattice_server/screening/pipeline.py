@@ -14,6 +14,7 @@ from typing import Any, Literal
 import numpy as np
 
 from lattice_server.expr.evaluate import CompiledExpression, compile_expression
+from lattice_server.expr.exceptions import ExpressionError
 from lattice_server.ids import compute_values_hash, new_id
 from lattice_server.repo import candidates as candidates_repo
 from lattice_server.repo import constraints as constraints_repo
@@ -765,17 +766,49 @@ def run_screening_pipeline(
         batch_hashes = [r["values_hash"] for r in rows]
         batch_values = [json.loads(r["values_json"]) for r in rows]
 
-        # Vectorize numeric columns
+        # Vectorize numeric columns (non-dependent first, then dependent formulas)
         values_by_key: dict[str, np.ndarray] = {}
+        dependent_params: list[ParameterResponse] = []
         for p in params:
+            if p.role == "dependent":
+                dependent_params.append(p)
+                continue
             col_vals = []
+            default_val: float = 0.0
+            if p.spec.get("value") is not None and isinstance(p.spec.get("value"), (int, float)):
+                default_val = float(p.spec["value"])
+            elif p.spec.get("min") is not None and p.spec.get("max") is not None:
+                default_val = 0.5 * (float(p.spec["min"]) + float(p.spec["max"]))
             for v_dict in batch_values:
-                val = v_dict.get(p.key, 0.0)
+                val = v_dict.get(p.key, default_val)
                 if isinstance(val, (int, float)):
                     col_vals.append(float(val))
                 else:
                     col_vals.append(np.nan)
             values_by_key[p.key] = np.array(col_vals, dtype=np.float64)
+
+        for dep_p in dependent_params:
+            expr_str = str(dep_p.spec.get("expression", "")).strip()
+            evaluated_dep = False
+            if expr_str:
+                try:
+                    compiled_dep = compile_expression(expr_str)
+                    dep_arr, _dep_mask = compiled_dep.evaluate_vec(values_by_key, n=len(batch_values))
+                    values_by_key[dep_p.key] = dep_arr
+                    for idx_v, v_dict in enumerate(batch_values):
+                        val_f = float(dep_arr[idx_v])
+                        v_dict[dep_p.key] = round(val_f, 8) if np.isfinite(val_f) else 0.0
+                    evaluated_dep = True
+                except (ExpressionError, ValueError):
+                    evaluated_dep = False
+            if not evaluated_dep:
+                col_vals = [
+                    float(v_dict.get(dep_p.key, 0.0))
+                    if isinstance(v_dict.get(dep_p.key, 0.0), (int, float))
+                    else np.nan
+                    for v_dict in batch_values
+                ]
+                values_by_key[dep_p.key] = np.array(col_vals, dtype=np.float64)
 
         batch = CandidateBatch(
             ids=batch_ids,

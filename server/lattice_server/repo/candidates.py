@@ -66,7 +66,26 @@ def create_candidate_set(
         (cset_id, study_id, method, settings_json, p_hash, count, now),
     )
 
-    # Prepare batch rows for candidates
+    # Prepare batch rows for candidates (including fixed/uncertain defaults for dependent evaluation)
+    base_env: dict[str, float] = {}
+    for p in params:
+        if p.role == "fixed":
+            val = p.spec.get("value")
+            if isinstance(val, (int, float)):
+                base_env[p.key] = float(val)
+        elif p.role == "uncertain" and p.kind in ("continuous", "integer"):
+            p_min = float(p.spec.get("min", 0.0))
+            p_max = float(p.spec.get("max", 1.0))
+            dist = p.spec.get("distribution") or {}
+            if isinstance(dist, dict) and dist.get("mean") is not None:
+                base_env[p.key] = float(dist["mean"])
+            elif isinstance(dist, dict) and dist.get("median") is not None:
+                base_env[p.key] = float(dist["median"])
+            elif isinstance(dist, dict) and dist.get("mode") is not None:
+                base_env[p.key] = float(dist["mode"])
+            else:
+                base_env[p.key] = 0.5 * (p_min + p_max)
+
     dependent_params = [p for p in params if p.role == "dependent"]
     compiled_deps: list[tuple[str, Any]] = []
     for dp in dependent_params:
@@ -84,9 +103,12 @@ def create_candidate_set(
         cid = f"{cset_id}_{idx}"
         label = str(row_vals.get("_label") or row_vals.get("label") or "") or None
         clean_vals = {k: v for k, v in row_vals.items() if not k.startswith("_") and k != "label"}
+        eval_env = {**base_env, **{k: float(v) for k, v in clean_vals.items() if isinstance(v, (int, float))}}
         for dkey, dcomp in compiled_deps:
             try:
-                clean_vals[dkey] = dcomp.evaluate(clean_vals)
+                dep_val = dcomp.evaluate(eval_env)
+                clean_vals[dkey] = dep_val
+                eval_env[dkey] = dep_val
             except (ExpressionError, ValueError, KeyError):
                 # Omit or leave unevaluated if evaluation fails for this candidate
                 continue

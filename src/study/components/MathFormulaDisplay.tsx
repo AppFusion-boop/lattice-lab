@@ -1,5 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { Parameter } from "../api/types";
+import {
+  type MathNode,
+  type MathRow,
+  parseExpressionToMathRow,
+} from "./mathBuilderModel";
 
 export interface MathFormulaDisplayProps {
   expression: string;
@@ -12,15 +17,47 @@ export interface MathFormulaDisplayProps {
   size?: "sm" | "md" | "lg";
 }
 
+const OP_SYMBOLS: Record<string, string> = {
+  "+": "+",
+  "-": "−",
+  "*": "·",
+  "%": "mod",
+  "==": "=",
+  "!=": "≠",
+  "<": "<",
+  ">": ">",
+  "<=": "≤",
+  ">=": "≥",
+  "&&": "∧",
+  "||": "∨",
+};
+
+const FN_LABELS: Record<string, string> = {
+  sin: "sin",
+  cos: "cos",
+  tan: "tan",
+  asin: "arcsin",
+  acos: "arccos",
+  atan: "arctan",
+  atan2: "atan2",
+  sinh: "sinh",
+  cosh: "cosh",
+  tanh: "tanh",
+  exp: "exp",
+  log: "ln",
+  ln: "ln",
+  log10: "log₁₀",
+  erf: "erf",
+  round: "round",
+  sign: "sgn",
+  min: "min",
+  max: "max",
+  clamp: "clamp",
+};
+
 /**
- * Pure CSS/SVG/HTML high-fidelity mathematical typography renderer.
- * Renders formulas in authentic scientific notation (Symbolab / WolframAlpha style):
- * - Tall integral symbols ∫ with stacked limits and dt
- * - Determinants |A| with clean vertical matrix bars
- * - Vertical stacked fractions with horizontal division bars
- * - Square roots with vinculum overline
- * - Summations ∑ with stacked limits and index variable
- * - Study parameter chips and evaluated nominal values
+ * Recursive 2D Mathematical Typography Renderer (Symbolab / WolframAlpha style).
+ * Parses any Lattice expression AST and renders all nested structures in 2D notation.
  */
 export function MathFormulaDisplay({
   expression,
@@ -34,204 +71,937 @@ export function MathFormulaDisplay({
 }: MathFormulaDisplayProps) {
   const trimmed = expression?.trim() || "";
 
+  const rootRow = useMemo(() => {
+    if (!trimmed) return null;
+    return parseExpressionToMathRow(trimmed);
+  }, [trimmed]);
+
   if (!trimmed) {
-    return <span style={{ color: "var(--ll-text-muted)", fontStyle: "italic", fontSize: 12 }}>—</span>;
+    return (
+      <span style={{ color: "var(--ll-text-muted)", fontStyle: "italic", fontSize: 12 }}>
+        —
+      </span>
+    );
   }
 
-  // Base font size scaling
-  const scale = size === "sm" ? 0.85 : size === "lg" ? 1.2 : 1.0;
-  const fontSize = 13 * scale;
+  const scale = size === "sm" ? 0.86 : size === "lg" ? 1.18 : 1.0;
+  const paramKeySet = new Set(studyParameters.map((p) => p.key));
 
-  // Helper to render a token (variable, number, power, function, or sub-expression)
-  const renderToken = (tok: string, key?: React.Key): React.ReactNode => {
-    const t = tok.trim();
-    if (!t) return null;
-
-    // Is it a study parameter?
-    const isParam = studyParameters.some((p) => p.key === t);
-    if (isParam) {
+  const renderRow = (row: MathRow, depth = 0): React.ReactNode => {
+    const subScale = Math.max(0.75, scale * Math.pow(0.92, Math.min(depth, 3)));
+    if (row.items.length === 0) {
       return (
         <span
-          key={key}
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "1px 5px",
-            background: "rgba(16, 185, 129, 0.12)",
-            color: "#059669",
-            border: "1px solid rgba(16, 185, 129, 0.3)",
+            display: "inline-block",
+            width: 14 * subScale,
+            height: 14 * subScale,
+            border: "1px dashed rgba(139, 92, 246, 0.5)",
             borderRadius: 3,
-            fontWeight: 650,
-            fontSize: `${11 * scale}px`,
-            fontFamily: "var(--ll-font-mono)",
-            margin: "0 1px",
-          }}
-        >
-          {t}
-        </span>
-      );
-    }
-
-    // Dummy integration / index variables
-    if (t === "t" || t === "k" || t === "i") {
-      return (
-        <span
-          key={key}
-          style={{
-            fontStyle: "italic",
-            fontFamily: "Times New Roman, serif",
-            fontWeight: 600,
-            color: "#7c3aed",
-            padding: "0 1px",
-          }}
-        >
-          {t}
-        </span>
-      );
-    }
-
-    // Constants
-    if (t === "pi") {
-      return <span key={key} style={{ color: "#7c3aed", fontWeight: 700, fontStyle: "italic", fontFamily: "Times New Roman, serif" }}>π</span>;
-    }
-    if (t === "e") {
-      return <span key={key} style={{ color: "#7c3aed", fontWeight: 700, fontStyle: "italic", fontFamily: "Times New Roman, serif" }}>e</span>;
-    }
-
-    // Power / Exponent: base^exp
-    const powMatch = t.match(/^([a-zA-Z0-9_]+)\^([a-zA-Z0-9_.]+)$/);
-    if (powMatch) {
-      return (
-        <span key={key} style={{ display: "inline-flex", alignItems: "baseline", margin: "0 1px" }}>
-          <span>{renderToken(powMatch[1])}</span>
-          <sup style={{ fontSize: `${9.5 * scale}px`, fontWeight: 600, color: "var(--ll-text-secondary)" }}>
-            {powMatch[2]}
-          </sup>
-        </span>
-      );
-    }
-
-    // Square root: sqrt(...)
-    const sqrtMatch = t.match(/^sqrt\((.+)\)$/);
-    if (sqrtMatch) {
-      return (
-        <span key={key} style={{ display: "inline-flex", alignItems: "center", margin: "0 2px" }}>
-          <span style={{ fontSize: `${15 * scale}px`, fontWeight: 300, fontFamily: "Times New Roman, serif", marginRight: 1 }}>√</span>
-          <span style={{ borderTop: "1.2px solid currentColor", padding: "1px 2px 0 2px", fontSize: `${11.5 * scale}px` }}>
-            {renderIntegrand(sqrtMatch[1])}
-          </span>
-        </span>
-      );
-    }
-
-    // Sub-fraction inside token: e.g. (flow / 60)
-    const fracMatch = t.match(/^\(?\s*([a-zA-Z0-9_]+)\s*\/\s*([a-zA-Z0-9_.]+)\s*\)?$/);
-    if (fracMatch) {
-      return (
-        <span
-          key={key}
-          style={{
-            display: "inline-flex",
-            flexDirection: "column",
-            alignItems: "center",
+            background: "rgba(139, 92, 246, 0.06)",
             verticalAlign: "middle",
-            padding: "0 3px",
-            margin: "0 2px",
-            lineHeight: 1.1,
           }}
-        >
-          <span style={{ borderBottom: "1.2px solid currentColor", paddingBottom: 1, fontSize: `${11 * scale}px`, fontWeight: 600 }}>
-            {renderToken(fracMatch[1])}
-          </span>
-          <span style={{ paddingTop: 1, fontSize: `${11 * scale}px`, opacity: 0.85, fontWeight: 500 }}>
-            {fracMatch[2]}
-          </span>
-        </span>
+        />
       );
     }
 
-    // Multiplication dot
-    if (t === "*") {
-      return <span key={key} style={{ color: "var(--ll-text-secondary)", margin: "0 3px", fontSize: `${12 * scale}px` }}>·</span>;
-    }
-
-    // Standard number or operator
     return (
-      <span key={key} style={{ fontFamily: "var(--ll-font-mono)", color: "var(--ll-text-primary)" }}>
-        {t}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          verticalAlign: "middle",
+          gap: 1.5,
+        }}
+      >
+        {row.items.map((node) => renderNode(node, depth, subScale))}
       </span>
     );
   };
 
-  // Helper to render complex integrand / sub-expression
-  const renderIntegrand = (expr: string) => {
-    // Split on parentheses, operators, spaces
-    const parts = expr.split(/(\([^)]+\)|\b[a-zA-Z_][a-zA-Z0-9_]*\b|[+\-*/^]|\s+)/g).filter(Boolean);
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
-        {parts.map((p, idx) => {
-          const trimmedP = p.trim();
-          if (!trimmedP) return null;
+  const renderNode = (
+    node: MathNode,
+    depth: number,
+    s: number,
+  ): React.ReactNode => {
+    switch (node.kind) {
+      case "char":
+        return (
+          <span
+            key={node.id}
+            style={{
+              fontFamily: "var(--ll-font-mono)",
+              fontWeight: 600,
+              fontSize: `${12.5 * s}px`,
+              color: "var(--ll-text-primary)",
+            }}
+          >
+            {node.char}
+          </span>
+        );
 
-          // Check if parenthesized sub-expression
-          if (trimmedP.startsWith("(") && trimmedP.endsWith(")")) {
-            const inner = trimmedP.slice(1, -1).trim();
-            // Check for fraction inside parenthesized: e.g. (flow / 60)
-            const fracMatch = inner.match(/^([a-zA-Z0-9_]+)\s*\/\s*([a-zA-Z0-9_.]+)$/);
-            if (fracMatch) {
-              return (
-                <span key={idx} style={{ display: "inline-flex", alignItems: "center" }}>
-                  <span style={{ fontSize: `${14 * scale}px`, color: "var(--ll-text-muted)" }}>(</span>
-                  {renderToken(inner)}
-                  <span style={{ fontSize: `${14 * scale}px`, color: "var(--ll-text-muted)" }}>)</span>
-                </span>
-              );
-            }
-            return (
-              <span key={idx} style={{ display: "inline-flex", alignItems: "center" }}>
-                <span style={{ fontSize: `${13 * scale}px`, color: "var(--ll-text-muted)" }}>(</span>
-                {renderIntegrand(inner)}
-                <span style={{ fontSize: `${13 * scale}px`, color: "var(--ll-text-muted)" }}>)</span>
+      case "var": {
+        if (node.name === "pi") {
+          return (
+            <span
+              key={node.id}
+              style={{
+                fontFamily: "'Times New Roman', Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 700,
+                fontSize: `${14 * s}px`,
+                color: "#7c3aed",
+                padding: "0 1px",
+              }}
+            >
+              π
+            </span>
+          );
+        }
+        if (node.name === "e" || node.name === "t" || node.name === "k") {
+          return (
+            <span
+              key={node.id}
+              style={{
+                fontFamily: "'Times New Roman', Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 650,
+                fontSize: `${13.5 * s}px`,
+                color: "#7c3aed",
+                padding: "0 1px",
+              }}
+            >
+              {node.name}
+            </span>
+          );
+        }
+        if (paramKeySet.has(node.name)) {
+          return (
+            <span
+              key={node.id}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: `${1 * s}px ${5 * s}px`,
+                background: "rgba(16, 185, 129, 0.12)",
+                color: "#059669",
+                border: "1px solid rgba(16, 185, 129, 0.32)",
+                borderRadius: 4,
+                fontWeight: 650,
+                fontSize: `${11 * s}px`,
+                fontFamily: "var(--ll-font-mono)",
+                margin: "0 1px",
+                lineHeight: 1.25,
+              }}
+            >
+              {node.name}
+            </span>
+          );
+        }
+        return (
+          <span
+            key={node.id}
+            style={{
+              fontFamily: "var(--ll-font-mono)",
+              fontWeight: 600,
+              fontSize: `${12 * s}px`,
+              color: "var(--ll-text-primary)",
+            }}
+          >
+            {node.name}
+          </span>
+        );
+      }
+
+      case "op":
+        return (
+          <span
+            key={node.id}
+            style={{
+              color: "var(--ll-text-secondary)",
+              fontWeight: 600,
+              fontSize: `${12.5 * s}px`,
+              margin: node.op === "*" ? "0 2px" : "0 4px",
+              userSelect: "none",
+            }}
+          >
+            {OP_SYMBOLS[node.op] || node.op}
+          </span>
+        );
+
+      case "frac":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              flexDirection: "column",
+              alignItems: "center",
+              verticalAlign: "middle",
+              margin: "0 3px",
+              lineHeight: 1.15,
+            }}
+          >
+            <span
+              style={{
+                padding: "0 4px 2px 4px",
+                borderBottom: "1.5px solid var(--ll-text-primary)",
+                width: "100%",
+                textAlign: "center",
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              {renderRow(node.num, depth + 1)}
+            </span>
+            <span
+              style={{
+                padding: "2px 4px 0 4px",
+                width: "100%",
+                textAlign: "center",
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              {renderRow(node.den, depth + 1)}
+            </span>
+          </span>
+        );
+
+      case "pow": {
+        const baseHasOp = node.base.items.some(
+          (it) => it.kind === "op" || it.kind === "frac",
+        );
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "baseline",
+              margin: "0 1px",
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center" }}>
+              {baseHasOp && (
+                <span style={{ color: "var(--ll-text-muted)", fontWeight: 400 }}>(</span>
+              )}
+              {renderRow(node.base, depth)}
+              {baseHasOp && (
+                <span style={{ color: "var(--ll-text-muted)", fontWeight: 400 }}>)</span>
+              )}
+            </span>
+            <sup
+              style={{
+                fontSize: `${10 * s}px`,
+                lineHeight: 1,
+                marginLeft: 1,
+                transform: "translateY(-0.35em)",
+                display: "inline-flex",
+              }}
+            >
+              {renderRow(node.exp, depth + 1)}
+            </sup>
+          </span>
+        );
+      }
+
+      case "sqrt":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "stretch",
+              verticalAlign: "middle",
+              margin: "0 2px",
+            }}
+          >
+            <svg
+              width={11 * s}
+              viewBox="0 0 12 24"
+              preserveAspectRatio="none"
+              style={{
+                display: "block",
+                overflow: "visible",
+                color: "#7c3aed",
+                marginRight: -1,
+              }}
+            >
+              <path
+                d="M 1 14 L 4 14 L 7 22 L 11.5 1.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span
+              style={{
+                borderTop: "1.5px solid #7c3aed",
+                padding: "2px 4px 1px 3px",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              {renderRow(node.radicand, depth + 1)}
+            </span>
+          </span>
+        );
+
+      case "nthroot":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              verticalAlign: "middle",
+              margin: "0 2px",
+            }}
+          >
+            <sup
+              style={{
+                fontSize: `${9 * s}px`,
+                marginRight: -3,
+                transform: "translateY(-0.45em)",
+                color: "#7c3aed",
+                fontWeight: 700,
+              }}
+            >
+              {renderRow(node.degree, depth + 2)}
+            </sup>
+            <span style={{ display: "inline-flex", alignItems: "stretch" }}>
+              <svg
+                width={11 * s}
+                viewBox="0 0 12 24"
+                preserveAspectRatio="none"
+                style={{
+                  display: "block",
+                  overflow: "visible",
+                  color: "#7c3aed",
+                  marginRight: -1,
+                }}
+              >
+                <path
+                  d="M 1 14 L 4 14 L 7 22 L 11.5 1.2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span
+                style={{
+                  borderTop: "1.5px solid #7c3aed",
+                  padding: "2px 4px 1px 3px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                {renderRow(node.radicand, depth + 1)}
               </span>
-            );
-          }
+            </span>
+          </span>
+        );
 
-          if (trimmedP === "*") {
-            return <span key={idx} style={{ color: "var(--ll-text-secondary)", margin: "0 2px" }}>·</span>;
-          }
+      case "abs":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              borderLeft: "1.8px solid #7c3aed",
+              borderRight: "1.8px solid #7c3aed",
+              padding: "1px 5px",
+              margin: "0 2px",
+            }}
+          >
+            {renderRow(node.inner, depth)}
+          </span>
+        );
 
-          return renderToken(trimmedP, idx);
-        })}
-      </span>
-    );
+      case "floor":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              borderLeft: "1.8px solid #7c3aed",
+              borderRight: "1.8px solid #7c3aed",
+              borderBottom: "1.8px solid #7c3aed",
+              padding: "1px 5px",
+              margin: "0 2px",
+            }}
+          >
+            {renderRow(node.inner, depth)}
+          </span>
+        );
+
+      case "ceil":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              borderLeft: "1.8px solid #7c3aed",
+              borderRight: "1.8px solid #7c3aed",
+              borderTop: "1.8px solid #7c3aed",
+              padding: "1px 5px",
+              margin: "0 2px",
+            }}
+          >
+            {renderRow(node.inner, depth)}
+          </span>
+        );
+
+      case "paren":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              margin: "0 1px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: `${15 * s}px`,
+                color: "var(--ll-text-secondary)",
+                fontWeight: 400,
+                paddingRight: 1,
+              }}
+            >
+              (
+            </span>
+            {renderRow(node.inner, depth)}
+            <span
+              style={{
+                fontSize: `${15 * s}px`,
+                color: "var(--ll-text-secondary)",
+                fontWeight: 400,
+                paddingLeft: 1,
+              }}
+            >
+              )
+            </span>
+          </span>
+        );
+
+      case "integral":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 2,
+              margin: "0 3px",
+              verticalAlign: "middle",
+            }}
+          >
+            <span
+              style={{
+                fontSize: `${28 * s}px`,
+                lineHeight: 1,
+                color: "#7c3aed",
+                fontFamily: "'Times New Roman', Georgia, serif",
+                userSelect: "none",
+              }}
+            >
+              ∫
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                height: `${30 * s}px`,
+                fontSize: `${10 * s}px`,
+                lineHeight: 1,
+                marginRight: 2,
+              }}
+            >
+              <span>{renderRow(node.upper, depth + 2)}</span>
+              <span>{renderRow(node.lower, depth + 2)}</span>
+            </span>
+            <span style={{ padding: "0 2px" }}>{renderRow(node.integrand, depth)}</span>
+            <span
+              style={{
+                fontFamily: "'Times New Roman', Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 700,
+                color: "#7c3aed",
+                fontSize: `${12.5 * s}px`,
+                marginLeft: 2,
+              }}
+            >
+              d{node.dVar || "t"}
+            </span>
+          </span>
+        );
+
+      case "sum":
+      case "prod": {
+        const sym = node.kind === "sum" ? "∑" : "∏";
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              margin: "0 3px",
+              verticalAlign: "middle",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                lineHeight: 1,
+              }}
+            >
+              <span style={{ fontSize: `${9.5 * s}px`, marginBottom: 1 }}>
+                {renderRow(node.end, depth + 2)}
+              </span>
+              <span
+                style={{
+                  fontSize: `${22 * s}px`,
+                  lineHeight: 0.95,
+                  color: "#7c3aed",
+                  fontFamily: "'Times New Roman', Georgia, serif",
+                  userSelect: "none",
+                }}
+              >
+                {sym}
+              </span>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  fontSize: `${9.5 * s}px`,
+                  marginTop: 1,
+                  color: "var(--ll-text-secondary)",
+                }}
+              >
+                <i style={{ fontFamily: "'Times New Roman', serif", marginRight: 1 }}>
+                  {node.indexVar || "k"}=
+                </i>
+                {renderRow(node.start, depth + 2)}
+              </span>
+            </span>
+            <span style={{ padding: "0 2px" }}>{renderRow(node.term, depth)}</span>
+          </span>
+        );
+      }
+
+      case "deriv":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              margin: "0 3px",
+              verticalAlign: "middle",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                lineHeight: 1,
+                fontFamily: "'Times New Roman', Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 700,
+                color: "#7c3aed",
+                fontSize: `${11 * s}px`,
+              }}
+            >
+              <span style={{ borderBottom: "1.3px solid #7c3aed", padding: "0 2px 1px 2px" }}>
+                d{node.order === 2 ? "²" : ""}
+              </span>
+              <span style={{ paddingTop: 1 }}>dt{node.order === 2 ? "²" : ""}</span>
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                borderLeft: "1.5px solid var(--ll-text-secondary)",
+                borderRight: "1.8px solid #7c3aed",
+                padding: "1px 4px",
+              }}
+            >
+              {renderRow(node.body, depth)}
+            </span>
+            <sub
+              style={{
+                fontSize: `${9.5 * s}px`,
+                color: "#7c3aed",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              <i style={{ fontFamily: "'Times New Roman', serif", marginRight: 1 }}>t=</i>
+              {renderRow(node.atPoint, depth + 2)}
+            </sub>
+          </span>
+        );
+
+      case "matrix": {
+        const prefix =
+          node.op === "det" ? "det" : node.op === "trace" ? "tr" : null;
+        const borderStyle =
+          node.op === "det"
+            ? "2px solid var(--ll-text-primary)"
+            : "2px solid #7c3aed";
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              margin: "0 3px",
+              verticalAlign: "middle",
+            }}
+          >
+            {prefix && (
+              <span
+                style={{
+                  fontSize: `${11 * s}px`,
+                  fontWeight: 700,
+                  color: "#7c3aed",
+                  fontFamily: "var(--ll-font-mono)",
+                }}
+              >
+                {prefix}
+              </span>
+            )}
+            {node.op === "fnorm" && (
+              <span style={{ fontSize: `${16 * s}px`, fontWeight: 700, color: "#7c3aed" }}>
+                ‖
+              </span>
+            )}
+            <span
+              style={{
+                display: "inline-grid",
+                gridTemplateColumns: `repeat(${node.size}, auto)`,
+                columnGap: 8 * s,
+                rowGap: 2 * s,
+                padding: "2px 6px",
+                borderLeft: borderStyle,
+                borderRight: borderStyle,
+                borderRadius: node.op === "det" ? 0 : 3,
+                background: "rgba(139, 92, 246, 0.03)",
+              }}
+            >
+              {node.cells.map((cell, idx) => (
+                <span key={idx} style={{ textAlign: "center" }}>
+                  {renderRow(cell, depth + 1)}
+                </span>
+              ))}
+            </span>
+            {node.op === "fnorm" && (
+              <>
+                <span style={{ fontSize: `${16 * s}px`, fontWeight: 700, color: "#7c3aed" }}>
+                  ‖
+                </span>
+                <sub style={{ fontSize: `${9 * s}px`, color: "#7c3aed", fontWeight: 700 }}>
+                  F
+                </sub>
+              </>
+            )}
+          </span>
+        );
+      }
+
+      case "vecnorm":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 2,
+              margin: "0 2px",
+              verticalAlign: "middle",
+            }}
+          >
+            <span style={{ fontSize: `${17 * s}px`, fontWeight: 700, color: "#7c3aed" }}>‖</span>
+            <span style={{ color: "var(--ll-text-muted)" }}>(</span>
+            {node.coords.map((c, idx) => (
+              <React.Fragment key={idx}>
+                {idx > 0 && <span style={{ color: "var(--ll-text-muted)", marginRight: 2 }}>,</span>}
+                {renderRow(c, depth + 1)}
+              </React.Fragment>
+            ))}
+            <span style={{ color: "var(--ll-text-muted)" }}>)</span>
+            <span style={{ fontSize: `${17 * s}px`, fontWeight: 700, color: "#7c3aed" }}>‖</span>
+            <sub style={{ fontSize: `${9 * s}px`, color: "var(--ll-text-muted)", fontWeight: 700 }}>
+              2
+            </sub>
+          </span>
+        );
+
+      case "vecdot":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              margin: "0 2px",
+              verticalAlign: "middle",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                borderLeft: "1.5px solid var(--ll-text-primary)",
+                borderRight: "1.5px solid var(--ll-text-primary)",
+                borderRadius: 4,
+                padding: "1px 5px",
+                gap: 1,
+              }}
+            >
+              {node.left.map((r, i) => (
+                <span key={i}>{renderRow(r, depth + 1)}</span>
+              ))}
+            </span>
+            <span style={{ fontWeight: 800, color: "#7c3aed", fontSize: `${14 * s}px` }}>·</span>
+            <span
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                borderLeft: "1.5px solid var(--ll-text-primary)",
+                borderRight: "1.5px solid var(--ll-text-primary)",
+                borderRadius: 4,
+                padding: "1px 5px",
+                gap: 1,
+              }}
+            >
+              {node.right.map((r, i) => (
+                <span key={i}>{renderRow(r, depth + 1)}</span>
+              ))}
+            </span>
+          </span>
+        );
+
+      case "logbase":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              margin: "0 2px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--ll-font-mono)",
+                fontWeight: 700,
+                color: "#7c3aed",
+                fontSize: `${12 * s}px`,
+              }}
+            >
+              log
+            </span>
+            <sub style={{ fontSize: `${9.5 * s}px`, marginRight: 2 }}>
+              {renderRow(node.base, depth + 2)}
+            </sub>
+            <span style={{ color: "var(--ll-text-muted)" }}>(</span>
+            {renderRow(node.arg, depth)}
+            <span style={{ color: "var(--ll-text-muted)" }}>)</span>
+          </span>
+        );
+
+      case "binom":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              borderLeft: "1.8px solid #7c3aed",
+              borderRight: "1.8px solid #7c3aed",
+              borderRadius: 8,
+              padding: "1px 6px",
+              margin: "0 2px",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                lineHeight: 1.1,
+              }}
+            >
+              <span>{renderRow(node.n, depth + 1)}</span>
+              <span>{renderRow(node.k, depth + 1)}</span>
+            </span>
+          </span>
+        );
+
+      case "piecewise":
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              margin: "0 3px",
+              verticalAlign: "middle",
+            }}
+          >
+            <span
+              style={{
+                fontSize: `${26 * s}px`,
+                color: "#7c3aed",
+                fontWeight: 300,
+                lineHeight: 1,
+                fontFamily: "serif",
+              }}
+            >
+              {"{"}
+            </span>
+            <span
+              style={{
+                display: "inline-grid",
+                gridTemplateColumns: "auto auto",
+                columnGap: 8,
+                rowGap: 2,
+                fontSize: `${11 * s}px`,
+                alignItems: "center",
+              }}
+            >
+              <span>{renderRow(node.thenRow, depth + 1)}</span>
+              <span style={{ color: "var(--ll-text-secondary)", fontStyle: "italic" }}>
+                if {renderRow(node.cond, depth + 1)}
+              </span>
+              <span>{renderRow(node.elseRow, depth + 1)}</span>
+              <span style={{ color: "var(--ll-text-muted)", fontStyle: "italic" }}>
+                otherwise
+              </span>
+            </span>
+          </span>
+        );
+
+      case "fn": {
+        if (node.fn === "fact" && node.args.length === 1) {
+          return (
+            <span key={node.id} style={{ display: "inline-flex", alignItems: "center" }}>
+              <span style={{ color: "var(--ll-text-muted)" }}>(</span>
+              {renderRow(node.args[0], depth)}
+              <span style={{ color: "var(--ll-text-muted)" }}>)</span>
+              <span style={{ fontWeight: 800, color: "#7c3aed", marginLeft: 1 }}>!</span>
+            </span>
+          );
+        }
+        const label = FN_LABELS[node.fn] || node.fn;
+        return (
+          <span
+            key={node.id}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              margin: "0 1px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--ll-font-mono)",
+                fontWeight: 700,
+                color: "#7c3aed",
+                fontSize: `${12 * s}px`,
+                marginRight: 1,
+              }}
+            >
+              {label}
+            </span>
+            <span style={{ color: "var(--ll-text-muted)" }}>(</span>
+            {node.args.map((arg, idx) => (
+              <React.Fragment key={idx}>
+                {idx > 0 && <span style={{ color: "var(--ll-text-muted)", marginRight: 3 }}>,</span>}
+                {renderRow(arg, depth)}
+              </React.Fragment>
+            ))}
+            <span style={{ color: "var(--ll-text-muted)" }}>)</span>
+          </span>
+        );
+      }
+    }
   };
 
-  // Optional LHS renderer: f(dep1, dep2, ...) =
   const renderLhs = () => {
     if (!showLhs) return null;
-    const depsToUse = dependencies.length > 0 ? dependencies : studyParameters.filter(p => expression.includes(p.key)).map(p => p.key);
+    const depsToUse =
+      dependencies.length > 0
+        ? dependencies
+        : studyParameters.filter((p) => trimmed.includes(p.key)).map((p) => p.key);
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", marginRight: 6, userSelect: "none" }}>
-        <span style={{ fontStyle: "italic", fontFamily: "Times New Roman, serif", fontWeight: 600, color: "var(--ll-text-primary)", fontSize: `${13 * scale}px` }}>
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          marginRight: 6,
+          userSelect: "none",
+        }}
+      >
+        <span
+          style={{
+            fontStyle: "italic",
+            fontFamily: "'Times New Roman', Georgia, serif",
+            fontWeight: 700,
+            color: "var(--ll-text-primary)",
+            fontSize: `${13.5 * scale}px`,
+          }}
+        >
           {paramKey ? paramKey : "f"}
         </span>
         <span style={{ color: "var(--ll-text-muted)", fontSize: `${12 * scale}px` }}>(</span>
         {depsToUse.map((d, i) => (
           <React.Fragment key={d}>
             {i > 0 && <span style={{ color: "var(--ll-text-muted)", marginRight: 2 }}>, </span>}
-            <span style={{ color: "#059669", fontFamily: "var(--ll-font-mono)", fontWeight: 600, fontSize: `${11 * scale}px` }}>
+            <span
+              style={{
+                color: "#059669",
+                fontFamily: "var(--ll-font-mono)",
+                fontWeight: 600,
+                fontSize: `${11 * scale}px`,
+              }}
+            >
               {d}
             </span>
           </React.Fragment>
         ))}
-        <span style={{ color: "var(--ll-text-muted)", fontSize: `${12 * scale}px` }}>) = </span>
+        <span style={{ color: "var(--ll-text-muted)", fontSize: `${12 * scale}px` }}>
+          ) ={" "}
+        </span>
       </span>
     );
   };
 
-  // Optional RHS Evaluated Nominal Badge
   const renderNominalBadge = () => {
-    if (nominalValue === undefined || nominalValue === null) return null;
+    if (nominalValue === undefined || nominalValue === null || !Number.isFinite(nominalValue)) {
+      return null;
+    }
     return (
       <span
         style={{
@@ -247,258 +1017,23 @@ export function MathFormulaDisplay({
           whiteSpace: "nowrap",
         }}
       >
-        = {Number(nominalValue).toFixed(2)} {unit}
+        ≈ {Number(nominalValue).toPrecision(4).replace(/\.?0+$/, "")} {unit}
       </span>
     );
   };
 
-  // 1. Definite Integral: integral(lower, upper, integrand)
-  const intMatch = trimmed.match(/^integral\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$/i);
-  if (intMatch) {
-    const lower = intMatch[1].trim();
-    const upper = intMatch[2].trim();
-    const integrand = intMatch[3].trim();
-
-    return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
-        {renderLhs()}
-        {/* Big Integral Sign */}
-        <span
-          style={{
-            fontSize: `${30 * scale}px`,
-            lineHeight: 1,
-            fontWeight: 300,
-            color: "#8b5cf6",
-            fontFamily: "Times New Roman, serif",
-            userSelect: "none",
-          }}
-        >
-          ∫
-        </span>
-
-        {/* Upper and Lower Limits */}
-        <div
-          style={{
-            display: "inline-flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            height: `${32 * scale}px`,
-            fontSize: `${10.5 * scale}px`,
-            marginRight: 2,
-            lineHeight: 1,
-          }}
-        >
-          <span style={{ verticalAlign: "top" }}>{renderToken(upper)}</span>
-          <span style={{ verticalAlign: "bottom" }}>{renderToken(lower)}</span>
-        </div>
-
-        {/* Integrand */}
-        <span style={{ padding: "0 2px", fontSize: `${fontSize}px` }}>
-          {renderIntegrand(integrand)}
-        </span>
-
-        {/* Differential dt */}
-        <span
-          style={{
-            fontStyle: "italic",
-            fontWeight: 650,
-            color: "#8b5cf6",
-            fontSize: `${12 * scale}px`,
-            marginLeft: 2,
-            fontFamily: "Times New Roman, serif",
-          }}
-        >
-          dt
-        </span>
-
-        {renderNominalBadge()}
-      </div>
-    );
-  }
-
-  // 2. Summation: sum(start, end, term)
-  const sumMatch = trimmed.match(/^sum\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*(.+)\s*\)$/i);
-  if (sumMatch) {
-    const start = sumMatch[1].trim();
-    const end = sumMatch[2].trim();
-    const term = sumMatch[3].trim();
-
-    return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
-        {renderLhs()}
-        <span
-          style={{
-            fontSize: `${26 * scale}px`,
-            lineHeight: 1,
-            fontWeight: 400,
-            color: "#8b5cf6",
-            fontFamily: "Times New Roman, serif",
-            userSelect: "none",
-          }}
-        >
-          ∑
-        </span>
-
-        <div
-          style={{
-            display: "inline-flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            height: `${32 * scale}px`,
-            fontSize: `${10.5 * scale}px`,
-            marginRight: 3,
-            lineHeight: 1,
-          }}
-        >
-          <span>{renderToken(end)}</span>
-          <span style={{ fontSize: `${9.5 * scale}px`, color: "var(--ll-text-secondary)" }}>
-            k={renderToken(start)}
-          </span>
-        </div>
-
-        <span style={{ padding: "0 2px", fontSize: `${fontSize}px` }}>
-          {renderIntegrand(term)}
-        </span>
-
-        {renderNominalBadge()}
-      </div>
-    );
-  }
-
-  // 3. Matrix 2x2 Determinant: det2(a, b, c, d)
-  const det2Match = trimmed.match(/^det2\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*\)$/i);
-  if (det2Match) {
-    const [, a, b, c, d] = det2Match;
-    return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, verticalAlign: "middle" }}>
-        {renderLhs()}
-        <span style={{ fontSize: `${11 * scale}px`, fontWeight: 700, color: "#8b5cf6", fontFamily: "var(--ll-font-mono)" }}>
-          det
-        </span>
-        <div
-          style={{
-            display: "inline-grid",
-            gridTemplateColumns: "auto auto",
-            columnGap: 10,
-            rowGap: 2,
-            padding: "2px 6px",
-            borderLeft: "2px solid var(--ll-text-primary)",
-            borderRight: "2px solid var(--ll-text-primary)",
-            background: "rgba(0,0,0,0.02)",
-            borderRadius: 2,
-            fontSize: `${11.5 * scale}px`,
-          }}
-        >
-          <span>{renderToken(a)}</span>
-          <span>{renderToken(b)}</span>
-          <span>{renderToken(c)}</span>
-          <span>{renderToken(d)}</span>
-        </div>
-
-        {renderNominalBadge()}
-      </div>
-    );
-  }
-
-  // 4. Matrix 3x3 Determinant: det3(...)
-  const det3Match = trimmed.match(/^det3\s*\(\s*(.+)\s*\)$/i);
-  if (det3Match) {
-    const cells = det3Match[1].split(",").map((s) => s.trim());
-    if (cells.length === 9) {
-      return (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, verticalAlign: "middle" }}>
-          {renderLhs()}
-          <span style={{ fontSize: `${11 * scale}px`, fontWeight: 700, color: "#8b5cf6", fontFamily: "var(--ll-font-mono)" }}>
-            det
-          </span>
-          <div
-            style={{
-              display: "inline-grid",
-              gridTemplateColumns: "auto auto auto",
-              columnGap: 8,
-              rowGap: 2,
-              padding: "2px 6px",
-              borderLeft: "2px solid var(--ll-text-primary)",
-              borderRight: "2px solid var(--ll-text-primary)",
-              background: "rgba(0,0,0,0.02)",
-              borderRadius: 2,
-              fontSize: `${11 * scale}px`,
-            }}
-          >
-            {cells.map((c, i) => (
-              <span key={i}>{renderToken(c)}</span>
-            ))}
-          </div>
-          {renderNominalBadge()}
-        </div>
-      );
-    }
-  }
-
-  // 5. Vector Norm: norm2(x, y) or norm3(x, y, z)
-  const norm2Match = trimmed.match(/^norm2\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*\)$/i);
-  if (norm2Match) {
-    return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
-        {renderLhs()}
-        <span style={{ fontSize: `${18 * scale}px`, color: "#8b5cf6", fontWeight: 700 }}>‖</span>
-        <span style={{ fontSize: `${fontSize}px` }}>({renderToken(norm2Match[1])}, {renderToken(norm2Match[2])})</span>
-        <span style={{ fontSize: `${18 * scale}px`, color: "#8b5cf6", fontWeight: 700 }}>‖</span>
-        <sub style={{ fontSize: `${9 * scale}px`, color: "var(--ll-text-muted)" }}>2</sub>
-        {renderNominalBadge()}
-      </div>
-    );
-  }
-
-  const norm3Match = trimmed.match(/^norm3\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*\)$/i);
-  if (norm3Match) {
-    return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
-        {renderLhs()}
-        <span style={{ fontSize: `${18 * scale}px`, color: "#8b5cf6", fontWeight: 700 }}>‖</span>
-        <span style={{ fontSize: `${fontSize}px` }}>
-          ({renderToken(norm3Match[1])}, {renderToken(norm3Match[2])}, {renderToken(norm3Match[3])})
-        </span>
-        <span style={{ fontSize: `${18 * scale}px`, color: "#8b5cf6", fontWeight: 700 }}>‖</span>
-        <sub style={{ fontSize: `${9 * scale}px`, color: "var(--ll-text-muted)" }}>2</sub>
-        {renderNominalBadge()}
-      </div>
-    );
-  }
-
-  // 6. Vertical Fraction: (numerator) / (denominator)
-  const fracMatch = trimmed.match(/^\((.+)\)\s*\/\s*\((.+)\)$/);
-  if (fracMatch) {
-    return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, verticalAlign: "middle" }}>
-        {renderLhs()}
-        <div
-          style={{
-            display: "inline-flex",
-            flexDirection: "column",
-            alignItems: "center",
-            verticalAlign: "middle",
-            padding: "0 4px",
-            lineHeight: 1.15,
-          }}
-        >
-          <span style={{ borderBottom: "1.5px solid var(--ll-text-primary)", paddingBottom: 2, paddingLeft: 4, paddingRight: 4, fontSize: `${12 * scale}px`, fontWeight: 600 }}>
-            {renderIntegrand(fracMatch[1])}
-          </span>
-          <span style={{ paddingTop: 2, paddingLeft: 4, paddingRight: 4, fontSize: `${12 * scale}px`, fontWeight: 600, color: "var(--ll-text-secondary)" }}>
-            {renderIntegrand(fracMatch[2])}
-          </span>
-        </div>
-        {renderNominalBadge()}
-      </div>
-    );
-  }
-
-  // 7. General fallback compound rendering
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 3,
+        verticalAlign: "middle",
+      }}
+    >
       {renderLhs()}
-      {renderIntegrand(trimmed)}
+      {rootRow ? renderRow(rootRow, 0) : <span>{trimmed}</span>}
       {renderNominalBadge()}
     </div>
   );

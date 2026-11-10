@@ -316,6 +316,42 @@ class CompiledExpression:
                     total += self._eval_scalar(node.args[2], v_scoped)
                 return total
 
+            if node.fn_name == "prod":
+                start_val = self._eval_scalar(node.args[0], v)
+                end_val = self._eval_scalar(node.args[1], v)
+                if not (math.isfinite(start_val) and math.isfinite(end_val)):
+                    raise NonFiniteError("Product bounds must be finite")
+                start = math.floor(start_val)
+                end = math.floor(end_val)
+                if end - start > 10000:
+                    raise ExpressionError("Product range too large (max 10,000 steps)")
+                acc = 1.0
+                for k in range(start, end + 1):
+                    v_scoped = {**v, "k": float(k), "t": float(k)}
+                    acc *= self._eval_scalar(node.args[2], v_scoped)
+                return acc
+
+            if node.fn_name == "deriv":
+                t0 = self._eval_scalar(node.args[0], v)
+                if not math.isfinite(t0):
+                    raise NonFiniteError("Derivative evaluation point must be finite")
+                h = max(1e-5, abs(t0) * 1e-4)
+                fp2 = self._eval_scalar(node.args[1], {**v, "t": t0 + 2.0 * h})
+                fp1 = self._eval_scalar(node.args[1], {**v, "t": t0 + h})
+                fm1 = self._eval_scalar(node.args[1], {**v, "t": t0 - h})
+                fm2 = self._eval_scalar(node.args[1], {**v, "t": t0 - 2.0 * h})
+                return (-fp2 + 8.0 * fp1 - 8.0 * fm1 + fm2) / (12.0 * h)
+
+            if node.fn_name == "deriv2":
+                t0 = self._eval_scalar(node.args[0], v)
+                if not math.isfinite(t0):
+                    raise NonFiniteError("Derivative evaluation point must be finite")
+                h = max(1e-4, abs(t0) * 1e-3)
+                fp1 = self._eval_scalar(node.args[1], {**v, "t": t0 + h})
+                f0 = self._eval_scalar(node.args[1], {**v, "t": t0})
+                fm1 = self._eval_scalar(node.args[1], {**v, "t": t0 - h})
+                return (fp1 - 2.0 * f0 + fm1) / (h * h)
+
             args = [self._eval_scalar(arg, v) for arg in node.args]
             fn = node.fn_name
             try:
@@ -325,17 +361,47 @@ class CompiledExpression:
                     return math.cos(args[0])
                 if fn == "tan":
                     return math.tan(args[0])
+                if fn == "asin":
+                    return math.asin(args[0])
+                if fn == "acos":
+                    return math.acos(args[0])
+                if fn == "atan":
+                    return math.atan(args[0])
+                if fn == "atan2":
+                    return math.atan2(args[0], args[1])
+                if fn == "sinh":
+                    return math.sinh(args[0])
+                if fn == "cosh":
+                    return math.cosh(args[0])
+                if fn == "tanh":
+                    return math.tanh(args[0])
                 if fn == "abs":
                     return abs(args[0])
+                if fn == "sign":
+                    return 0.0 if args[0] == 0.0 else (1.0 if args[0] > 0.0 else -1.0)
                 if fn == "sqrt":
                     if args[0] < 0:
                         raise NonFiniteError(
                             "Expression produced a non-finite value. Check division and function domains."
                         )
                     return math.sqrt(args[0])
+                if fn == "root":
+                    n_deg, x_val = args[0], args[1]
+                    if n_deg == 0.0:
+                        raise NonFiniteError(
+                            "Expression produced a non-finite value. Check division and function domains."
+                        )
+                    if x_val < 0:
+                        nr = round(n_deg)
+                        if abs(n_deg - nr) < 1e-9 and abs(nr % 2) == 1:
+                            return -math.pow(-x_val, 1.0 / nr)
+                        raise NonFiniteError(
+                            "Expression produced a non-finite value. Check division and function domains."
+                        )
+                    return math.pow(x_val, 1.0 / n_deg)
                 if fn == "exp":
                     return math.exp(args[0])
-                if fn == "log":
+                if fn in ("log", "ln"):
                     if args[0] <= 0:
                         raise NonFiniteError(
                             "Expression produced a non-finite value. Check division and function domains."
@@ -347,12 +413,35 @@ class CompiledExpression:
                             "Expression produced a non-finite value. Check division and function domains."
                         )
                     return math.log10(args[0])
+                if fn == "logb":
+                    base_val, x_val = args[0], args[1]
+                    if base_val <= 0 or base_val == 1.0 or x_val <= 0:
+                        raise NonFiniteError(
+                            "Expression produced a non-finite value. Check division and function domains."
+                        )
+                    return math.log(x_val) / math.log(base_val)
                 if fn == "floor":
                     return float(math.floor(args[0]))
                 if fn == "ceil":
                     return float(math.ceil(args[0]))
                 if fn == "round":
                     return float(math.floor(args[0] + 0.5))
+                if fn == "fact":
+                    if args[0] < 0 and abs(args[0] - round(args[0])) < 1e-12:
+                        raise NonFiniteError(
+                            "Expression produced a non-finite value. Check division and function domains."
+                        )
+                    return float(math.gamma(args[0] + 1.0))
+                if fn == "binom":
+                    n_v, k_v = args[0], args[1]
+                    if abs(n_v - round(n_v)) < 1e-9 and abs(k_v - round(k_v)) < 1e-9:
+                        ni, ki = round(n_v), round(k_v)
+                        if ki < 0 or ki > ni:
+                            return 0.0
+                        return float(math.comb(ni, ki))
+                    return float(math.gamma(n_v + 1.0) / (math.gamma(k_v + 1.0) * math.gamma(n_v - k_v + 1.0)))
+                if fn == "erf":
+                    return float(math.erf(args[0]))
                 if fn == "min":
                     return min(args[0], args[1])
                 if fn == "max":
@@ -368,10 +457,22 @@ class CompiledExpression:
                 if fn == "det3":
                     a1, a2, a3, b1, b2, b3, c1, c2, c3 = args
                     return a1 * (b2 * c3 - b3 * c2) - a2 * (b1 * c3 - b3 * c1) + a3 * (b1 * c2 - b2 * c1)
+                if fn == "mat2trace":
+                    return args[0] + args[3]
+                if fn == "mat3trace":
+                    return args[0] + args[4] + args[8]
+                if fn == "fnorm2":
+                    return math.hypot(*args)
+                if fn == "fnorm3":
+                    return math.hypot(*args)
                 if fn == "norm2":
                     return math.hypot(args[0], args[1])
                 if fn == "norm3":
                     return math.hypot(args[0], args[1], args[2])
+                if fn == "dot2":
+                    return args[0] * args[2] + args[1] * args[3]
+                if fn == "dot3":
+                    return args[0] * args[3] + args[1] * args[4] + args[2] * args[5]
                 if fn == "trace2":
                     return args[0] + args[1]
                 if fn == "trace3":
@@ -470,11 +571,25 @@ class CompiledExpression:
                 f_val = self._eval_vec(node.args[2], v, n)
                 return np.where(cond, t_val, f_val)
 
-            if node.fn_name in ("integral", "sum"):
+            if node.fn_name in (
+                "integral",
+                "sum",
+                "prod",
+                "deriv",
+                "deriv2",
+                "root",
+                "logb",
+                "fact",
+                "binom",
+                "erf",
+            ):
                 res = np.empty(n, dtype=np.float64)
                 for i in range(n):
                     row_v = {k: float(arr[i]) for k, arr in v.items()}
-                    res[i] = self._eval_scalar(node, row_v)
+                    try:
+                        res[i] = self._eval_scalar(node, row_v)
+                    except (ExpressionError, ValueError, OverflowError, ZeroDivisionError):
+                        res[i] = np.nan
                 return res
 
             args = [self._eval_vec(arg, v, n) for arg in node.args]
@@ -485,13 +600,29 @@ class CompiledExpression:
                 return np.cos(args[0])
             if fn == "tan":
                 return np.tan(args[0])
+            if fn == "asin":
+                return np.arcsin(args[0])
+            if fn == "acos":
+                return np.arccos(args[0])
+            if fn == "atan":
+                return np.arctan(args[0])
+            if fn == "atan2":
+                return np.arctan2(args[0], args[1])
+            if fn == "sinh":
+                return np.sinh(args[0])
+            if fn == "cosh":
+                return np.cosh(args[0])
+            if fn == "tanh":
+                return np.tanh(args[0])
             if fn == "abs":
                 return np.abs(args[0])
+            if fn == "sign":
+                return np.sign(args[0])
             if fn == "sqrt":
                 return np.sqrt(args[0])
             if fn == "exp":
                 return np.exp(args[0])
-            if fn == "log":
+            if fn in ("log", "ln"):
                 return np.log(args[0])
             if fn == "log10":
                 return np.log10(args[0])
@@ -515,10 +646,20 @@ class CompiledExpression:
             if fn == "det3":
                 a1, a2, a3, b1, b2, b3, c1, c2, c3 = args
                 return a1 * (b2 * c3 - b3 * c2) - a2 * (b1 * c3 - b3 * c1) + a3 * (b1 * c2 - b2 * c1)
+            if fn == "mat2trace":
+                return args[0] + args[3]
+            if fn == "mat3trace":
+                return args[0] + args[4] + args[8]
+            if fn in ("fnorm2", "fnorm3"):
+                return np.sqrt(sum(a ** 2 for a in args))
             if fn == "norm2":
                 return np.hypot(args[0], args[1])
             if fn == "norm3":
                 return np.sqrt(args[0] ** 2 + args[1] ** 2 + args[2] ** 2)
+            if fn == "dot2":
+                return args[0] * args[2] + args[1] * args[3]
+            if fn == "dot3":
+                return args[0] * args[3] + args[1] * args[4] + args[2] * args[5]
             if fn == "trace2":
                 return args[0] + args[1]
             if fn == "trace3":

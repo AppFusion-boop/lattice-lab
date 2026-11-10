@@ -234,3 +234,41 @@ def test_advanced_math_functions_integral_sum_matrices():
     vars_found = expression_variables("integral(0, mist_lead, amplitude * t) + sum(1, n, k * factor)")
     assert vars_found == ["amplitude", "factor", "mist_lead", "n"]
 
+
+def test_symbolab_extended_functions_scalar_and_vectorized():
+    """Verify prod, deriv, deriv2, root, logb, ln, fact, binom, erf, matrices and vectors."""
+    # Product
+    prod_comp = compile_expression("prod(1, 4, k)")
+    assert prod_comp.evaluate({}) == 24.0
+    v_prod, m_prod = prod_comp.evaluate_vec({"x": np.array([1.0, 2.0])})
+    assert np.all(m_prod)
+    assert np.allclose(v_prod, [24.0, 24.0])
+
+    # 1st and 2nd derivatives: deriv(atPoint, body(t))
+    d1_comp = compile_expression("deriv(x, a * t^3)", variables=["a", "x"])
+    assert abs(d1_comp.evaluate({"a": 1.0, "x": 2.0}) - 12.0) < 1e-4
+    v_d1, m_d1 = d1_comp.evaluate_vec({"a": np.array([1.0, 2.0]), "x": np.array([2.0, 3.0])})
+    assert np.all(m_d1)
+    assert np.allclose(v_d1, [12.0, 54.0], atol=1e-3)
+
+    d2_comp = compile_expression("deriv2(x, t^3)", variables=["x"])
+    assert abs(d2_comp.evaluate({"x": 2.0}) - 12.0) < 1e-3
+
+    # nth root, arbitrary base log, natural log
+    assert abs(compile_expression("root(3, 27)").evaluate({}) - 3.0) < 1e-9
+    assert abs(compile_expression("logb(2, 8)").evaluate({}) - 3.0) < 1e-9
+    assert abs(compile_expression("ln(e^2)").evaluate({}) - 2.0) < 1e-9
+
+    # Combinatorics & special functions
+    assert abs(compile_expression("fact(5)").evaluate({}) - 120.0) < 1e-9
+    assert abs(compile_expression("binom(6, 2)").evaluate({}) - 15.0) < 1e-9
+    assert abs(compile_expression("erf(0)").evaluate({})) < 1e-7
+
+    # Matrices & vectors
+    assert compile_expression("mat2trace(5, 1, 2, 7)").evaluate({}) == 12.0
+    assert compile_expression("mat3trace(1, 0, 0, 0, 4, 0, 0, 0, 9)").evaluate({}) == 14.0
+    assert compile_expression("fnorm2(1, 2, 2, 4)").evaluate({}) == 5.0
+    assert compile_expression("dot2(2, 3, 4, 5)").evaluate({}) == 23.0
+    assert compile_expression("dot3(1, 2, 3, 4, 5, 6)").evaluate({}) == 32.0
+
+

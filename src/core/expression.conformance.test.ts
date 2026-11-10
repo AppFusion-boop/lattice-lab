@@ -123,3 +123,90 @@ test("advanced mathematical functions: integral, sum, det2, det3, norm", () => {
   const vars = expressionVariables("integral(0, mist_lead, amplitude * t) + sum(1, n, k * factor)");
   assert.deepEqual(vars, ["amplitude", "factor", "mist_lead", "n"]);
 });
+
+test("Symbolab extended functions: prod, deriv, deriv2, root, logb, ln, fact, binom, erf, matrices, vectors", async () => {
+  // Product Π_{k=1}^4 k = 24
+  assert.equal(compileExpression("prod(1, 4, k)")({}), 24);
+
+  // 1st derivative: d/dt (t^3) at t = 2 -> 3 * 4 = 12
+  assert.ok(Math.abs(compileExpression("deriv(2, t^3)")({}) - 12) < 1e-4);
+
+  // 2nd derivative: d^2/dt^2 (t^3) at t = 2 -> 6 * 2 = 12
+  assert.ok(Math.abs(compileExpression("deriv2(2, t^3)")({}) - 12) < 1e-3);
+
+  // nth root and arbitrary base logarithm
+  assert.ok(Math.abs(compileExpression("root(3, 27)")({}) - 3) < 1e-9);
+  assert.ok(Math.abs(compileExpression("logb(2, 8)")({}) - 3) < 1e-9);
+  assert.ok(Math.abs(compileExpression("ln(e^2)")({}) - 2) < 1e-9);
+
+  // Combinatorics & special functions
+  assert.ok(Math.abs(compileExpression("fact(5)")({}) - 120) < 1e-9);
+  assert.ok(Math.abs(compileExpression("binom(6, 2)")({}) - 15) < 1e-9);
+  assert.ok(Math.abs(compileExpression("erf(0)")({})) < 1e-7);
+
+  // Matrices & vectors: trace, Frobenius norm, dot product
+  assert.equal(compileExpression("mat2trace(5, 1, 2, 7)")({}), 12);
+  assert.equal(compileExpression("mat3trace(1, 0, 0, 0, 4, 0, 0, 0, 9)")({}), 14);
+  assert.equal(compileExpression("fnorm2(1, 2, 2, 4)")({}), 5);
+  assert.equal(compileExpression("dot2(2, 3, 4, 5)")({}), 23);
+  assert.equal(compileExpression("dot3(1, 2, 3, 4, 5, 6)")({}), 32);
+
+  // Hyperbolic & inverse trig
+  assert.ok(Math.abs(compileExpression("sinh(0) + cosh(0)")({}) - 1) < 1e-9);
+  assert.ok(Math.abs(compileExpression("asin(0.5) * 6 / pi")({}) - 1) < 1e-9);
+
+  // 2D MathBuilder AST round-trip and cursor navigation
+  const {
+    parseExpressionToMathRow,
+    serializeMathRowToExpression,
+    countEmptySlots,
+    moveCursorRight,
+    moveCursorLeft,
+    moveCursorTab,
+    insertFractionAtCursor,
+    insertPowerAtCursor,
+    insertNodesAtCursor,
+    createVarNode,
+    createNumberNodes,
+  } = await import("../study/components/mathBuilderModel.ts");
+
+  const complexExpr =
+    "(flow * sqrt(droplet)) / nozzles + integral(0, mist_lead, amplitude * exp(-0.15 * t)) + det2(flow, 1, 1, nozzles)";
+  const allowedVars = ["flow", "droplet", "nozzles", "mist_lead", "amplitude"];
+  const row = parseExpressionToMathRow(complexExpr);
+  const serialized = serializeMathRowToExpression(row);
+  const fnOrig = compileExpression(complexExpr, { variables: allowedVars });
+  const fnRound = compileExpression(serialized, { variables: allowedVars });
+  const sampleEnv = { flow: 50, droplet: 16, nozzles: 4, mist_lead: 5, amplitude: 12 };
+  assert.ok(Math.abs(fnOrig(sampleEnv) - fnRound(sampleEnv)) < 1e-6);
+
+  // Cursor wrapping: typing variable then `/` wraps variable into numerator and places cursor in denominator
+  let editRoot = parseExpressionToMathRow("");
+  let cur = { rowId: editRoot.id, offset: 0 };
+  const ins1 = insertNodesAtCursor(editRoot, cur, [createVarNode("flow")]);
+  editRoot = ins1.root;
+  cur = ins1.cursor;
+  const fracStep = insertFractionAtCursor(editRoot, cur);
+  editRoot = fracStep.root;
+  cur = fracStep.cursor;
+  const ins2 = insertNodesAtCursor(editRoot, cur, createNumberNodes("60"));
+  editRoot = ins2.root;
+  assert.equal(serializeMathRowToExpression(editRoot), "(flow / 60)");
+
+  // Power wrapping & empty slot detection
+  const powStep = insertPowerAtCursor(editRoot, ins2.cursor);
+  assert.equal(countEmptySlots(powStep.root).count, 1);
+  assert.equal(countEmptySlots(powStep.root).firstEmptyRowId, powStep.cursor.rowId);
+
+  // Integral node cursor navigation visits lower -> upper -> integrand
+  const intRoot = parseExpressionToMathRow("integral(0, mist_lead, amplitude * t)");
+  const intNode = intRoot.items[0];
+  assert.equal(intNode.kind, "integral");
+  const c0 = { rowId: intNode.lower.id, offset: intNode.lower.items.length };
+  const cRight = moveCursorRight(intRoot, c0);
+  assert.equal(cRight.rowId, intNode.upper.id);
+  const cBack = moveCursorLeft(intRoot, cRight);
+  assert.equal(cBack.rowId, intNode.lower.id);
+  const cTab = moveCursorTab(intRoot, c0, false);
+  assert.ok(cTab.rowId);
+});
